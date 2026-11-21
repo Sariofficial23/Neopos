@@ -149,6 +149,80 @@ const dict = {
   total: { uz: 'JAMI', ru: 'ИТОГО' },
   savedOk: { uz: 'Saqlandi', ru: 'Сохранено' },
 
+  // Период
+  pToday: { uz: 'Bugun', ru: 'Сегодня' },
+  pYesterday: { uz: 'Kecha', ru: 'Вчера' },
+  p7: { uz: '7 kun', ru: '7 дней' },
+  p30: { uz: '30 kun', ru: '30 дней' },
+  pFrom: { uz: 'Boshlanish sanasi', ru: 'Дата начала' },
+  pTo: { uz: 'Tugash sanasi', ru: 'Дата окончания' },
+
+  // Чеки
+  rcNumber: { uz: 'Chek №', ru: 'Чек №' },
+  rcOpened: { uz: 'Ochilgan', ru: 'Открыт' },
+  rcClosed: { uz: 'Yopilgan', ru: 'Закрыт' },
+  rcPlace: { uz: 'Stol / tur', ru: 'Стол / тип' },
+  rcWaiter: { uz: 'Xodim', ru: 'Сотрудник' },
+  rcPayment: { uz: 'To‘lov', ru: 'Оплата' },
+  rcSum: { uz: 'Summa', ru: 'Сумма' },
+  rcAll: { uz: 'Barchasi', ru: 'Все' },
+  stOpen: { uz: 'Ochiq', ru: 'Открыт' },
+  stClosed: { uz: 'Yopilgan', ru: 'Закрыт' },
+  stCancelled: { uz: 'Bekor qilingan', ru: 'Отменён' },
+  rcSuspicious: { uz: 'Shubhali', ru: 'Подозрительные' },
+  rcSuspiciousHint: { uz: 'Shubhali amal bor', ru: 'Есть подозрительные действия' },
+  rcFound: { uz: 'Topildi', ru: 'Найдено' },
+  rcShown: { uz: 'dastlabki 500 tasi ko‘rsatilgan', ru: 'показаны первые 500' },
+  exportCsv: { uz: 'Excel uchun yuklab olish', ru: 'Скачать для Excel' },
+  rcItems: { uz: 'Tarkibi', ru: 'Состав' },
+  rcHistory: { uz: 'Tarix', ru: 'История' },
+  rcVoided: { uz: 'o‘chirilgan', ru: 'удалено' },
+  rcGuests: { uz: 'Mehmonlar', ru: 'Гостей' },
+  rcSubtotal: { uz: 'Summa', ru: 'Сумма' },
+  rcDiscount: { uz: 'Chegirma', ru: 'Скидка' },
+  rcService: { uz: 'Xizmat haqi', ru: 'Обслуживание' },
+  table: { uz: 'Stol', ru: 'Стол' },
+  'act.receipt.open': { uz: 'Chek ochildi', ru: 'Чек открыт' },
+  'act.receipt.send': { uz: 'Oshxonaga yuborildi', ru: 'Отправлено на кухню' },
+  'act.item.void': { uz: 'Taom o‘chirildi', ru: 'Позиция удалена' },
+  'act.receipt.discount': { uz: 'Chegirma o‘zgartirildi', ru: 'Изменена скидка' },
+  'act.receipt.bill': { uz: 'Hisob chop etildi', ru: 'Распечатан счёт' },
+  'act.receipt.pay': { uz: 'To‘lov qabul qilindi', ru: 'Принята оплата' },
+  'act.receipt.cancel': { uz: 'Chek bekor qilindi', ru: 'Чек отменён' },
+
+  // Отчёты
+  kRevenue: { uz: 'Tushum', ru: 'Выручка' },
+  kReceipts: { uz: 'Cheklar', ru: 'Чеков' },
+  kAverage: { uz: 'O‘rtacha chek', ru: 'Средний чек' },
+  kGuests: { uz: 'Mehmonlar', ru: 'Гостей' },
+  kDiscounts: { uz: 'Chegirmalar', ru: 'Скидки' },
+  kService: { uz: 'Xizmat haqi', ru: 'Обслуживание' },
+  kVoids: { uz: 'O‘chirilgan taomlar', ru: 'Удалённые позиции' },
+  chByDay: { uz: 'Kunlar bo‘yicha tushum', ru: 'Выручка по дням' },
+  chByHour: { uz: 'Soatlar bo‘yicha tushum', ru: 'Выручка по часам' },
+  rByMethod: { uz: 'To‘lov turlari', ru: 'Способы оплаты' },
+  rBySaleType: { uz: 'Sotuv turlari', ru: 'Способы продаж' },
+  rByWaiter: { uz: 'Xodimlar', ru: 'Сотрудники' },
+  rByCategory: { uz: 'Kategoriyalar', ru: 'Категории' },
+  rByProduct: { uz: 'Mahsulotlar', ru: 'Товары' },
+  rShifts: { uz: 'Kassa smenalari', ru: 'Кассовые смены' },
+  qty: { uz: 'Soni', ru: 'Кол-во' },
+  share: { uz: 'Ulushi', ru: 'Доля' },
+  noSales: { uz: 'Bu davrda savdo bo‘lmagan', ru: 'За этот период продаж нет' },
+  itemsNote: {
+    uz: 'Mahsulot va kategoriya summalari chegirma va xizmat haqisiz ko‘rsatilgan.',
+    ru: 'Суммы по товарам и категориям показаны без скидок и платы за обслуживание.',
+  },
+  shNumber: { uz: 'Smena', ru: 'Смена' },
+  shOpened: { uz: 'Ochildi', ru: 'Открыта' },
+  shClosed: { uz: 'Yopildi', ru: 'Закрыта' },
+  shExpected: { uz: 'Kassada bo‘lishi kerak', ru: 'Должно быть' },
+  shCounted: { uz: 'Sanaldi', ru: 'Насчитано' },
+  shDiff: { uz: 'Farq', ru: 'Расхождение' },
+  shStillOpen: { uz: 'ochiq', ru: 'открыта' },
+  todayTitle: { uz: 'Bugungi savdo', ru: 'Продажи сегодня' },
+  allReports: { uz: 'Barcha hisobotlar', ru: 'Все отчёты' },
+
   // Залы и столы
   addHall: { uz: 'Zal qo‘shish', ru: 'Добавить зал' },
   hallName: { uz: 'Zal nomi', ru: 'Название зала' },
@@ -210,7 +284,8 @@ export function I18nProvider({ children }: { children: ReactNode }) {
     }
   }, [])
   const value = useMemo<Ctx>(() => {
-    const t = (k: Key) => dict[k][lang]
+    // Ключ может прийти с сервера (например, действие в истории чека) — неизвестный показываем как есть.
+    const t = (k: Key) => (dict[k] as Record<Lang, string> | undefined)?.[lang] ?? k
     const tErr = (code: string) => {
       const k = `err.${code}` as Key
       return k in dict ? dict[k][lang] : dict['err.internal'][lang]

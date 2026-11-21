@@ -1,0 +1,323 @@
+import { and, asc, desc, eq, gte, inArray, isNull, lt, sql, type SQL } from 'drizzle-orm'
+import { alias } from 'drizzle-orm/pg-core'
+import type { FastifyInstance } from 'fastify'
+import { z } from 'zod'
+import { HttpError, makeAuthGuards } from '../auth.js'
+import { schema, type DB } from '../db/index.js'
+
+const { receipts, receiptItems, payments, paymentMethods, saleTypes, users, tables, products, categories, reasons, auditLog, shifts } =
+  schema
+
+/**
+ * Часовой пояс заведения: Ташкент, UTC+5, без перехода на летнее время.
+ * Смещение задано числом, чтобы отчёты не зависели от базы часовых поясов на сервере.
+ */
+const TZ_HOURS = 5
+
+const day = z.string().regex(/^\d{4}-\d{2}-\d{2}$/)
+const rangeQuery = z.object({ from: day, to: day })
+
+/** Границы периода: с начала дня `from` до конца дня `to` по времени заведения. */
+function range(q: unknown) {
+  const { from, to } = rangeQuery.parse(q)
+  const offset = `${TZ_HOURS >= 0 ? '+' : '-'}${String(Math.abs(TZ_HOURS)).padStart(2, '0')}:00`
+  const start = new Date(`${from}T00:00:00${offset}`)
+  const end = new Date(new Date(`${to}T00:00:00${offset}`).getTime() + 86_400_000)
+  if (!(start < end) || end.getTime() - start.getTime() > 400 * 86_400_000) throw new HttpError(400, 'bad_range')
+  return { start, end }
+}
+
+/** Момент закрытия чека в местном времени заведения. */
+const localClosed = sql`(${receipts.closedAt} at time zone 'UTC' + make_interval(hours => ${TZ_HOURS}))`
+const num = (expr: SQL) => sql<number>`coalesce(${expr}, 0)::bigint`.mapWith(Number)
+
+export function reportRoutes(app: FastifyInstance, db: DB) {
+  const { requirePerm } = makeAuthGuards(db)
+
+  // ───────────── Отчёты ─────────────
+
+  app.get('/api/reports/summary', { preHandler: requirePerm('reports.view') }, async (req) => {
+    const { start, end } = range(req.query)
+    const tenantId = req.auth.tenantId
+    // Выручка считается по закрытым чекам и относится к моменту закрытия.
+    const closed = and(
+      eq(receipts.tenantId, tenantId),
+      eq(receipts.status, 'closed'),
+      gte(receipts.closedAt, start),
+      lt(receipts.closedAt, end),
+    )
+    const liveItem = and(isNull(receiptItems.voidedAt), eq(receiptItems.comp, false))
+
+    const [[totals], byDay, byHour, byMethod, bySaleType, byWaiter, byProduct, [voids]] = await Promise.all([
+      db
+        .select({
+          receipts: num(sql`count(*)`),
+          revenue: num(sql`sum(${receipts.total})`),
+          guests: num(sql`sum(${receipts.guests})`),
+          discounts: num(sql`sum(${receipts.discountAmount})`),
+          service: num(sql`sum(${receipts.serviceAmount})`),
+        })
+        .from(receipts)
+        .where(closed),
+      db
+        .select({
+          day: sql<string>`to_char(${localClosed}, 'YYYY-MM-DD')`,
+          receipts: num(sql`count(*)`),
+          revenue: num(sql`sum(${receipts.total})`),
+        })
+        .from(receipts)
+        .where(closed)
+        .groupBy(sql`1`)
+        .orderBy(sql`1`),
+      db
+        .select({
+          hour: sql<number>`extract(hour from ${localClosed})::int`.mapWith(Number),
+          receipts: num(sql`count(*)`),
+          revenue: num(sql`sum(${receipts.total})`),
+        })
+        .from(receipts)
+        .where(closed)
+        .groupBy(sql`1`)
+        .orderBy(sql`1`),
+      db
+        .select({ id: paymentMethods.id, name: paymentMethods.name, amount: num(sql`sum(${payments.amount})`) })
+        .from(payments)
+        .innerJoin(receipts, eq(receipts.id, payments.receiptId))
+        .innerJoin(paymentMethods, eq(paymentMethods.id, payments.methodId))
+        .where(closed)
+        .groupBy(paymentMethods.id, paymentMethods.name, paymentMethods.sort)
+        .orderBy(asc(paymentMethods.sort)),
+      db
+        .select({
+          id: saleTypes.id,
+          name: saleTypes.name,
+          receipts: num(sql`count(*)`),
+          revenue: num(sql`sum(${receipts.total})`),
+        })
+        .from(receipts)
+        .innerJoin(saleTypes, eq(saleTypes.id, receipts.saleTypeId))
+        .where(closed)
+        .groupBy(saleTypes.id, saleTypes.name, saleTypes.sort)
+        .orderBy(asc(saleTypes.sort)),
+      db
+        .select({
+          id: users.id,
+          name: users.name,
+          receipts: num(sql`count(*)`),
+          revenue: num(sql`sum(${receipts.total})`),
+        })
+        .from(receipts)
+        .innerJoin(users, eq(users.id, receipts.waiterId))
+        .where(closed)
+        .groupBy(users.id, users.name)
+        .orderBy(desc(sql`sum(${receipts.total})`)),
+      db
+        .select({
+          productId: receiptItems.productId,
+          name: sql<{ uz: string; ru: string }>`min(${receiptItems.name}::text)::jsonb`,
+          categoryId: sql<string | null>`min(${products.categoryId}::text)`,
+          qty: num(sql`sum(${receiptItems.qty})`),
+          amount: num(sql`sum(${receiptItems.total})`),
+        })
+        .from(receiptItems)
+        .innerJoin(receipts, eq(receipts.id, receiptItems.receiptId))
+        .leftJoin(products, eq(products.id, receiptItems.productId))
+        .where(and(closed, liveItem))
+        .groupBy(receiptItems.productId)
+        .orderBy(desc(sql`sum(${receiptItems.total})`)),
+      db
+        .select({ count: num(sql`count(*)`), amount: num(sql`sum(${receiptItems.total})`) })
+        .from(receiptItems)
+        .innerJoin(receipts, eq(receipts.id, receiptItems.receiptId))
+        .where(and(closed, sql`${receiptItems.voidedAt} is not null`)),
+    ])
+
+    // Категории собираем из товаров: так удалённая категория не теряет продажи.
+    const cats = await db
+      .select({ id: categories.id, name: categories.name, color: categories.color })
+      .from(categories)
+      .where(eq(categories.tenantId, tenantId))
+    const catById = new Map(cats.map((c) => [c.id, c]))
+    const byCategoryMap = new Map<string, { id: string | null; name: { uz: string; ru: string } | null; qty: number; amount: number }>()
+    for (const p of byProduct) {
+      const key = p.categoryId ?? ''
+      const cur = byCategoryMap.get(key) ?? { id: p.categoryId, name: catById.get(key)?.name ?? null, qty: 0, amount: 0 }
+      cur.qty += p.qty
+      cur.amount += p.amount
+      byCategoryMap.set(key, cur)
+    }
+
+    return {
+      totals: { ...totals, average: totals.receipts ? Math.round(totals.revenue / totals.receipts) : 0 },
+      voids,
+      byDay,
+      byHour,
+      byMethod,
+      bySaleType,
+      byWaiter,
+      byCategory: [...byCategoryMap.values()].sort((a, b) => b.amount - a.amount),
+      byProduct,
+    }
+  })
+
+  app.get('/api/reports/shifts', { preHandler: requirePerm('reports.view') }, async (req) => {
+    const { start, end } = range(req.query)
+    const tenantId = req.auth.tenantId
+    const opener = alias(users, 'opener')
+    const closer = alias(users, 'closer')
+    const rows = await db
+      .select({
+        id: shifts.id,
+        number: shifts.number,
+        openedAt: shifts.openedAt,
+        closedAt: shifts.closedAt,
+        openedBy: opener.name,
+        closedBy: closer.name,
+        openingCash: shifts.openingCash,
+        expectedCash: shifts.expectedCash,
+        countedCash: shifts.countedCash,
+      })
+      .from(shifts)
+      .innerJoin(opener, eq(opener.id, shifts.openedBy))
+      .leftJoin(closer, eq(closer.id, shifts.closedBy))
+      .where(and(eq(shifts.tenantId, tenantId), gte(shifts.openedAt, start), lt(shifts.openedAt, end)))
+      .orderBy(desc(shifts.openedAt))
+    if (!rows.length) return []
+    const sums = await db
+      .select({ shiftId: receipts.shiftId, receipts: num(sql`count(*)`), revenue: num(sql`sum(${receipts.total})`) })
+      .from(receipts)
+      .where(and(inArray(receipts.shiftId, rows.map((r) => r.id)), eq(receipts.status, 'closed')))
+      .groupBy(receipts.shiftId)
+    const by = new Map(sums.map((s) => [s.shiftId, s]))
+    return rows.map((r) => ({ ...r, receipts: by.get(r.id)?.receipts ?? 0, revenue: by.get(r.id)?.revenue ?? 0 }))
+  })
+
+  // ───────────── Чеки ─────────────
+
+  app.get('/api/receipts', { preHandler: requirePerm('sales.view') }, async (req) => {
+    const { start, end } = range(req.query)
+    const q = z
+      .object({
+        status: z.enum(['all', 'open', 'closed', 'cancelled']).default('all'),
+        suspicious: z.enum(['0', '1']).default('0'),
+        number: z.coerce.number().int().positive().optional(),
+      })
+      .parse(req.query)
+    const tenantId = req.auth.tenantId
+    // В список попадают чеки, открытые в выбранные дни: так видны и ещё не закрытые.
+    const where = and(
+      eq(receipts.tenantId, tenantId),
+      gte(receipts.openedAt, start),
+      lt(receipts.openedAt, end),
+      q.status === 'all' ? undefined : eq(receipts.status, q.status),
+      q.suspicious === '1' ? eq(receipts.suspicious, true) : undefined,
+      q.number ? eq(receipts.number, q.number) : undefined,
+    )
+    const [{ total }] = await db.select({ total: num(sql`count(*)`) }).from(receipts).where(where)
+    const rows = await db
+      .select({
+        id: receipts.id,
+        number: receipts.number,
+        status: receipts.status,
+        tableName: tables.name,
+        saleType: saleTypes.name,
+        waiterName: users.name,
+        guests: receipts.guests,
+        discountAmount: receipts.discountAmount,
+        total: receipts.total,
+        suspicious: receipts.suspicious,
+        openedAt: receipts.openedAt,
+        closedAt: receipts.closedAt,
+      })
+      .from(receipts)
+      .leftJoin(tables, eq(tables.id, receipts.tableId))
+      .leftJoin(saleTypes, eq(saleTypes.id, receipts.saleTypeId))
+      .leftJoin(users, eq(users.id, receipts.waiterId))
+      .where(where)
+      .orderBy(desc(receipts.openedAt))
+      .limit(500)
+    const paid = rows.length
+      ? await db
+          .select({ receiptId: payments.receiptId, name: paymentMethods.name, amount: payments.amount })
+          .from(payments)
+          .innerJoin(paymentMethods, eq(paymentMethods.id, payments.methodId))
+          .where(inArray(payments.receiptId, rows.map((r) => r.id)))
+      : []
+    const byReceipt = new Map<string, { name: { uz: string; ru: string }; amount: number }[]>()
+    for (const p of paid) byReceipt.set(p.receiptId, [...(byReceipt.get(p.receiptId) ?? []), { name: p.name, amount: p.amount }])
+    return { total, rows: rows.map((r) => ({ ...r, payments: byReceipt.get(r.id) ?? [] })) }
+  })
+
+  app.get('/api/receipts/:id', { preHandler: requirePerm('sales.view') }, async (req) => {
+    const { id } = z.object({ id: z.string().uuid() }).parse(req.params)
+    const tenantId = req.auth.tenantId
+    const [row] = await db
+      .select({ r: receipts, tableName: tables.name, saleType: saleTypes.name, waiterName: users.name })
+      .from(receipts)
+      .leftJoin(tables, eq(tables.id, receipts.tableId))
+      .leftJoin(saleTypes, eq(saleTypes.id, receipts.saleTypeId))
+      .leftJoin(users, eq(users.id, receipts.waiterId))
+      .where(and(eq(receipts.id, id), eq(receipts.tenantId, tenantId)))
+    if (!row) throw new HttpError(404, 'not_found')
+    const [items, paid, history] = await Promise.all([
+      db
+        .select({
+          id: receiptItems.id,
+          name: receiptItems.name,
+          price: receiptItems.price,
+          qty: receiptItems.qty,
+          total: receiptItems.total,
+          comment: receiptItems.comment,
+          voided: sql<boolean>`${receiptItems.voidedAt} is not null`,
+          reason: reasons.name,
+        })
+        .from(receiptItems)
+        .leftJoin(reasons, eq(reasons.id, receiptItems.reasonId))
+        .where(eq(receiptItems.receiptId, id))
+        .orderBy(asc(receiptItems.createdAt)),
+      db
+        .select({ name: paymentMethods.name, amount: payments.amount })
+        .from(payments)
+        .innerJoin(paymentMethods, eq(paymentMethods.id, payments.methodId))
+        .where(eq(payments.receiptId, id))
+        .orderBy(asc(payments.createdAt)),
+      db
+        .select({
+          id: auditLog.id,
+          action: auditLog.action,
+          suspicious: auditLog.suspicious,
+          data: auditLog.data,
+          createdAt: auditLog.createdAt,
+          userName: users.name,
+        })
+        .from(auditLog)
+        .leftJoin(users, eq(users.id, auditLog.userId))
+        .where(eq(auditLog.receiptId, id))
+        .orderBy(asc(auditLog.createdAt)),
+    ])
+    const r = row.r
+    return {
+      id: r.id,
+      number: r.number,
+      status: r.status,
+      tableName: row.tableName,
+      saleType: row.saleType,
+      waiterName: row.waiterName,
+      guests: r.guests,
+      comment: r.comment,
+      subtotal: r.subtotal,
+      discountKind: r.discountKind,
+      discountValue: r.discountValue,
+      discountAmount: r.discountAmount,
+      serviceBp: r.serviceBp,
+      serviceAmount: r.serviceAmount,
+      total: r.total,
+      suspicious: r.suspicious,
+      openedAt: r.openedAt,
+      closedAt: r.closedAt,
+      items,
+      payments: paid,
+      history,
+    }
+  })
+}

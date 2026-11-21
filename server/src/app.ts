@@ -7,6 +7,7 @@ import type { DB } from './db/index.js'
 import { authRoutes } from './routes/auth.js'
 import { hallRoutes, menuRoutes } from './routes/menu.js'
 import { posRoutes } from './routes/pos.js'
+import { reportRoutes } from './routes/reports.js'
 import { settingsRoutes } from './routes/settings.js'
 import { staffRoutes } from './routes/staff.js'
 
@@ -40,5 +41,6 @@ export async function buildApp(db: DB) {
   hallRoutes(app, db)
   posRoutes(app, db)
   settingsRoutes(app, db)
+  reportRoutes(app, db)
   return app
 }

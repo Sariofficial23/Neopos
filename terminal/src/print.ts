@@ -28,7 +28,8 @@ const words = {
 const esc = (s: string) => s.replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]!)
 
 const time = (iso: string | Date) =>
-  new Date(iso).toLocaleString('ru-RU', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })
+  // Время заведения (Ташкент), а не часового пояса, выставленного на компьютере кассы.
+  new Date(iso).toLocaleString('ru-RU', { timeZone: 'Asia/Tashkent', day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })
 
 function place(r: Receipt, boot: Boot, lang: Lang) {
   if (r.tableName) return `${words.table[lang]} ${r.tableName}`

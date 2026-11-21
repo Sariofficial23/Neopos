@@ -8,19 +8,21 @@ import { HallsPage } from './pages/Halls'
 import { Login } from './pages/Login'
 import { MenuPage } from './pages/Menu'
 import { SettingsPage } from './pages/Settings'
+import { ReceiptsPage } from './pages/Receipts'
+import { ReportsPage, TodayTiles } from './pages/Reports'
 import { RolesPage } from './pages/Roles'
 import { StaffPage } from './pages/Staff'
 import { SessionProvider, useSession } from './session'
 
 function Dashboard() {
   const { t } = useI18n()
-  const { me } = useSession()
+  const { me, can } = useSession()
   return (
     <div className="mx-auto max-w-5xl">
       <h1 className="text-2xl font-semibold">
         {t('welcome')}, {me?.user.name}
       </h1>
-      <p className="mt-2 text-sm text-slate-600">{t('dashboardHint')}</p>
+      <div className="mt-6">{can('reports.view') ? <TodayTiles /> : <p className="text-sm text-slate-600">{t('dashboardHint')}</p>}</div>
     </div>
   )
 }
@@ -46,8 +48,8 @@ function App() {
         <Route index element={<Dashboard />} />
         <Route path="menu" element={<MenuPage />} />
         <Route path="halls" element={<HallsPage />} />
-        <Route path="receipts" element={<Soon title="navReceipts" />} />
-        <Route path="reports" element={<Soon title="navReports" />} />
+        <Route path="receipts" element={<ReceiptsPage />} />
+        <Route path="reports" element={<ReportsPage />} />
         <Route path="customers" element={<Soon title="navCustomers" />} />
         <Route path="staff" element={<StaffPage />} />
         <Route path="roles" element={<RolesPage />} />
