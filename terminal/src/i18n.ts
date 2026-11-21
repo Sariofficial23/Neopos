@@ -88,6 +88,7 @@ const dict = {
   'err.internal': { uz: 'Xatolik yuz berdi', ru: 'Произошла ошибка' },
   'err.bad_credentials': { uz: 'Login yoki parol noto‘g‘ri', ru: 'Неверный логин или пароль' },
   'err.forbidden': { uz: 'Bu hisobda ruxsat yo‘q', ru: 'У этой учётной записи нет прав' },
+  'err.venue_blocked': { uz: 'Muassasa bloklangan. NeoPos bilan bog‘laning.', ru: 'Заведение заблокировано. Свяжитесь с NeoPos.' },
   'err.bad_pin': { uz: 'PIN-kod noto‘g‘ri', ru: 'Неверный ПИН-код' },
   'err.too_many_attempts': { uz: 'Urinishlar ko‘p. Bir daqiqa kuting.', ru: 'Слишком много попыток. Подождите минуту.' },
   'err.device_not_activated': { uz: 'Qurilma ulanmagan', ru: 'Устройство не привязано' },

@@ -4,6 +4,7 @@ import Fastify from 'fastify'
 import { ZodError } from 'zod'
 import { getSecret, HttpError } from './auth.js'
 import type { DB } from './db/index.js'
+import { adminRoutes } from './routes/admin.js'
 import { authRoutes } from './routes/auth.js'
 import { hallRoutes, menuRoutes } from './routes/menu.js'
 import { posRoutes } from './routes/pos.js'
@@ -42,5 +43,6 @@ export async function buildApp(db: DB) {
   posRoutes(app, db)
   settingsRoutes(app, db)
   reportRoutes(app, db)
+  adminRoutes(app, db)
   return app
 }

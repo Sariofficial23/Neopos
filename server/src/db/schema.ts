@@ -34,6 +34,11 @@ export const tenants = pgTable('tenants', {
   currency: text('currency').notNull().default('UZS'),
   timezone: text('timezone').notNull().default('Asia/Tashkent'),
   settings: jsonb('settings').$type<Record<string, unknown>>().notNull().default({}),
+  /** Бренд заблокирован администратором NeoPos (например, за неуплату) */
+  blocked: boolean('blocked').notNull().default(false),
+  blockedAt: timestamp('blocked_at', { withTimezone: true }),
+  /** Заметка администратора: телефон, договор, тариф */
+  note: text('note'),
   createdAt: createdAt(),
 })
 
@@ -457,3 +462,23 @@ export const telegramLinks = pgTable(
   },
   (t) => [uniqueIndex('telegram_chat_uq').on(t.tenantId, t.chatId)],
 )
+
+// ───────────── Платформа NeoPos ─────────────
+
+/** Администраторы платформы: создают бренды, блокируют, сбрасывают пароли. */
+export const platformAdmins = pgTable(
+  'platform_admins',
+  {
+    id: id(),
+    login: text('login').notNull(),
+    passwordHash: text('password_hash').notNull(),
+    createdAt: createdAt(),
+  },
+  (t) => [uniqueIndex('platform_admins_login_uq').on(t.login)],
+)
+
+/** Общие настройки платформы: ключ → значение (например, открыта ли регистрация). */
+export const platformSettings = pgTable('platform_settings', {
+  key: text('key').primaryKey(),
+  value: jsonb('value').$type<unknown>().notNull(),
+})

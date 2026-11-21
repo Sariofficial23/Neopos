@@ -6,7 +6,20 @@
       "destination": "https://github.com/Sariofficial23/Neopos/releases/latest/download/NeoPos-Setup.exe",
       "permanent": false
     },
-    { "source": "/panel", "destination": "https://neopos-panel.vercel.app", "permanent": false },
-    { "source": "/kassa", "destination": "https://neopos-terminal.vercel.app", "permanent": false }
+    {
+      "source": "/panel",
+      "destination": "https://neopos-panel.vercel.app",
+      "permanent": false
+    },
+    {
+      "source": "/kassa",
+      "destination": "https://neopos-terminal.vercel.app",
+      "permanent": false
+    },
+    {
+      "source": "/admin",
+      "destination": "https://neopos-panel.vercel.app/admin",
+      "permanent": false
+    }
   ]
 }

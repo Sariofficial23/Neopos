@@ -12,6 +12,7 @@ import {
 import { schema, type DB } from '../db/index.js'
 import { PERMISSIONS } from '../permissions.js'
 import { createTenant } from '../tenant.js'
+import { registrationOpen } from './admin.js'
 
 const loginRe = /^[a-z0-9._-]{3,32}$/
 
@@ -22,7 +23,7 @@ export function authRoutes(app: FastifyInstance, db: DB) {
     app.jwt.sign({ sub: userId, tid: tenantId }, { expiresIn: '30d' })
 
   app.post('/api/auth/register', async (req) => {
-    if (process.env.ALLOW_REGISTER === 'false') throw new HttpError(403, 'registration_closed')
+    if (!(await registrationOpen(db))) throw new HttpError(403, 'registration_closed')
     const body = z
       .object({
         venue: z.string().trim().min(2).max(80),
@@ -63,6 +64,8 @@ export function authRoutes(app: FastifyInstance, db: DB) {
       throw new HttpError(401, 'bad_credentials')
     }
     clearThrottle(key)
+    const [tenant] = await db.select({ blocked: schema.tenants.blocked }).from(schema.tenants).where(eq(schema.tenants.id, user.tenantId))
+    if (tenant?.blocked) throw new HttpError(403, 'venue_blocked')
     return { token: sign(user.id, user.tenantId) }
   })
 

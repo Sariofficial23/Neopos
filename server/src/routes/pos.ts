@@ -109,6 +109,8 @@ export function posRoutes(app: FastifyInstance, db: DB) {
     if (!row.role.isOwner && !row.role.panelAccess) throw new HttpError(403, 'forbidden')
 
     const tenantId = row.user.tenantId
+    const [owner] = await db.select({ blocked: tenants.blocked }).from(tenants).where(eq(tenants.id, tenantId))
+    if (owner?.blocked) throw new HttpError(403, 'venue_blocked')
     const [terminal] = await db
       .insert(terminals)
       .values({
@@ -139,6 +141,8 @@ export function posRoutes(app: FastifyInstance, db: DB) {
       .from(terminals)
       .where(and(eq(terminals.id, device.did), eq(terminals.tenantId, device.tid)))
     if (!terminal || !terminal.active) throw new HttpError(401, 'device_not_activated')
+    const [venue] = await db.select({ blocked: tenants.blocked }).from(tenants).where(eq(tenants.id, device.tid))
+    if (venue?.blocked) throw new HttpError(403, 'venue_blocked')
 
     // ПИН короткий, поэтому перебор ограничиваем на само устройство.
     const key = `pin:${terminal.id}`

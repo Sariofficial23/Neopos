@@ -18,7 +18,7 @@ export function setToken(token: string | null) {
 }
 
 /** В разработке запросы идут через прокси Vite; в боевой сборке адрес сервера задаёт VITE_API_URL. */
-const API_BASE = (import.meta.env.VITE_API_URL ?? '').replace(/\/+$/, '')
+export const API_BASE = (import.meta.env.VITE_API_URL ?? '').replace(/\/+$/, '')
 
 export class ApiError extends Error {
   constructor(
