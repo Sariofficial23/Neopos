@@ -1,5 +1,6 @@
-import takeawaySticker from './assets/takeaway.webp'
-import deliverySticker from './assets/delivery.webp'
+import takeawaySticker from './assets/takeaway.webp?inline'
+import deliverySticker from './assets/delivery.webp?inline'
+import saleTypeBackground from './assets/burger.webp'
 import { useCallback, useEffect, useState } from 'react'
 import { api, money, type OpenReceipt, type Receipt } from './api'
 import { useApp } from './app'
@@ -67,6 +68,7 @@ export function Hall({ onOpen, onMenu }: { onOpen: (r: Receipt) => void; onMenu:
 
   return (
     <>
+      {awaySales.length > 1 && <link rel="prefetch" as="image" href={saleTypeBackground} />}
       <header className="bar" data-scene={dialog === 'type' ? 'burger' : /ter{1,2}as|тер{1,2}ас|ayvon|айвон/i.test(hall?.name ?? '') ? 'ocean' : 'hall'}>
         <div className="logo"><img src={`${import.meta.env.BASE_URL}brand/neopos.webp`} alt="NeoPos" /><span className="who">· {boot.user.name}</span></div>
         <button className="new" onClick={newOrder}>
@@ -161,7 +163,7 @@ export function Hall({ onOpen, onMenu }: { onOpen: (r: Receipt) => void; onMenu:
             {awaySales.map((s) => (
               <button key={s.id} className="sticker" disabled={pending} onClick={() => void start({ saleTypeId: s.id })}>
                 <span className="emoji" aria-hidden="true">
-                  {stickers[s.kind] ? <img src={stickers[s.kind]} alt="" /> : '🧾'}
+                  {stickers[s.kind] ? <img src={stickers[s.kind]} alt="" decoding="async" /> : '🧾'}
                 </span>
                 <span>{s.name[lang]}</span>
               </button>
