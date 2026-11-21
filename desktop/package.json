@@ -19,7 +19,8 @@
       "main.js",
       "preload.js",
       "offline.html",
-      "build/icon.png"
+      "build/icon.png",
+      "build/neopos.webp"
     ],
     "directories": {
       "output": "dist",

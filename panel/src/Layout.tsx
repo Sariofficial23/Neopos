@@ -99,7 +99,7 @@ export function Layout() {
         <div className={`flex h-16 shrink-0 items-center ${open ? 'justify-between pl-5 pr-3' : 'justify-center'}`}>
           {open && (
             <div className="text-xl font-bold text-white">
-              Neo<span className="text-brand-500">Pos</span>
+              <img src={`${import.meta.env.BASE_URL}brand/neopos.webp`} alt="NeoPos" className="h-10 w-auto rounded-lg" />
             </div>
           )}
           <button
@@ -110,7 +110,7 @@ export function Layout() {
             title={t(open ? 'navCollapse' : 'navExpand')}
             className="flex size-10 cursor-pointer items-center justify-center rounded-lg text-slate-300 hover:bg-white/10 hover:text-white"
           >
-            <I>{open ? <path d="M15 6l-6 6 6 6" /> : <path d="M4 6h16M4 12h16M4 18h16" />}</I>
+            {open ? <I><path d="M15 6l-6 6 6 6" /></I> : <img src={`${import.meta.env.BASE_URL}brand/icon.png`} alt="" className="size-9 rounded-lg" />}
           </button>
         </div>
 

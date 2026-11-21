@@ -133,7 +133,7 @@ export function App() {
     screen = (
       <div className="center">
         <div className="card glass">
-          <div className="brand">NeoPos</div>
+          <div className="brand"><img src={`${import.meta.env.BASE_URL}brand/neopos.webp`} alt="NeoPos" /></div>
           <div className={bootError ? 'err' : 'sub'}>{bootError ? tErr(bootError) : t('loading')}</div>
           {bootError && (
             <button className="btn plain" onClick={() => void reloadBoot()}>

@@ -67,7 +67,7 @@ export function Hall({ onOpen }: { onOpen: (r: Receipt) => void }) {
   return (
     <>
       <header className="bar">
-        <div className="logo">NeoPos</div>
+        <div className="logo"><img src={`${import.meta.env.BASE_URL}brand/neopos.webp`} alt="NeoPos" /></div>
         <button className="new" onClick={newOrder}>
           + {t('newOrder')}
         </button>
