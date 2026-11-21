@@ -3,6 +3,9 @@ import { api, money, type OpenReceipt, type Receipt } from './api'
 import { useApp } from './app'
 import { Dialog, PrinterSetting, ShiftDialog } from './Dialogs'
 
+/** Картинка-стикер для способа продажи */
+const STICKER: Record<string, string> = { takeaway: '🥡', delivery: '🛵', hall: '🍽️' }
+
 /** Сколько минут открыт чек */
 const minutes = (iso: string) => Math.max(0, Math.round((Date.now() - new Date(iso).getTime()) / 60_000))
 
@@ -142,10 +145,13 @@ export function Hall({ onOpen }: { onOpen: (r: Receipt) => void }) {
 
       {dialog === 'type' && (
         <Dialog title={t('saleType')} onClose={() => setDialog(null)}>
-          <div className="list">
+          <div className="stickers">
             {awaySales.map((s) => (
-              <button key={s.id} onClick={() => void start({ saleTypeId: s.id })}>
-                {s.name[lang]}
+              <button key={s.id} className="sticker" disabled={pending} onClick={() => void start({ saleTypeId: s.id })}>
+                <span className="emoji" aria-hidden="true">
+                  {STICKER[s.kind] ?? '🧾'}
+                </span>
+                <span>{s.name[lang]}</span>
               </button>
             ))}
           </div>

@@ -201,3 +201,20 @@ input, textarea { user-select: text; }
 .rail button:disabled { opacity: 0.35; }
 
 /* Стили печатных бегунков — в print.ts: одни и те же для браузера и для приложения Windows. */
+
+/* Выбор способа продажи: крупные плитки-стикеры */
+.stickers { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; }
+.sticker {
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px;
+  min-height: 150px; padding: 16px 12px; border-radius: var(--r);
+  background: var(--panel-strong); border: var(--panel-border);
+  box-shadow: 0 6px 18px rgba(40, 50, 120, 0.12), inset 0 1px 0 rgba(255, 255, 255, 0.9);
+  font-weight: 700; font-size: 16px; text-align: center; transition: transform 0.1s, box-shadow 0.15s;
+}
+.sticker:hover { box-shadow: 0 10px 24px rgba(40, 50, 120, 0.18), inset 0 1px 0 rgba(255, 255, 255, 0.9); }
+.sticker:active:not(:disabled) { transform: scale(0.96); }
+.sticker:disabled { opacity: 0.5; }
+.sticker .emoji {
+  width: 76px; height: 76px; display: grid; place-items: center; font-size: 46px; line-height: 1;
+  border-radius: 50%; background: rgba(10, 132, 255, 0.1);
+}
