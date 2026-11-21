@@ -1,10 +1,11 @@
+import takeawaySticker from './assets/takeaway.webp'
+import deliverySticker from './assets/delivery.webp'
 import { useCallback, useEffect, useState } from 'react'
 import { api, money, type OpenReceipt, type Receipt } from './api'
 import { useApp } from './app'
 import { Dialog } from './Dialogs'
 
-/** Картинка-стикер для способа продажи */
-const STICKER: Record<string, string> = { takeaway: '🥡', delivery: '🛵', hall: '🍽️' }
+const stickers: Partial<Record<string, string>> = { takeaway: takeawaySticker, delivery: deliverySticker }
 
 /** Сколько минут открыт чек */
 const minutes = (iso: string) => Math.max(0, Math.round((Date.now() - new Date(iso).getTime()) / 60_000))
@@ -66,10 +67,8 @@ export function Hall({ onOpen, onMenu }: { onOpen: (r: Receipt) => void; onMenu:
 
   return (
     <>
-      <header className="bar">
-        <div className="logo">
-          NeoPos <span className="who">· {boot.user.name}</span>
-        </div>
+      <header className="bar" data-scene={dialog === 'type' ? 'burger' : /ter{1,2}as|тер{1,2}ас|ayvon|айвон/i.test(hall?.name ?? '') ? 'ocean' : 'hall'}>
+        <div className="logo"><img src={`${import.meta.env.BASE_URL}brand/neopos.webp`} alt="NeoPos" /><span className="who">· {boot.user.name}</span></div>
         <button className="new" onClick={newOrder}>
           + {t('newOrder')}
         </button>
@@ -162,7 +161,7 @@ export function Hall({ onOpen, onMenu }: { onOpen: (r: Receipt) => void; onMenu:
             {awaySales.map((s) => (
               <button key={s.id} className="sticker" disabled={pending} onClick={() => void start({ saleTypeId: s.id })}>
                 <span className="emoji" aria-hidden="true">
-                  {STICKER[s.kind] ?? '🧾'}
+                  {stickers[s.kind] ? <img src={stickers[s.kind]} alt="" /> : '🧾'}
                 </span>
                 <span>{s.name[lang]}</span>
               </button>

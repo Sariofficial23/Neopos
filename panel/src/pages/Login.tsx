@@ -51,7 +51,7 @@ export function Login() {
         <div className="mb-6 flex items-center justify-between">
           <div>
             <div className="text-2xl font-bold tracking-tight">
-              Neo<span className="text-brand-500">Pos</span>
+              <img src={`${import.meta.env.BASE_URL}brand/neopos.webp`} alt="NeoPos" className="h-14 w-auto rounded-lg" />
             </div>
             <div className="text-sm text-slate-500">{t('tagline')}</div>
           </div>

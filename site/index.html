@@ -39,7 +39,8 @@
   header .bar { display: flex; align-items: center; gap: 10px; padding: 10px 12px 10px 18px; border-radius: 999px; }
   header .bar > * { flex: none; }
   .logo { display: flex; align-items: center; gap: 10px; font-weight: 800; font-size: 20px; letter-spacing: -0.02em; text-decoration: none; margin-right: auto; }
-  .logo img { width: 32px; height: 32px; }
+  .logo img { width: 108px; height: 36px; border-radius: 7px; }
+  footer .brand-image { width: 84px; height: 28px; vertical-align: middle; border-radius: 6px; }
   .nav a { text-decoration: none; font-weight: 600; font-size: 14px; color: var(--muted); padding: 8px 12px; border-radius: 999px; }
   .nav a:hover { color: var(--text); background: var(--glass-strong); }
   .lang { display: inline-flex; padding: 3px; border-radius: 999px; background: rgba(17, 26, 51, 0.07); }
@@ -56,7 +57,7 @@
   header .btn { height: 42px; padding: 0 18px; font-size: 14px; border-radius: 999px; }
 
   /* Первый экран */
-  .hero { padding: 48px 0 32px; display: grid; grid-template-columns: minmax(0, 5fr) minmax(0, 7fr); gap: 48px; align-items: center; }
+  .hero { background: linear-gradient(90deg,rgba(255,255,255,.94),rgba(255,255,255,.6)),url('/assets/ocean.webp') center / cover; border-radius: 22px; padding: 48px 20px 32px; display: grid; grid-template-columns: minmax(0, 5fr) minmax(0, 7fr); gap: 48px; align-items: center; }
   .pill { display: inline-flex; align-items: center; gap: 8px; padding: 6px 14px; border-radius: 999px; background: var(--glass-strong); border: var(--border); font-size: 13px; font-weight: 600; color: var(--muted); }
   .pill i { width: 8px; height: 8px; border-radius: 50%; background: var(--green); }
   h1 { font-size: clamp(34px, 4.6vw, 56px); line-height: 1.06; letter-spacing: -0.035em; margin: 18px 0 16px; }
@@ -125,7 +126,7 @@
 <header>
   <div class="wrap">
     <div class="bar glass">
-      <a class="logo" href="/"><img src="/assets/icon.png" alt="" width="32" height="32" />NeoPos</a>
+      <a class="logo" href="/"><img src="/assets/neopos.webp" alt="NeoPos" width="108" height="36" /></a>
       <nav class="nav" aria-label="Menu">
         <a href="#features" data-t="navFeatures">Imkoniyatlar</a>
         <a href="#install" data-t="navInstall">O‘rnatish</a>
@@ -215,7 +216,7 @@
 
 <footer>
   <div class="wrap">
-    <span>© <span id="year"></span> NeoPos</span>
+    <span>© <span id="year"></span> <img class="brand-image" src="/assets/neopos.webp" alt="NeoPos" width="84" height="28" /></span>
     <span><a href="/panel" data-t="navPanel">Panelga kirish</a> · <a href="/kassa" data-t="openWeb">Brauzerda ochish</a></span>
   </div>
 </footer>

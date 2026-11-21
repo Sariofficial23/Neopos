@@ -42,9 +42,9 @@ export function Activate({ t, tErr, lang, setLang, onDone }: Base & { onDone: ()
   }
 
   return (
-    <div className="center">
+    <div className="center" data-scene="ocean">
       <form className="card glass" onSubmit={submit}>
-        <div className="brand">NeoPos</div>
+        <div className="brand"><img src={`${import.meta.env.BASE_URL}brand/neopos.webp`} alt="NeoPos" /></div>
         <div className="sub">{t('activateHint')}</div>
         <label className="field">
           <span>{t('login')}</span>
@@ -150,9 +150,9 @@ export function Pin({
   }, [press])
 
   return (
-    <div className="center">
+    <div className="center" data-scene="ocean">
       <div className="card glass">
-        <div className="brand">NeoPos</div>
+        <div className="brand"><img src={`${import.meta.env.BASE_URL}brand/neopos.webp`} alt="NeoPos" /></div>
         <div className="sub">{t('enterPin')}</div>
         <div className={`dots ${shake ? 'shake' : ''}`} aria-label={`${pin.length}/${PIN_LEN}`}>
           {Array.from({ length: Math.max(PIN_LEN, pin.length) }, (_, i) => (
@@ -202,7 +202,7 @@ export function ShiftGate() {
   }
 
   return (
-    <div className="center">
+    <div className="center" data-scene="ocean">
       <form className="card glass" onSubmit={open}>
         <div className="brand">{t('shiftClosed')}</div>
         <div className="sub">
