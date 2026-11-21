@@ -35,8 +35,12 @@
 
 | Проект | Папка | Адрес |
 |---|---|---|
-| `neopos-panel` | `panel/` | https://neopos-panel-assiddiqtravel-4225.vercel.app |
-| `neopos-terminal` | `terminal/` | https://neopos-terminal-assiddiqtravel-4225.vercel.app |
+| `neopos-panel` | `panel/` | https://neopos-panel.vercel.app |
+| `neopos-terminal` | `terminal/` | https://neopos-terminal.vercel.app (заработает после указания адреса сервера) |
+
+Важно: на бесплатном тарифе Vercel сборки, запущенные обычным `git push`, блокируются
+(автор коммита не привязан к аккаунту Vercel). Пока так — сборку запускает Claude через
+подключение к Vercel, либо вручную кнопкой **Redeploy** в проекте.
 
 Обоим нужно указать адрес сервера из шага 1.7 — переменная **`VITE_API_URL`**
 (без `/api` на конце), после чего пересобрать проект. Это может сделать Claude,
