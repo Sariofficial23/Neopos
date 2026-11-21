@@ -36,6 +36,12 @@
       "createStartMenuShortcut": true,
       "shortcutName": "NeoPos Kassa",
       "runAfterFinish": true
+    },
+    "publish": {
+      "provider": "github",
+      "owner": "Sariofficial23",
+      "repo": "Neopos",
+      "releaseType": "release"
     }
   },
   "devDependencies": {

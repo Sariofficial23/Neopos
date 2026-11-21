@@ -66,3 +66,28 @@
 Нужны только три вещи: Node.js 22+, PostgreSQL и переменные окружения
 `DATABASE_URL`, `JWT_SECRET`, `NODE_ENV=production`. Запуск: `npm install`, затем
 `npm run start -w server`. Таблицы создаются сами при первом запуске.
+
+## 5. Касса для Windows
+
+Приложение лежит в папке `desktop/` и открывает кассу https://neopos-terminal.vercel.app,
+поэтому изменения кассы попадают в приложение без переустановки.
+
+**Выпуск новой версии установщика:** отправить тег вида `kassa-vX.Y.Z`:
+
+```
+git tag kassa-v0.2.0
+git push origin kassa-v0.2.0
+```
+
+GitHub соберёт `NeoPos-Setup.exe` на своих серверах (вкладка **Actions**, около 5–10 минут) и
+опубликует его в **Releases**. Установленные приложения сами скачают новую версию и поставят её
+при следующем закрытии.
+
+Ссылка для скачивания (на неё ведут кнопки в панели и кассе):
+https://github.com/Sariofficial23/Neopos/releases/latest/download/NeoPos-Setup.exe
+
+Установщик без цифровой подписи: при первом запуске Windows покажет «Windows защитил ваш
+компьютер» → «Подробнее» → «Выполнить в любом случае».
+
+Локальная сборка: `cd desktop`, `npm install`, `node node_modules/electron/install.js`,
+`npm run dist` → `desktop/dist/NeoPos-Setup.exe`. Проверка без установки: `npm run smoke`.
