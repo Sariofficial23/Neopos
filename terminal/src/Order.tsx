@@ -148,7 +148,7 @@ export function Order({ receipt, setReceipt, onBack }: Props) {
 
   return (
     <>
-      <header className="bar">
+      <header className="bar" data-scene="cafe">
         <div className="logo"><img src={`${import.meta.env.BASE_URL}brand/neopos.webp`} alt="NeoPos" /></div>
         <span className="lnk hide">{boot.user.name}</span>
       </header>
