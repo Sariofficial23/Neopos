@@ -2,6 +2,7 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useRef, use
 import { api, ApiError, device, session, setSessionLostHandler, type Boot, type Lang, type Receipt } from './api'
 import { Activate, Pin, ShiftGate } from './Auth'
 import { useDeviceInfo, useVenuePhoto } from './Brand'
+import { useAutoUpdate } from './update'
 import { ControlPanel } from './ControlPanel'
 import { Hall } from './Hall'
 import { makeT, type Key } from './i18n'
@@ -50,6 +51,8 @@ export function App() {
   const toastTimer = useRef<number | undefined>(undefined)
 
   const deviceInfo = useDeviceInfo(hasDevice)
+  // Новая версия кассы ставится сама, когда никто не вошёл (экран ПИН-кода).
+  useAutoUpdate(!token)
   // Фото заведения из панели — фоном на всех экранах кассы.
   useVenuePhoto(boot?.brand?.photo ?? deviceInfo?.photo)
 
