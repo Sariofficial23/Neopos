@@ -1,0 +1,38 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "neopos-server",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": [
+        "--prefix",
+        "D:/cloude/restoran-pos",
+        "run",
+        "dev:server"
+      ],
+      "port": 4000
+    },
+    {
+      "name": "neopos-panel",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": [
+        "--prefix",
+        "D:/cloude/restoran-pos",
+        "run",
+        "dev:panel"
+      ],
+      "port": 5190
+    },
+    {
+      "name": "neopos-terminal",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": [
+        "--prefix",
+        "D:/cloude/restoran-pos",
+        "run",
+        "dev:terminal"
+      ],
+      "port": 5191
+    }
+  ]
+}
