@@ -1,33 +1,26 @@
 /**
- * Звук нажатия: короткий сухой «клик», как у клавиатуры iPhone — без тона, едва слышный.
+ * Звук нажатия: «пузырёк» (bubble) — короткий мягкий «блоп» с поднимающимся тоном.
  * Синтезируется в браузере — без файлов, работает и без интернета.
  */
 let ctx: AudioContext | null = null
-let noise: AudioBuffer | null = null
 
 function click() {
   try {
     ctx ??= new AudioContext()
     if (ctx.state === 'suspended') void ctx.resume()
-    // 25 мс шума, который быстро затухает: так звучит щелчок клавиши.
-    if (!noise) {
-      const len = Math.round(ctx.sampleRate * 0.025)
-      noise = ctx.createBuffer(1, len, ctx.sampleRate)
-      const data = noise.getChannelData(0)
-      for (let i = 0; i < len; i++) data[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / len, 6)
-    }
     const t = ctx.currentTime
-    const src = ctx.createBufferSource()
-    src.buffer = noise
-    // Оставляем только «щелчок» в середине диапазона: без шипения и без гула.
-    const band = ctx.createBiquadFilter()
-    band.type = 'bandpass'
-    band.frequency.value = 2600
-    band.Q.value = 0.9
+    const osc = ctx.createOscillator()
     const gain = ctx.createGain()
-    gain.gain.setValueAtTime(0.35, t)
-    src.connect(band).connect(gain).connect(ctx.destination)
-    src.start(t)
+    osc.type = 'sine'
+    // Тон быстро поднимается — так лопается пузырёк.
+    osc.frequency.setValueAtTime(380, t)
+    osc.frequency.exponentialRampToValueAtTime(1250, t + 0.055)
+    gain.gain.setValueAtTime(0.0001, t)
+    gain.gain.exponentialRampToValueAtTime(0.16, t + 0.006)
+    gain.gain.exponentialRampToValueAtTime(0.0001, t + 0.075)
+    osc.connect(gain).connect(ctx.destination)
+    osc.start(t)
+    osc.stop(t + 0.08)
   } catch {
     /* звук недоступен — работаем молча */
   }
