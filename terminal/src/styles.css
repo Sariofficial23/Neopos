@@ -218,3 +218,26 @@ input, textarea { user-select: text; }
   width: 76px; height: 76px; display: grid; place-items: center; font-size: 46px; line-height: 1;
   border-radius: 50%; background: rgba(10, 132, 255, 0.1);
 }
+
+/* Значки в шапке: выход, чеки, меню */
+.bar .logo .who { font-weight: 600; font-size: 14px; color: var(--muted); letter-spacing: 0; }
+.bar .ico { position: relative; width: 44px; height: 44px; border-radius: 12px; display: grid; place-items: center; color: var(--text); flex: none; }
+.bar .ico:hover { background: var(--panel-strong); }
+.bar .ico:active { transform: scale(0.94); }
+.bar .ico svg { width: 24px; height: 24px; }
+.bar .ico .badge { position: absolute; top: 3px; right: 2px; min-width: 18px; height: 18px; padding: 0 5px; border-radius: 999px; background: var(--close); color: #fff; font-size: 11px; font-weight: 700; display: grid; place-items: center; }
+
+/* Панель управления кассы */
+.cp { flex: 1; min-height: 0; overflow-y: auto; display: flex; flex-direction: column; justify-content: space-between; gap: 16px; padding: 16px; }
+.cp-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 12px; }
+.cp-tile { display: flex; align-items: center; gap: 14px; min-height: 84px; padding: 14px 16px; border-radius: var(--r-sm); text-align: left; font-weight: 700; font-size: 15px; transition: transform 0.1s; }
+.cp-tile:active { transform: scale(0.97); }
+.cp-ico { width: 48px; height: 48px; flex: none; border-radius: 14px; display: grid; place-items: center; color: var(--tone); background: color-mix(in srgb, var(--tone) 14%, transparent); }
+.cp-ico svg { width: 26px; height: 26px; }
+@media (max-width: 720px) {
+  .bar .logo .who { display: none; }
+  .bar .ico { width: 40px; height: 40px; }
+  .cp-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+  .cp-tile { min-height: 72px; gap: 10px; font-size: 13px; padding: 10px; }
+  .cp-ico { width: 40px; height: 40px; }
+}

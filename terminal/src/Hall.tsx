@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import { api, money, type OpenReceipt, type Receipt } from './api'
 import { useApp } from './app'
-import { Dialog, PrinterSetting, ShiftDialog } from './Dialogs'
+import { Dialog } from './Dialogs'
 
 /** Картинка-стикер для способа продажи */
 const STICKER: Record<string, string> = { takeaway: '🥡', delivery: '🛵', hall: '🍽️' }
@@ -9,12 +9,12 @@ const STICKER: Record<string, string> = { takeaway: '🥡', delivery: '🛵', ha
 /** Сколько минут открыт чек */
 const minutes = (iso: string) => Math.max(0, Math.round((Date.now() - new Date(iso).getTime()) / 60_000))
 
-export function Hall({ onOpen }: { onOpen: (r: Receipt) => void }) {
+export function Hall({ onOpen, onMenu }: { onOpen: (r: Receipt) => void; onMenu: () => void }) {
   const { boot, t, lang, fail, logout } = useApp()
   const [hallId, setHallId] = useState(boot.halls[0]?.id ?? '')
   const [open, setOpen] = useState<OpenReceipt[]>([])
   const [busyTables, setBusyTables] = useState<string[]>([])
-  const [dialog, setDialog] = useState<'receipts' | 'shift' | 'user' | 'type' | null>(null)
+  const [dialog, setDialog] = useState<'receipts' | 'type' | null>(null)
   const [pending, setPending] = useState(false)
 
   const refresh = useCallback(async () => {
@@ -67,15 +67,28 @@ export function Hall({ onOpen }: { onOpen: (r: Receipt) => void }) {
   return (
     <>
       <header className="bar">
-        <div className="logo">NeoPos</div>
+        <div className="logo">
+          NeoPos <span className="who">· {boot.user.name}</span>
+        </div>
         <button className="new" onClick={newOrder}>
           + {t('newOrder')}
         </button>
-        <button className="lnk" onClick={() => setDialog('receipts')}>
-          {t('receipts')} <span className="n num">{open.length}</span>
+        {/* Справа три значка, как привыкли кассиры: выход, чеки, меню */}
+        <button className="ico" onClick={logout} title={t('logout')} aria-label={t('logout')}>
+          <svg viewBox="0 0 24 24">
+            <path d="M14 4h4a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2h-4M9 8l-4 4 4 4M5 12h11" />
+          </svg>
         </button>
-        <button className="lnk" onClick={() => setDialog('user')}>
-          {boot.user.name}
+        <button className="ico" onClick={() => setDialog('receipts')} title={t('openReceipts')} aria-label={t('openReceipts')}>
+          <svg viewBox="0 0 24 24">
+            <path d="M6 3h12v18l-3-2-3 2-3-2-3 2zM9 8h6M9 12h6M9 16h3" />
+          </svg>
+          {open.length > 0 && <span className="badge num">{open.length}</span>}
+        </button>
+        <button className="ico" onClick={onMenu} title={t('controlPanel')} aria-label={t('controlPanel')}>
+          <svg viewBox="0 0 24 24">
+            <path d="M4 6h16M4 12h16M4 18h16" />
+          </svg>
         </button>
       </header>
 
@@ -158,22 +171,7 @@ export function Hall({ onOpen }: { onOpen: (r: Receipt) => void }) {
         </Dialog>
       )}
 
-      {dialog === 'user' && (
-        <Dialog title={boot.user.name} onClose={() => setDialog(null)}>
-          <div className="muted" style={{ marginTop: -8 }}>
-            {boot.user.role.name} · {boot.venue}
-          </div>
-          <button className="btn plain wide" onClick={() => setDialog('shift')}>
-            {t('shift')} №{boot.shift?.number}
-          </button>
-          <PrinterSetting />
-          <button className="btn plain wide" onClick={logout}>
-            {t('logout')}
-          </button>
-        </Dialog>
-      )}
 
-      {dialog === 'shift' && <ShiftDialog onClose={() => setDialog(null)} />}
     </>
   )
 }

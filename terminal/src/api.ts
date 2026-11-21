@@ -106,6 +106,11 @@ export type ShiftSummary = {
   openReceipts: number
   expectedCash: number
   byMethod: { methodId: string; kind: string; name: L10n; amount: number }[]
+  openingCash: number
+  cashSales: number
+  cashIn: number
+  cashOut: number
+  movements: { id: string; kind: 'in' | 'out'; amount: number; note: string | null; createdAt: string; userName: string | null }[]
 }
 
 export type ReceiptItem = {

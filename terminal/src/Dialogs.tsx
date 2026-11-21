@@ -1,7 +1,7 @@
 import { useEffect, useState, type FormEvent, type ReactNode } from 'react'
 import { api, money, type Receipt, type ShiftSummary } from './api'
 import { useApp } from './app'
-import { desktop, printSlips } from './print'
+import { desktop, printSlips, shiftReport } from './print'
 
 export function Dialog({ title, onClose, children }: { title: string; onClose: () => void; children: ReactNode }) {
   useEffect(() => {
@@ -183,7 +183,7 @@ export function PayDialog({
 
 /** Закрытие смены: итоги и пересчёт наличных. */
 export function ShiftDialog({ onClose }: { onClose: () => void }) {
-  const { t, lang, boot, can, fail, logout } = useApp()
+  const { t, lang, boot, can, fail, logout, toast } = useApp()
   const [summary, setSummary] = useState<ShiftSummary | null>(null)
   const [counted, setCounted] = useState('')
   const [busy, setBusy] = useState(false)
@@ -231,10 +231,36 @@ export function ShiftDialog({ onClose }: { onClose: () => void }) {
               <b className="num">{money(summary.revenue)}</b>
             </div>
             <div className="kv">
+              <span>{t('openingCash')}</span>
+              <span className="num">{money(summary.openingCash)}</span>
+            </div>
+            {summary.movements.map((m) => (
+              <div className="kv" key={m.id}>
+                <span>
+                  {m.kind === 'out' ? t('cashOut') : t('cashIn')}: {m.note}
+                </span>
+                <span className="num">
+                  {m.kind === 'out' ? '−' : '+'}
+                  {money(m.amount)}
+                </span>
+              </div>
+            ))}
+            <div className="kv">
               <span>{t('expectedCash')}</span>
               <b className="num">{money(summary.expectedCash)}</b>
             </div>
           </div>
+          <button
+            type="button"
+            className="btn plain wide"
+            onClick={() =>
+              void printSlips([shiftReport(summary, boot, lang, boot.shift?.number ?? 0)]).then((err) => {
+                if (err) toast(`${t('printFailed')}: ${err}`)
+              })
+            }
+          >
+            🖨 {t('printReport')}
+          </button>
           {can('shift.open_close') &&
             (summary.openReceipts > 0 ? (
               <div className="err">{t('hasOpenReceipts')}</div>

@@ -160,6 +160,25 @@ ipcMain.handle('neopos:set-printer', (e, name) => {
   return true
 })
 
+/**
+ * Кнопка «Обновить» в кассе: проверяет новую версию программы. Если она есть — скачивает,
+ * устанавливает и перезапускает программу. Если нет — касса просто перезагружает экран.
+ */
+ipcMain.handle('neopos:check-update', async (e) => {
+  if (!trusted(e)) return { status: 'error', error: 'rejected' }
+  if (!app.isPackaged) return { status: 'dev' }
+  try {
+    const { autoUpdater } = require('electron-updater')
+    const result = await autoUpdater.checkForUpdates()
+    if (!result || !result.isUpdateAvailable) return { status: 'latest', version: app.getVersion() }
+    await result.downloadPromise
+    setTimeout(() => autoUpdater.quitAndInstall(true, true), 1500)
+    return { status: 'installing', version: result.updateInfo.version }
+  } catch (err) {
+    return { status: 'error', error: String(err?.message || err) }
+  }
+})
+
 ipcMain.handle('neopos:print', async (e, html) => {
   if (!trusted(e) || typeof html !== 'string' || html.length > 2_000_000) return { ok: false, error: 'rejected' }
   try {
