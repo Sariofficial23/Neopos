@@ -76,6 +76,8 @@ export type Lang = 'uz' | 'ru'
 
 export type Boot = {
   venue: string
+  print: { address: string; phone: string; footer: string; kitchen: boolean; receipt: boolean }
+  departments: { id: string; name: string }[]
   user: { userId: string; name: string; lang: Lang; role: { name: string; permissions: string[] } }
   shift: Shift | null
   categories: { id: string; name: L10n; color: string | null }[]
@@ -99,6 +101,7 @@ export type ShiftSummary = {
 export type ReceiptItem = {
   id: string
   productId: string | null
+  departmentId: string | null
   name: L10n
   price: number
   qty: number
@@ -127,6 +130,9 @@ export type Receipt = {
   serviceAmount: number
   total: number
   openedAt: string
+  closedAt: string | null
+  billPrinted: boolean
+  payments: { name: L10n; kind: string; amount: number }[]
   items: ReceiptItem[]
 }
 
@@ -139,6 +145,7 @@ export type OpenReceipt = {
   waiterId: string | null
   waiterName: string | null
   total: number
+  billPrinted: boolean
   openedAt: string
 }
 

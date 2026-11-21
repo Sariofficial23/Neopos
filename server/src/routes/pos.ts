@@ -38,6 +38,21 @@ const {
   auditLog,
 } = schema
 
+/** Настройки печати заведения с значениями по умолчанию. Хранятся в tenants.settings. */
+export function printSettings(settings: Record<string, unknown>) {
+  const str = (k: string) => (typeof settings[k] === 'string' ? (settings[k] as string) : '')
+  const flag = (k: string) => (typeof settings[k] === 'boolean' ? (settings[k] as boolean) : true)
+  return {
+    address: str('address'),
+    phone: str('phone'),
+    footer: str('receiptFooter'),
+    /** Печатать бегунок на кухню при отправке заказа */
+    kitchen: flag('printKitchen'),
+    /** Печатать чек гостю при закрытии */
+    receipt: flag('printReceipt'),
+  }
+}
+
 export function posRoutes(app: FastifyInstance, db: DB) {
   const { requirePos } = makeAuthGuards(db)
   const pos = { preHandler: requirePos }
@@ -162,7 +177,14 @@ export function posRoutes(app: FastifyInstance, db: DB) {
     const tenantId = req.auth.tenantId
     const live = <T extends { tenantId: unknown; deletedAt: unknown }>(t: T) =>
       and(eq(t.tenantId as never, tenantId), isNull(t.deletedAt as never))
-    const [tenant] = await db.select({ name: tenants.name }).from(tenants).where(eq(tenants.id, tenantId))
+    const [tenant] = await db
+      .select({ name: tenants.name, settings: tenants.settings })
+      .from(tenants)
+      .where(eq(tenants.id, tenantId))
+    const deps = await db
+      .select({ id: schema.departments.id, name: schema.departments.name })
+      .from(schema.departments)
+      .where(live(schema.departments))
     const [cats, prods, hallRows, tableRows, sales, methods, reasonRows] = await Promise.all([
       db.select().from(categories).where(and(live(categories), eq(categories.active, true))).orderBy(asc(categories.sort), asc(categories.createdAt)),
       db.select().from(products).where(and(live(products), eq(products.active, true))).orderBy(asc(products.sort), asc(products.createdAt)),
@@ -176,6 +198,8 @@ export function posRoutes(app: FastifyInstance, db: DB) {
     tableRows.sort((a, b) => collator.compare(a.name, b.name))
     return {
       venue: tenant.name,
+      print: printSettings(tenant.settings),
+      departments: deps,
       user: req.auth,
       shift: await openShift(db, tenantId),
       categories: cats.map((c) => ({ id: c.id, name: c.name, color: c.color })),
@@ -323,13 +347,21 @@ export function posRoutes(app: FastifyInstance, db: DB) {
       .from(receiptItems)
       .where(eq(receiptItems.receiptId, receiptId))
       .orderBy(asc(receiptItems.createdAt))
+    const paid = await conn
+      .select({ name: paymentMethods.name, kind: paymentMethods.kind, amount: payments.amount })
+      .from(payments)
+      .innerJoin(paymentMethods, eq(paymentMethods.id, payments.methodId))
+      .where(eq(payments.receiptId, receiptId))
+      .orderBy(asc(payments.createdAt))
     return {
       ...row.r,
       tableName: row.tableName,
       waiterName: row.waiterName,
+      payments: paid,
       items: items.map((i) => ({
         id: i.id,
         productId: i.productId,
+        departmentId: i.departmentId,
         name: i.name,
         price: i.price,
         qty: i.qty,
@@ -369,6 +401,7 @@ export function posRoutes(app: FastifyInstance, db: DB) {
         waiterId: receipts.waiterId,
         waiterName: users.name,
         total: receipts.total,
+        billPrinted: receipts.billPrinted,
         openedAt: receipts.openedAt,
       })
       .from(receipts)
@@ -589,6 +622,23 @@ export function posRoutes(app: FastifyInstance, db: DB) {
         .returning({ id: receiptItems.id, name: receiptItems.name, qty: receiptItems.qty, departmentId: receiptItems.departmentId, comment: receiptItems.comment })
       if (sent.length) await log(tx, req, id, 'receipt.send', { items: sent.length })
       return { receipt: await fullReceipt(tx, req.auth.tenantId, id), sent }
+    })
+  })
+
+  /** Гостю распечатан счёт (предчек): отмечаем это, стол в зале меняет цвет. */
+  app.post('/api/pos/receipts/:id/bill', pos, async (req) => {
+    const { id } = idParam.parse(req.params)
+    return db.transaction(async (tx) => {
+      const r = await loadOpen(tx, req, id)
+      // Вместе со счётом уходит на кухню всё, что ещё не отправлено: гость платит за то, что в счёте.
+      const sent = await tx
+        .update(receiptItems)
+        .set({ sentAt: new Date() })
+        .where(and(eq(receiptItems.receiptId, id), isNull(receiptItems.sentAt), isNull(receiptItems.voidedAt)))
+        .returning({ id: receiptItems.id })
+      await tx.update(receipts).set({ billPrinted: true }).where(eq(receipts.id, id))
+      await log(tx, req, id, 'receipt.bill', { total: r.total, reprint: r.billPrinted })
+      return { receipt: await fullReceipt(tx, req.auth.tenantId, id), sentIds: sent.map((s) => s.id) }
     })
   })
 

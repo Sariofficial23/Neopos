@@ -97,7 +97,7 @@ export function Hall({ onOpen }: { onOpen: (r: Receipt) => void }) {
               return (
                 <button
                   key={tb.id}
-                  className={`table glass ${r ? 'busy' : foreign ? 'other' : ''}`}
+                  className={`table glass ${r ? (r.billPrinted ? 'busy bill' : 'busy') : foreign ? 'other' : ''}`}
                   onClick={() => void start({ tableId: tb.id })}
                 >
                   <b>{tb.name}</b>

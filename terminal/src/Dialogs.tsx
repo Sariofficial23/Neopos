@@ -26,7 +26,15 @@ export function Dialog({ title, onClose, children }: { title: string; onClose: (
 const digits = (v: string, max = 12) => v.replace(/\D/g, '').slice(0, max)
 
 /** Оплата: нажатие на способ подставляет остаток, для наличных считается сдача. */
-export function PayDialog({ receipt, onClose, onPaid }: { receipt: Receipt; onClose: () => void; onPaid: (change: number) => void }) {
+export function PayDialog({
+  receipt,
+  onClose,
+  onPaid,
+}: {
+  receipt: Receipt
+  onClose: () => void
+  onPaid: (change: number, closed: Receipt) => void
+}) {
   const { t, lang, boot, fail } = useApp()
   const methods = boot.paymentMethods
   const [amounts, setAmounts] = useState<Record<string, string>>({})
@@ -57,8 +65,11 @@ export function PayDialog({ receipt, onClose, onPaid }: { receipt: Receipt; onCl
     setBusy(true)
     try {
       const payments = methods.map((m) => ({ methodId: m.id, amount: value(m.id) })).filter((p) => p.amount > 0)
-      const res = await api<{ change: number }>(`/pos/receipts/${receipt.id}/pay`, { method: 'POST', body: { payments } })
-      onPaid(res.change)
+      const res = await api<{ change: number; receipt: Receipt }>(`/pos/receipts/${receipt.id}/pay`, {
+        method: 'POST',
+        body: { payments },
+      })
+      onPaid(res.change, res.receipt)
     } catch (err) {
       fail(err)
     } finally {

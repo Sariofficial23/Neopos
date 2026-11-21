@@ -7,6 +7,7 @@ import { Layout } from './Layout'
 import { HallsPage } from './pages/Halls'
 import { Login } from './pages/Login'
 import { MenuPage } from './pages/Menu'
+import { SettingsPage } from './pages/Settings'
 import { RolesPage } from './pages/Roles'
 import { StaffPage } from './pages/Staff'
 import { SessionProvider, useSession } from './session'
@@ -50,7 +51,7 @@ function App() {
         <Route path="customers" element={<Soon title="navCustomers" />} />
         <Route path="staff" element={<StaffPage />} />
         <Route path="roles" element={<RolesPage />} />
-        <Route path="settings" element={<Soon title="navSettings" />} />
+        <Route path="settings" element={<SettingsPage />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Route>
     </Routes>

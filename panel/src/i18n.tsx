@@ -133,6 +133,22 @@ const dict = {
   emptyList: { uz: 'Hozircha bo‘sh', ru: 'Пока пусто' },
   sum: { uz: 'so‘m', ru: 'сум' },
 
+  // Настройки
+  setVenue: { uz: 'Muassasa', ru: 'Заведение' },
+  setPrint: { uz: 'Chek chop etish', ru: 'Печать чеков' },
+  address: { uz: 'Manzil', ru: 'Адрес' },
+  printKitchen: { uz: 'Oshxonaga chek chiqarish', ru: 'Печатать заказ на кухню' },
+  printReceipt: { uz: 'Yopilganda chek chiqarish', ru: 'Печатать чек при закрытии' },
+  receiptFooter: { uz: 'Chek ostidagi matn', ru: 'Текст внизу чека' },
+  receiptFooterHint: { uz: 'Masalan: Tashrifingiz uchun rahmat!', ru: 'Например: Спасибо за визит!' },
+  printNote: {
+    uz: 'Kassa kompyuterdagi asosiy printerga chop etadi. Mehmon hisobi (predchek) kassadagi printer tugmasi bilan chiqariladi.',
+    ru: 'Касса печатает на основной принтер компьютера. Счёт гостю (предчек) печатается кнопкой с принтером на кассе.',
+  },
+  receiptPreview: { uz: 'Chek ko‘rinishi', ru: 'Вид чека' },
+  total: { uz: 'JAMI', ru: 'ИТОГО' },
+  savedOk: { uz: 'Saqlandi', ru: 'Сохранено' },
+
   // Залы и столы
   addHall: { uz: 'Zal qo‘shish', ru: 'Добавить зал' },
   hallName: { uz: 'Zal nomi', ru: 'Название зала' },

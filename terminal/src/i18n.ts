@@ -47,6 +47,7 @@ const dict = {
   discount: { uz: 'Chegirma', ru: 'Скидка' },
   comment: { uz: 'Izoh', ru: 'Комментарий' },
   guests: { uz: 'Mehmonlar soni', ru: 'Количество гостей' },
+  printBill: { uz: 'Hisobni chop etish', ru: 'Печать счёта гостю' },
   emptyCheck: { uz: 'Chek bo‘sh', ru: 'Чек пуст' },
   service: { uz: 'xizmat haqi', ru: 'обслуживание' },
   send: { uz: 'Yuborish', ru: 'Отправить' },

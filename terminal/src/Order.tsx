@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState, type FormEvent } from 'react'
 import { api, money, qtyText, type Receipt, type ReceiptItem } from './api'
 import { useApp } from './app'
 import { Dialog, PayDialog } from './Dialogs'
+import { guestReceipt, kitchenSlips, printSlips } from './print'
 
 type Props = { receipt: Receipt; setReceipt: (r: Receipt) => void; onBack: () => void }
 
@@ -19,6 +20,12 @@ const Icon = {
     <>
       <circle cx="9" cy="8" r="3.5" />
       <path d="M2 20c0-3.5 3-5.5 7-5.5s7 2 7 5.5M16 4.5a3.5 3.5 0 0 1 0 7M18.5 14.8c2 .7 3.5 2.3 3.5 5.2" />
+    </>
+  ),
+  print: (
+    <>
+      <path d="M7 8V3h10v5M7 17H4v-7h16v7h-3" />
+      <path d="M7 14h10v7H7z" />
     </>
   ),
   home: <path d="M3 11 12 3l9 8M5 10v10h14V10" />,
@@ -52,20 +59,31 @@ export function Order({ receipt, setReceipt, onBack }: Props) {
     if (el) el.scrollTop = el.scrollHeight
   }, [receipt.items.length])
 
-  /** Ставит запрос в очередь и подставляет вернувшийся чек. */
-  function call(path: string, method: string, body?: unknown, after?: () => void) {
-    const run = async () => {
+  /** Ставит действие в очередь; ошибку показывает всплывающей строкой. */
+  function enqueue(action: () => Promise<void>) {
+    queue.current = queue.current.then(async () => {
       try {
-        const res = await api<Receipt | { receipt: Receipt }>(base + path, { method, body })
-        setReceipt('receipt' in res ? res.receipt : res)
-        after?.()
+        await action()
       } catch (err) {
         fail(err)
       }
-    }
-    queue.current = queue.current.then(run)
+    })
     return queue.current
   }
+
+  /** Запрос к чеку: подставляет вернувшийся чек и передаёт его дальше. */
+  function call(path: string, method: string, body?: unknown, after?: (r: Receipt) => void) {
+    return enqueue(async () => {
+      const res = await api<Receipt | { receipt: Receipt }>(base + path, { method, body })
+      const next = 'receipt' in res ? res.receipt : res
+      setReceipt(next)
+      after?.(next)
+    })
+  }
+
+  /** Бегунки на кухню для указанных позиций — если печать на кухню включена в настройках. */
+  const kitchen = (r: Receipt, ids: Set<string>, cancelled = false) =>
+    boot.print.kitchen ? kitchenSlips(r, r.items.filter((i) => ids.has(i.id)), boot, lang, cancelled) : []
 
   const add = (productId: string) => void call('/items', 'POST', { productId })
 
@@ -84,7 +102,22 @@ export function Order({ receipt, setReceipt, onBack }: Props) {
 
   async function send() {
     setBusy(true)
-    await call('/send', 'POST')
+    await enqueue(async () => {
+      const res = await api<{ receipt: Receipt; sent: { id: string }[] }>(`${base}/send`, { method: 'POST' })
+      setReceipt(res.receipt)
+      printSlips(kitchen(res.receipt, new Set(res.sent.map((s) => s.id))))
+    })
+    setBusy(false)
+  }
+
+  /** Счёт гостю: неотправленное уходит на кухню, стол в зале помечается «счёт выдан». */
+  async function bill() {
+    setBusy(true)
+    await enqueue(async () => {
+      const res = await api<{ receipt: Receipt; sentIds: string[] }>(`${base}/bill`, { method: 'POST' })
+      setReceipt(res.receipt)
+      printSlips([...kitchen(res.receipt, new Set(res.sentIds)), guestReceipt(res.receipt, boot, lang, { final: false })])
+    })
     setBusy(false)
   }
 
@@ -140,6 +173,15 @@ export function Order({ receipt, setReceipt, onBack }: Props) {
             </button>
             <button title={t('guests')} aria-label={t('guests')} onClick={() => setDialog('guests')}>
               <Svg>{Icon.guests}</Svg>
+            </button>
+            <button
+              title={t('printBill')}
+              aria-label={t('printBill')}
+              className={receipt.billPrinted ? 'on' : ''}
+              disabled={!hasLive || busy}
+              onClick={() => void bill()}
+            >
+              <Svg>{Icon.print}</Svg>
             </button>
           </nav>
 
@@ -271,7 +313,16 @@ export function Order({ receipt, setReceipt, onBack }: Props) {
             {boot.reasons
               .filter((r) => r.kind === 'void')
               .map((r) => (
-                <button key={r.id} onClick={() => void call(`/items/${line.id}/void`, 'POST', { reasonId: r.id }, () => setLine(null))}>
+                <button
+                  key={r.id}
+                  onClick={() =>
+                    void call(`/items/${line.id}/void`, 'POST', { reasonId: r.id }, (next) => {
+                      setLine(null)
+                      // Кухня должна узнать, что блюдо готовить не нужно.
+                      printSlips(kitchen(next, new Set([line.id]), true))
+                    })
+                  }
+                >
                   {r.name[lang]}
                 </button>
               ))}
@@ -311,8 +362,14 @@ export function Order({ receipt, setReceipt, onBack }: Props) {
         <PayDialog
           receipt={receipt}
           onClose={() => setDialog(null)}
-          onPaid={(change) => {
+          onPaid={(change, closed) => {
             toast(change > 0 ? `${t('paid')} · ${t('change')}: ${money(change)}` : t('paid'))
+            // Оплата сама отправляет на кухню то, что не успели отправить, — печатаем и это.
+            const late = new Set(fresh.map((i) => i.id))
+            printSlips([
+              ...kitchen(closed, late),
+              ...(boot.print.receipt ? [guestReceipt(closed, boot, lang, { final: true, change })] : []),
+            ])
             onBack()
           }}
         />
