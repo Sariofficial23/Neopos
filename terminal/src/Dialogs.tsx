@@ -1,6 +1,7 @@
 import { useEffect, useState, type FormEvent, type ReactNode } from 'react'
 import { api, money, type Receipt, type ShiftSummary } from './api'
 import { useApp } from './app'
+import type { Key } from './i18n'
 import { desktop, printSlips, shiftReport } from './print'
 
 export function Dialog({ title, onClose, children }: { title: string; onClose: () => void; children: ReactNode }) {
@@ -237,7 +238,9 @@ export function ShiftDialog({ onClose }: { onClose: () => void }) {
             {summary.movements.map((m) => (
               <div className="kv" key={m.id}>
                 <span>
-                  {m.kind === 'out' ? t('cashOut') : t('cashIn')}: {m.note}
+                  {t(`op.${m.type ?? (m.kind === 'out' ? 'expense' : 'income')}` as Key)}
+                  {m.category ? `: ${m.category}` : ''}
+                  {m.note ? ` — ${m.note}` : ''}
                 </span>
                 <span className="num">
                   {m.kind === 'out' ? '−' : '+'}

@@ -148,6 +148,25 @@ const dict = {
   emptyList: { uz: 'Hozircha bo‘sh', ru: 'Пока пусто' },
   sum: { uz: 'so‘m', ru: 'сум' },
 
+  // Категории расходов и операции кассы
+  financeCats: { uz: 'Kassa xarajatlari va kirimlari kategoriyalari', ru: 'Категории расходов и доходов кассы' },
+  financeCatsHint: {
+    uz: 'Kassir «Operatsiya qo‘shish»da shu ro‘yxatdan tanlaydi. Ichki kategoriyalar ham bo‘lishi mumkin: «Kommunal → Internet».',
+    ru: 'Кассир выбирает из этого списка в «Добавить операцию». Можно делать вложенные: «Коммунальные → Интернет».',
+  },
+  catExpense: { uz: 'Xarajatlar', ru: 'Расходы' },
+  catIncome: { uz: 'Kirimlar', ru: 'Доходы' },
+  catNewName: { uz: 'Yangi kategoriya nomi', ru: 'Название новой категории' },
+  catParent: { uz: 'Joylashuvi', ru: 'Куда добавить' },
+  catTopLevel: { uz: 'Asosiy kategoriya', ru: 'Основная категория' },
+  catInside: { uz: 'Ichida', ru: 'Внутри' },
+  catDeleteWithSubs: { uz: 'Ichki kategoriyalari bilan birga o‘chiriladi. Eski operatsiyalar saqlanadi.', ru: 'Удалится вместе с вложенными. Прошлые операции сохранятся.' },
+  cashExpense: { uz: 'Kassadan xarajatlar', ru: 'Расходы из кассы' },
+  cashIncome: { uz: 'Kassaga kirimlar', ru: 'Доходы в кассу' },
+  cashCollection: { uz: 'Inkassatsiya', ru: 'Инкассация' },
+  cashByCategory: { uz: 'Kassa operatsiyalari kategoriyalar bo‘yicha', ru: 'Операции кассы по категориям' },
+  opsCount: { uz: 'Soni', ru: 'Кол-во' },
+
   // Настройки
   setVenue: { uz: 'Muassasa', ru: 'Заведение' },
   setPrint: { uz: 'Chek chop etish', ru: 'Печать чеков' },

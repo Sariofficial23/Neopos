@@ -31,20 +31,21 @@ function range(q: unknown) {
 const localClosed = sql`(${receipts.closedAt} at time zone 'UTC' + make_interval(hours => ${TZ_HOURS}))`
 const num = (expr: SQL) => sql<number>`coalesce(${expr}, 0)::bigint`.mapWith(Number)
 
-export function reportRoutes(app: FastifyInstance, db: DB) {
-  const { requirePerm } = makeAuthGuards(db)
+/** Период отчёта: точные моменты «с — до» или одна смена целиком. */
+export type ReportFilter = { start: Date; end: Date } | { shiftId: string }
 
-  // ───────────── Отчёты ─────────────
-
-  app.get('/api/reports/summary', { preHandler: requirePerm('reports.view') }, async (req) => {
-    const { start, end } = range(req.query)
-    const tenantId = req.auth.tenantId
+/**
+ * Сводный отчёт: выручка, оплаты, типы продаж, сотрудники, товары, категории, отделы и операции с наличными.
+ * Общий для панели (по дням) и кассы (по дате со временем или по смене).
+ */
+export async function buildSummary(db: DB, tenantId: string, f: ReportFilter) {
+  {
+    const byShift = 'shiftId' in f
     // Выручка считается по закрытым чекам и относится к моменту закрытия.
     const closed = and(
       eq(receipts.tenantId, tenantId),
       eq(receipts.status, 'closed'),
-      gte(receipts.closedAt, start),
-      lt(receipts.closedAt, end),
+      byShift ? eq(receipts.shiftId, f.shiftId) : and(gte(receipts.closedAt, f.start), lt(receipts.closedAt, f.end)),
     )
     const liveItem = and(isNull(receiptItems.voidedAt), eq(receiptItems.comp, false))
 
@@ -151,8 +152,57 @@ export function reportRoutes(app: FastifyInstance, db: DB) {
       byCategoryMap.set(key, cur)
     }
 
+    // Операции с наличными за период: расходы, доходы, инкассация — по категориям.
+    const parentCat = alias(schema.financeCategories, 'parent_cat')
+    const cashRows = await db
+      .select({
+        type: schema.cashMovements.type,
+        kind: schema.cashMovements.kind,
+        category: schema.financeCategories.name,
+        parent: parentCat.name,
+        amount: num(sql`sum(${schema.cashMovements.amount})`),
+        count: num(sql`count(*)`),
+      })
+      .from(schema.cashMovements)
+      .leftJoin(schema.financeCategories, eq(schema.financeCategories.id, schema.cashMovements.categoryId))
+      .leftJoin(parentCat, eq(parentCat.id, schema.financeCategories.parentId))
+      .where(
+        and(
+          eq(schema.cashMovements.tenantId, tenantId),
+          byShift
+            ? eq(schema.cashMovements.shiftId, f.shiftId)
+            : and(gte(schema.cashMovements.createdAt, f.start), lt(schema.cashMovements.createdAt, f.end)),
+        ),
+      )
+      .groupBy(schema.cashMovements.type, schema.cashMovements.kind, schema.financeCategories.name, parentCat.name)
+    // Старые операции без типа: внесение считаем доходом, изъятие — расходом.
+    const typeOf = (r: { type: string | null; kind: string }) => r.type ?? (r.kind === 'in' ? 'income' : 'expense')
+    const cashSum = (t: string) => cashRows.filter((r) => typeOf(r) === t).reduce((a, r) => a + r.amount, 0)
+    const cash = {
+      expense: cashSum('expense'),
+      income: cashSum('income'),
+      collection: cashSum('collection'),
+      byCategory: cashRows
+        .map((r) => ({ type: typeOf(r), name: r.category, parent: r.parent, amount: r.amount, count: r.count }))
+        .sort((a, b) => b.amount - a.amount),
+    }
+    // Отделы (кухня, бар…) — по снимку отдела в строке чека.
+    const byDepartment = await db
+      .select({
+        id: receiptItems.departmentId,
+        name: schema.departments.name,
+        qty: num(sql`sum(${receiptItems.qty})`),
+        amount: num(sql`sum(${receiptItems.total})`),
+      })
+      .from(receiptItems)
+      .innerJoin(receipts, eq(receipts.id, receiptItems.receiptId))
+      .leftJoin(schema.departments, eq(schema.departments.id, receiptItems.departmentId))
+      .where(and(closed, liveItem))
+      .groupBy(receiptItems.departmentId, schema.departments.name)
+      .orderBy(desc(sql`sum(${receiptItems.total})`))
     const cost = byProduct.reduce((s, p) => s + p.cost, 0)
     return {
+      byDepartment,
       totals: {
         ...totals,
         average: totals.receipts ? Math.round(totals.revenue / totals.receipts) : 0,
@@ -163,6 +213,7 @@ export function reportRoutes(app: FastifyInstance, db: DB) {
         noCostAmount: byProduct.reduce((s, p) => s + p.noCostAmount, 0),
       },
       voids,
+      cash,
       byDay,
       byHour,
       byMethod,
@@ -171,6 +222,53 @@ export function reportRoutes(app: FastifyInstance, db: DB) {
       byCategory: [...byCategoryMap.values()].sort((a, b) => b.amount - a.amount),
       byProduct,
     }
+  }
+}
+
+export function reportRoutes(app: FastifyInstance, db: DB) {
+  const { requirePerm, requirePos } = makeAuthGuards(db)
+
+  // ───────────── Отчёты ─────────────
+
+  app.get('/api/reports/summary', { preHandler: requirePerm('reports.view') }, async (req) => buildSummary(db, req.auth.tenantId, range(req.query)))
+
+  // ───────────── Отчёт на кассе: с даты-времени по дату-время или по смене ─────────────
+
+  const canKassaReport = (req: { auth: { role: { permissions: string[] } } }) => {
+    const p = req.auth.role.permissions
+    if (!p.includes('reports.view') && !p.includes('shift.open_close')) throw new HttpError(403, 'no_permission')
+  }
+
+  app.get('/api/pos/report', { preHandler: requirePos }, async (req) => {
+    canKassaReport(req)
+    const q = z
+      .object({ from: z.string().datetime({ offset: true }).optional(), to: z.string().datetime({ offset: true }).optional(), shiftId: z.string().uuid().optional() })
+      .parse(req.query)
+    const tenantId = req.auth.tenantId
+    if (q.shiftId) {
+      const [s] = await db
+        .select({ id: shifts.id })
+        .from(shifts)
+        .where(and(eq(shifts.id, q.shiftId), eq(shifts.tenantId, tenantId)))
+      if (!s) throw new HttpError(404, 'not_found')
+      return buildSummary(db, tenantId, { shiftId: q.shiftId })
+    }
+    if (!q.from || !q.to) throw new HttpError(400, 'bad_range')
+    const start = new Date(q.from)
+    const end = new Date(q.to)
+    if (!(start < end) || end.getTime() - start.getTime() > 400 * 86_400_000) throw new HttpError(400, 'bad_range')
+    return buildSummary(db, tenantId, { start, end })
+  })
+
+  // Последние смены для выбора в отчёте
+  app.get('/api/pos/report/shifts', { preHandler: requirePos }, async (req) => {
+    canKassaReport(req)
+    return db
+      .select({ id: shifts.id, number: shifts.number, openedAt: shifts.openedAt, closedAt: shifts.closedAt })
+      .from(shifts)
+      .where(eq(shifts.tenantId, req.auth.tenantId))
+      .orderBy(desc(shifts.openedAt))
+      .limit(60)
   })
 
   app.get('/api/reports/shifts', { preHandler: requirePerm('reports.view') }, async (req) => {

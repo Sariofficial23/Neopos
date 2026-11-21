@@ -18,6 +18,12 @@ type Summary = {
     noCostAmount: number
   }
   voids: { count: number; amount: number }
+  cash: {
+    expense: number
+    income: number
+    collection: number
+    byCategory: { type: string; name: string | null; parent: string | null; amount: number; count: number }[]
+  }
   byDay: { day: string; receipts: number; revenue: number }[]
   byHour: { hour: number; receipts: number; revenue: number }[]
   byMethod: { id: string; name: L10n; amount: number }[]
@@ -345,6 +351,23 @@ export function ReportsPage() {
                 qtyLabel={t('qty')}
                 note={t('itemsNote')}
                 rows={data.byProduct.map((p, i) => ({ key: p.productId ?? `x${i}`, name: p.name[lang], qty: qtyText(p.qty), amount: p.amount }))}
+              />
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+                <Kpi label={t('cashExpense')} value={money(data.cash.expense)} />
+                <Kpi label={t('cashIncome')} value={money(data.cash.income)} />
+                <Kpi label={t('cashCollection')} value={money(data.cash.collection)} />
+              </div>
+              <Rank
+                title={t('cashByCategory')}
+                qtyLabel={t('opsCount')}
+                rows={data.cash.byCategory
+                  .filter((c) => c.type !== 'collection')
+                  .map((c, i) => ({
+                    key: `${c.type}-${c.parent ?? ''}-${c.name ?? ''}-${i}`,
+                    name: `${c.type === 'income' ? '＋ ' : ''}${c.parent ? `${c.parent} → ` : ''}${c.name ?? t('noCategory')}`,
+                    qty: String(c.count),
+                    amount: c.amount,
+                  }))}
               />
             </div>
           )}
