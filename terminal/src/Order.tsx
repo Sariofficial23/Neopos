@@ -212,7 +212,7 @@ export function Order({ receipt, setReceipt, onBack }: Props) {
             <button
               title={t('printBill')}
               aria-label={t('printBill')}
-              className={receipt.billPrinted ? 'on' : ''}
+              className={`rail-print ${receipt.billPrinted ? 'on' : ''}`}
               disabled={!hasLive || busy}
               onClick={() => void bill()}
             >

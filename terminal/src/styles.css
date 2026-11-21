@@ -317,3 +317,7 @@ body:has([data-scene="cafe"]) { --scene: url('./assets/cafe.webp'); }
 .net.off { background: #e03131; animation: net-blink 1.6s ease-in-out infinite; }
 @keyframes net-blink { 50% { opacity: 0.6; } }
 @media (max-width: 480px) { .pin-top { padding: 10px 12px; } .pin-top .venue { font-size: 14px; } .net { height: 34px; padding: 0 10px; font-size: 12px; } }
+
+/* «Печать счёта» — отдельно, внизу левой панели чека */
+.rail .rail-print { margin-top: auto; width: 46px; height: 52px; background: var(--panel-strong); color: var(--text); box-shadow: 0 2px 8px rgba(40, 50, 120, 0.12); }
+.rail .rail-print.on { color: var(--send); }
