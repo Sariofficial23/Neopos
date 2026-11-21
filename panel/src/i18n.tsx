@@ -41,6 +41,8 @@ const dict = {
   navStaff: { uz: 'Xodimlar', ru: 'Сотрудники' },
   navRoles: { uz: 'Lavozimlar', ru: 'Должности' },
   navSettings: { uz: 'Sozlamalar', ru: 'Настройки' },
+  navExpand: { uz: 'Menyuni to‘liq ochish', ru: 'Раскрыть меню полностью' },
+  navCollapse: { uz: 'Menyuni yig‘ish', ru: 'Свернуть меню' },
 
   // Сводка
   welcome: { uz: 'Xush kelibsiz', ru: 'Добро пожаловать' },
@@ -139,6 +141,12 @@ const dict = {
   address: { uz: 'Manzil', ru: 'Адрес' },
   printKitchen: { uz: 'Oshxonaga chek chiqarish', ru: 'Печатать заказ на кухню' },
   printReceipt: { uz: 'Yopilganda chek chiqarish', ru: 'Печатать чек при закрытии' },
+  setReceiptText: { uz: 'Chekda nima yoziladi', ru: 'Что написать в чеке' },
+  receiptHeader: { uz: 'Nom ostidagi qator', ru: 'Строка под названием' },
+  receiptHeaderHint: { uz: 'Masalan: Instagram: @neopos yoki Wi-Fi paroli', ru: 'Например: Instagram: @neopos или пароль Wi-Fi' },
+  showTime: { uz: 'Sana va vaqtni ko‘rsatish', ru: 'Показывать дату и время' },
+  showWaiter: { uz: 'Ofitsiant ismini ko‘rsatish', ru: 'Показывать имя официанта' },
+  showGuests: { uz: 'Mehmonlar sonini ko‘rsatish', ru: 'Показывать число гостей' },
   receiptFooter: { uz: 'Chek ostidagi matn', ru: 'Текст внизу чека' },
   receiptFooterHint: { uz: 'Masalan: Tashrifingiz uchun rahmat!', ru: 'Например: Спасибо за визит!' },
   printNote: {

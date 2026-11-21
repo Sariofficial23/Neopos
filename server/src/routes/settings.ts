@@ -9,7 +9,11 @@ const body = z.object({
   name: z.string().trim().min(2).max(80),
   address: z.string().trim().max(160).default(''),
   phone: z.string().trim().max(40).default(''),
+  receiptHeader: z.string().trim().max(120).default(''),
   receiptFooter: z.string().trim().max(200).default(''),
+  receiptShowWaiter: z.boolean().default(true),
+  receiptShowGuests: z.boolean().default(true),
+  receiptShowTime: z.boolean().default(true),
   printKitchen: z.boolean().default(true),
   printReceipt: z.boolean().default(true),
 })
@@ -27,7 +31,11 @@ export function settingsRoutes(app: FastifyInstance, db: DB) {
       name: t.name,
       address: p.address,
       phone: p.phone,
+      receiptHeader: p.header,
       receiptFooter: p.footer,
+      receiptShowWaiter: p.showWaiter,
+      receiptShowGuests: p.showGuests,
+      receiptShowTime: p.showTime,
       printKitchen: p.kitchen,
       printReceipt: p.receipt,
     }

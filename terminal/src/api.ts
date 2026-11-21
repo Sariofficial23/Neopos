@@ -76,7 +76,17 @@ export type Lang = 'uz' | 'ru'
 
 export type Boot = {
   venue: string
-  print: { address: string; phone: string; footer: string; kitchen: boolean; receipt: boolean }
+  print: {
+    address: string
+    phone: string
+    header: string
+    footer: string
+    showWaiter: boolean
+    showGuests: boolean
+    showTime: boolean
+    kitchen: boolean
+    receipt: boolean
+  }
   departments: { id: string; name: string }[]
   user: { userId: string; name: string; lang: Lang; role: { name: string; permissions: string[] } }
   shift: Shift | null

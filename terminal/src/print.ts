@@ -75,11 +75,12 @@ export function guestReceipt(r: Receipt, boot: Boot, lang: Lang, opts: { final: 
       <div class="c big">${esc(boot.venue)}</div>
       ${boot.print.address ? `<div class="c">${esc(boot.print.address)}</div>` : ''}
       ${boot.print.phone ? `<div class="c">${esc(boot.print.phone)}</div>` : ''}
+      ${boot.print.header ? `<div class="c">${esc(boot.print.header)}</div>` : ''}
       <hr />
       ${opts.final ? '' : `<div class="c big">${words.bill[lang]}</div>`}
-      ${kv(`${words.receipt[lang]} №${r.number}`, time(opts.final && r.closedAt ? r.closedAt : new Date()))}
-      ${kv(esc(place(r, boot, lang)), `${words.guests[lang]}: ${r.guests}`)}
-      ${kv(words.waiter[lang], esc(r.waiterName ?? ''))}
+      ${kv(`${words.receipt[lang]} №${r.number}`, boot.print.showTime ? time(opts.final && r.closedAt ? r.closedAt : new Date()) : '')}
+      ${kv(esc(place(r, boot, lang)), boot.print.showGuests ? `${words.guests[lang]}: ${r.guests}` : '')}
+      ${boot.print.showWaiter ? kv(words.waiter[lang], esc(r.waiterName ?? '')) : ''}
       <hr />
       ${live
         .map(

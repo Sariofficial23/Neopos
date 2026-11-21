@@ -45,7 +45,12 @@ export function printSettings(settings: Record<string, unknown>) {
   return {
     address: str('address'),
     phone: str('phone'),
+    /** Дополнительная строка под названием заведения */
+    header: str('receiptHeader'),
     footer: str('receiptFooter'),
+    showWaiter: flag('receiptShowWaiter'),
+    showGuests: flag('receiptShowGuests'),
+    showTime: flag('receiptShowTime'),
     /** Печатать бегунок на кухню при отправке заказа */
     kitchen: flag('printKitchen'),
     /** Печатать чек гостю при закрытии */
