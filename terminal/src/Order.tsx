@@ -447,13 +447,13 @@ export function Order({ receipt, setReceipt, onBack }: Props) {
         <PayDialog
           receipt={receipt}
           onClose={() => setDialog(null)}
-          onPaid={(change, closed) => {
+          onPaid={(change, closed, printReceipt) => {
             toast(change > 0 ? `${t('paid')} · ${t('change')}: ${money(change)}` : t('paid'))
             // Оплата сама отправляет на кухню то, что не успели отправить, — печатаем и это.
             const late = new Set(fresh.map((i) => i.id))
             printOut([
               ...kitchen(closed, late),
-              ...(boot.print.receipt ? [guestReceipt(closed, boot, lang, { final: true, change })] : []),
+              ...(printReceipt ? [guestReceipt(closed, boot, lang, { final: true, change })] : []),
             ])
             onBack()
           }}

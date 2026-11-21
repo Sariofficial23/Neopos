@@ -92,13 +92,17 @@ export function PayDialog({
 }: {
   receipt: Receipt
   onClose: () => void
-  onPaid: (change: number, closed: Receipt) => void
+  onPaid: (change: number, closed: Receipt, printReceipt: boolean) => void
 }) {
   const { t, lang, boot, fail } = useApp()
   const methods = boot.paymentMethods
-  const [amounts, setAmounts] = useState<Record<string, string>>({})
-  const [busy, setBusy] = useState(false)
   const total = receipt.total
+  const cash = methods.find((m) => m.kind === 'cash')
+  // По умолчанию вся сумма — наличными: кассиру остаётся нажать «Принять оплату».
+  const [amounts, setAmounts] = useState<Record<string, string>>(() => (cash && total > 0 ? { [cash.id]: String(total) } : {}))
+  // Печать чека гостю: включена по умолчанию (как в настройках), кассир может выключить для этого чека.
+  const [printIt, setPrintIt] = useState(boot.print.receipt)
+  const [busy, setBusy] = useState(false)
 
   const value = (id: string) => Number(amounts[id] || 0)
   const paid = methods.reduce((s, m) => s + value(m.id), 0)
@@ -109,11 +113,12 @@ export function PayDialog({
   /** Нажатие на способ оплаты: закрывает им всё, что ещё не покрыто остальными. */
   const fill = (id: string) => {
     const others = paid - value(id)
+    // Остальные способы уже покрывают чек (например, наличные по умолчанию) — переносим всю сумму на выбранный.
+    if (others >= total) return setAmounts({ [id]: String(total) })
     const rest = Math.max(0, total - others)
     setAmounts((a) => ({ ...a, [id]: rest ? String(rest) : '' }))
   }
 
-  const cash = methods.find((m) => m.kind === 'cash')
   const quick = cash
     ? [...new Set([10_000, 50_000, 100_000].map((step) => Math.ceil(total / step) * step))].filter((v) => v > total).slice(0, 3)
     : []
@@ -128,7 +133,7 @@ export function PayDialog({
         method: 'POST',
         body: { payments },
       })
-      onPaid(res.change, res.receipt)
+      onPaid(res.change, res.receipt, printIt)
     } catch (err) {
       fail(err)
     } finally {
@@ -174,6 +179,10 @@ export function PayDialog({
         <div className={`change num ${diff >= 0 ? 'ok' : 'need'}`}>
           {paid === 0 ? '' : diff >= 0 ? `${t('change')}: ${money(diff)}` : `${t('remaining')}: ${money(-diff)}`}
         </div>
+        <label className="switch-row">
+          <span>🧾 {t('printReceiptSwitch')}</span>
+          <input type="checkbox" role="switch" className="switch" checked={printIt} onChange={(e) => setPrintIt(e.target.checked)} />
+        </label>
         <button className="btn close wide" disabled={!valid || busy}>
           {t('pay')}
         </button>

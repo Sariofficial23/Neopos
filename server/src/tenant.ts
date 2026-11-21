@@ -98,8 +98,6 @@ export async function createTenant(db: DB, input: NewTenant) {
     await tx.insert(schema.paymentMethods).values([
       { tenantId, kind: 'cash', name: { uz: 'Naqd', ru: 'Наличные' }, sort: 1 },
       { tenantId, kind: 'card', name: { uz: 'Karta', ru: 'Карта' }, sort: 2 },
-      { tenantId, kind: 'transfer', name: { uz: 'Click', ru: 'Click' }, sort: 3 },
-      { tenantId, kind: 'transfer', name: { uz: 'Payme', ru: 'Payme' }, sort: 4 },
     ])
 
     await tx.insert(schema.reasons).values([

@@ -148,6 +148,24 @@ const dict = {
   emptyList: { uz: 'Hozircha bo‘sh', ru: 'Пока пусто' },
   sum: { uz: 'so‘m', ru: 'сум' },
 
+  // Способы оплаты
+  payMethods: { uz: 'To‘lov turlari', ru: 'Способы оплаты' },
+  payMethodsHint: {
+    uz: 'Kassada to‘lov oynasida faqat yoqilganlari chiqadi. Naqd pul tanlangan holda ochiladi.',
+    ru: 'В окне оплаты на кассе видны только включённые. По умолчанию выбраны наличные.',
+  },
+  payMethodNew: { uz: 'Yangi to‘lov turi, masalan Uzum', ru: 'Новый способ, например Uzum' },
+  payMethodKind: { uz: 'Turi', ru: 'Тип' },
+  'payKind.cash': { uz: 'naqd (qaytim beriladi)', ru: 'наличные (со сдачей)' },
+  'payKind.card': { uz: 'karta', ru: 'карта' },
+  'payKind.transfer': { uz: 'o‘tkazma', ru: 'перевод' },
+  'payKind.other': { uz: 'boshqa', ru: 'прочее' },
+  'err.last_payment_method': { uz: 'Kamida bitta to‘lov turi yoqilgan bo‘lishi kerak', ru: 'Хотя бы один способ оплаты должен быть включён' },
+  'err.payment_method_used': {
+    uz: 'Bu turdagi to‘lovlar bor — o‘chirib bo‘lmaydi, uni o‘chirib qo‘ying (tugma)',
+    ru: 'Этим способом уже платили — удалить нельзя, выключите его переключателем',
+  },
+
   // Оформление кассы
   brandTitle: { uz: 'Kassa bezagi: logotip va muassasa surati', ru: 'Оформление кассы: логотип и фото заведения' },
   brandLogo: { uz: 'Logotip', ru: 'Логотип' },

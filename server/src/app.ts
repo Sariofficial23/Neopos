@@ -7,6 +7,7 @@ import type { DB } from './db/index.js'
 import { adminRoutes } from './routes/admin.js'
 import { authRoutes } from './routes/auth.js'
 import { brandRoutes } from './routes/brand.js'
+import { paymentMethodRoutes } from './routes/payment-methods.js'
 import { financeRoutes } from './routes/finance.js'
 import { hallRoutes, menuRoutes } from './routes/menu.js'
 import { posRoutes } from './routes/pos.js'
@@ -57,5 +58,6 @@ export async function buildApp(db: DB) {
   adminRoutes(app, db)
   financeRoutes(app, db)
   brandRoutes(app, db)
+  paymentMethodRoutes(app, db)
   return app
 }

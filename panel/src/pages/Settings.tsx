@@ -4,6 +4,7 @@ import { useI18n } from '../i18n'
 import { ErrorNote, Field, Toggle } from '../ui'
 import { BrandCard } from './Brand'
 import { FinanceCategoriesCard } from './FinanceCategories'
+import { PaymentMethodsCard } from './PaymentMethods'
 
 type Settings = {
   name: string
@@ -150,6 +151,7 @@ export function SettingsPage() {
         </form>
       )}
       <div className="mt-5 space-y-5 min-[700px]:mr-[292px]">
+        <PaymentMethodsCard />
         <BrandCard />
         <FinanceCategoriesCard />
       </div>
