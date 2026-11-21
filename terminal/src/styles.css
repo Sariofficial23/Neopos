@@ -321,3 +321,7 @@ body:has([data-scene="cafe"]) { --scene: url('./assets/cafe.webp'); }
 /* «Печать счёта» — отдельно, внизу левой панели чека */
 .rail .rail-print { margin-top: auto; width: 46px; height: 52px; background: var(--panel-strong); color: var(--text); box-shadow: 0 2px 8px rgba(40, 50, 120, 0.12); }
 .rail .rail-print.on { color: var(--send); }
+/* Полоса значков кончается у линии итога: «Печать счёта» стоит у линии, подальше от «Отправить» */
+.check > .rail { grid-row: 1 / 3; }
+.rail .rail-print { margin-bottom: 4px; }
+.check > .sum, .check > .foot { grid-column: 2; }

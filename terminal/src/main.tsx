@@ -1,7 +1,10 @@
 import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 import { App } from './app'
+import { installTapSound } from './tap'
 import './styles.css'
+
+installTapSound()
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
