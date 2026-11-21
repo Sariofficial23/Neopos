@@ -524,3 +524,24 @@ export const platformSettings = pgTable('platform_settings', {
   key: text('key').primaryKey(),
   value: jsonb('value').$type<unknown>().notNull(),
 })
+
+// ───────────── Оформление бренда ─────────────
+
+/**
+ * Картинки бренда, которые владелец загружает в панели: логотип и фото заведения (фон кассы).
+ * Отдельная таблица, чтобы тяжёлые данные не тянулись с каждой записью заведения.
+ */
+export const brandMedia = pgTable(
+  'brand_media',
+  {
+    id: id(),
+    tenantId: tenantRef(),
+    /** logo | photo */
+    kind: text('kind').notNull(),
+    mime: text('mime').notNull(),
+    /** Содержимое в base64 */
+    data: text('data').notNull(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [uniqueIndex('brand_media_kind_uq').on(t.tenantId, t.kind)],
+)

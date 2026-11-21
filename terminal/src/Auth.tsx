@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState, type FormEvent } from 'react'
 import { api, ApiError, device, type Lang } from './api'
 import { useApp } from './app'
+import { mediaUrl, NetStatus, type DeviceInfo } from './Brand'
 import { DOWNLOAD_URL } from './download'
 import type { Key } from './i18n'
 import { desktop } from './print'
@@ -95,11 +96,10 @@ const PIN_LEN = 4
 export function Pin({
   t,
   tErr,
-  lang,
-  setLang,
+  info,
   onToken,
   onDeviceLost,
-}: Base & { onToken: (token: string) => void; onDeviceLost: () => void }) {
+}: Pick<Base, 't' | 'tErr'> & { info: DeviceInfo | null; onToken: (token: string) => void; onDeviceLost: () => void }) {
   const [pin, setPin] = useState('')
   const [error, setError] = useState('')
   const [busy, setBusy] = useState(false)
@@ -150,7 +150,15 @@ export function Pin({
   }, [press])
 
   return (
-    <div className="center" data-scene="ocean">
+    <div className="center pin-screen" data-scene="ocean">
+      {/* Слева — бренд заведения, справа — есть ли интернет */}
+      <header className="pin-top">
+        <div className="venue">
+          {info?.logo && <img src={mediaUrl(info.logo)} alt="" />}
+          <span>{info?.venue}</span>
+        </div>
+        <NetStatus t={t} />
+      </header>
       <div className="card glass">
         <div className="brand"><img src={`${import.meta.env.BASE_URL}brand/neopos.webp`} alt="NeoPos" /></div>
         <div className="sub">{t('enterPin')}</div>
@@ -174,7 +182,6 @@ export function Pin({
             ⌫
           </button>
         </div>
-        <LangPick lang={lang} setLang={setLang} />
       </div>
     </div>
   )

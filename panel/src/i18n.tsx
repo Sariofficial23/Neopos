@@ -148,6 +148,20 @@ const dict = {
   emptyList: { uz: 'Hozircha bo‘sh', ru: 'Пока пусто' },
   sum: { uz: 'so‘m', ru: 'сум' },
 
+  // Оформление кассы
+  brandTitle: { uz: 'Kassa bezagi: logotip va muassasa surati', ru: 'Оформление кассы: логотип и фото заведения' },
+  brandLogo: { uz: 'Logotip', ru: 'Логотип' },
+  brandPhoto: { uz: 'Muassasa surati', ru: 'Фото заведения' },
+  brandUpload: { uz: 'Rasm yuklash', ru: 'Загрузить фото' },
+  brandReplace: { uz: 'Almashtirish', ru: 'Заменить' },
+  brandLogoHint: { uz: 'Kassada chap yuqorida nomi bilan chiqadi. PNG yoki WebP, shaffof fon bilan yaxshi.', ru: 'Показывается на кассе слева сверху рядом с названием. Лучше PNG с прозрачным фоном.' },
+  brandPhotoHint: {
+    uz: 'Kassa fonida chiqadi: zal, ayvon yoki fasad surati. Katta rasm avtomatik kichraytiriladi.',
+    ru: 'Ставится фоном кассы: зал, терраса или фасад. Большое фото уменьшится автоматически.',
+  },
+  'err.image_too_big': { uz: 'Rasm juda katta, boshqasini tanlang', ru: 'Слишком большое изображение, выберите другое' },
+  'err.bad_image': { uz: 'Faqat JPG, PNG yoki WebP rasm', ru: 'Только изображения JPG, PNG или WebP' },
+
   // Категории расходов и операции кассы
   financeCats: { uz: 'Kassa xarajatlari va kirimlari kategoriyalari', ru: 'Категории расходов и доходов кассы' },
   financeCatsHint: {

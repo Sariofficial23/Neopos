@@ -303,3 +303,18 @@ body:has([data-scene="burger"]) { --scene: url('./assets/burger.webp'); }
 .switch::after { content: ''; position: absolute; top: 2px; left: 2px; width: 27px; height: 27px; border-radius: 50%; background: #fff; box-shadow: 0 2px 4px rgba(0, 0, 0, 0.25); transition: transform 0.2s; }
 .switch:checked { background: #34c759; }
 .switch:checked::after { transform: translateX(20px); }
+
+/* Экран ПИН-кода: слева сверху — бренд заведения, справа — состояние интернета */
+.pin-screen { position: relative; padding-top: 72px; }
+.pin-top { position: absolute; top: 0; left: 0; right: 0; display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 14px 20px; }
+.pin-top .venue { display: flex; align-items: center; gap: 10px; min-width: 0; padding: 6px 14px 6px 6px; border-radius: 999px; background: rgba(255, 255, 255, 0.72); -webkit-backdrop-filter: var(--blur); backdrop-filter: var(--blur); box-shadow: 0 4px 14px rgba(40, 50, 120, 0.14); font-weight: 700; font-size: 17px; }
+.pin-top .venue:has(> span:empty) { display: none; }
+.pin-top .venue img { width: 40px; height: 40px; border-radius: 50%; object-fit: contain; background: #fff; }
+.pin-top .venue:not(:has(img)) { padding-left: 14px; }
+.pin-top .venue span { overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+.net { flex: none; display: inline-flex; align-items: center; gap: 8px; height: 40px; padding: 0 14px; border-radius: 999px; font-weight: 700; font-size: 14px; color: #fff; box-shadow: 0 4px 14px rgba(40, 50, 120, 0.18); }
+.net svg { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width: 2.2; stroke-linecap: round; }
+.net.ok { background: #22a755; }
+.net.off { background: #e03131; animation: net-blink 1.6s ease-in-out infinite; }
+@keyframes net-blink { 50% { opacity: 0.6; } }
+@media (max-width: 480px) { .pin-top { padding: 10px 12px; } .pin-top .venue { font-size: 14px; } .net { height: 34px; padding: 0 10px; font-size: 12px; } }

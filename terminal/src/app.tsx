@@ -1,6 +1,7 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { api, ApiError, device, session, setSessionLostHandler, type Boot, type Lang, type Receipt } from './api'
 import { Activate, Pin, ShiftGate } from './Auth'
+import { useDeviceInfo, useVenuePhoto } from './Brand'
 import { ControlPanel } from './ControlPanel'
 import { Hall } from './Hall'
 import { makeT, type Key } from './i18n'
@@ -48,8 +49,12 @@ export function App() {
   const [toastText, setToastText] = useState<string | null>(null)
   const toastTimer = useRef<number | undefined>(undefined)
 
-  // До входа язык выбирается на экране ПИН-кода, после входа — язык сотрудника.
-  const lang = boot?.user.lang ?? uiLang
+  const deviceInfo = useDeviceInfo(hasDevice)
+  // Фото заведения из панели — фоном на всех экранах кассы.
+  useVenuePhoto(boot?.brand?.photo ?? deviceInfo?.photo)
+
+  // До входа — язык владельца заведения (на первом подключении — выбранный вручную), после входа — язык сотрудника.
+  const lang = boot?.user.lang ?? deviceInfo?.lang ?? uiLang
   const { t, tErr } = useMemo(() => makeT(lang), [lang])
 
   const pickLang = (l: Lang) => {
@@ -126,8 +131,7 @@ export function App() {
       <Pin
         t={t}
         tErr={tErr}
-        lang={lang}
-        setLang={pickLang}
+        info={deviceInfo}
         onToken={(tk) => {
           session.set(tk)
           setToken(tk)

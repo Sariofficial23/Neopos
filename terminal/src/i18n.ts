@@ -51,6 +51,8 @@ const dict = {
   controlPanel: { uz: 'Boshqaruv paneli', ru: 'Панель управления' },
   cpReport: { uz: 'Hisobot yaratish', ru: 'Создать отчёт' },
   report: { uz: 'Hisobot', ru: 'Отчёт' },
+  netOnline: { uz: 'Internet bor', ru: 'Онлайн' },
+  netOffline: { uz: 'Internet yo‘q', ru: 'Нет интернета' },
   menuSettings: { uz: 'Menyuni sozlash', ru: 'Настройка меню' },
   menuEditOn: { uz: 'Menyu sozlash rejimi: plitkani bosing yoki «+» qo‘shing', ru: 'Режим настройки меню: нажмите на плитку или «+»' },
   newCategory: { uz: 'Yangi kategoriya', ru: 'Новая категория' },

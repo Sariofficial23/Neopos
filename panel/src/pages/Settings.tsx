@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState, type FormEvent } from 'react'
 import { api, ApiError } from '../api'
 import { useI18n } from '../i18n'
 import { ErrorNote, Field, Toggle } from '../ui'
+import { BrandCard } from './Brand'
 import { FinanceCategoriesCard } from './FinanceCategories'
 
 type Settings = {
@@ -148,7 +149,8 @@ export function SettingsPage() {
           </aside>
         </form>
       )}
-      <div className="mt-5 min-[700px]:mr-[292px]">
+      <div className="mt-5 space-y-5 min-[700px]:mr-[292px]">
+        <BrandCard />
         <FinanceCategoriesCard />
       </div>
     </div>

@@ -11,6 +11,7 @@ import {
   verifyPassword,
 } from '../auth.js'
 import { schema, type DB } from '../db/index.js'
+import { brandImages } from './brand.js'
 import { listPrinters } from './finance.js'
 
 const idParam = z.object({ id: z.string().uuid() })
@@ -211,6 +212,7 @@ export function posRoutes(app: FastifyInstance, db: DB) {
       venue: tenant.name,
       print: printSettings(tenant.settings),
       printers: await listPrinters(db, tenantId),
+      brand: await brandImages(db, tenantId),
       departments: deps,
       user: req.auth,
       shift: await openShift(db, tenantId),

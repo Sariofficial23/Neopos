@@ -28,7 +28,7 @@ export const session = {
 }
 
 /** В разработке запросы идут через прокси Vite; в боевой сборке адрес сервера задаёт VITE_API_URL. */
-const API_BASE = (import.meta.env.VITE_API_URL ?? '').replace(/\/+$/, '')
+export const API_BASE = (import.meta.env.VITE_API_URL ?? '').replace(/\/+$/, '')
 
 export class ApiError extends Error {
   constructor(
@@ -89,6 +89,7 @@ export type Boot = {
   }
   departments: { id: string; name: string }[]
   printers: NetPrinter[]
+  brand?: { logo: string | null; photo: string | null }
   user: { userId: string; name: string; lang: Lang; role: { name: string; permissions: string[] } }
   shift: Shift | null
   categories: { id: string; name: L10n; color: string | null }[]

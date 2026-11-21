@@ -43,6 +43,13 @@
       "when": 1795284155686,
       "tag": "0005_whole_tattoo",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1795286109874,
+      "tag": "0006_clean_shinko_yamashiro",
+      "breakpoints": true
     }
   ]
 }
