@@ -112,6 +112,7 @@ export type Product = {
   categoryId: string | null
   departmentId: string | null
   price: number
+  cost: number
   barcode: string | null
   unit: 'pcs' | 'kg' | 'l'
   byWeight: boolean

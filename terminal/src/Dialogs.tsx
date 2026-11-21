@@ -1,6 +1,7 @@
 import { useEffect, useState, type FormEvent, type ReactNode } from 'react'
 import { api, money, type Receipt, type ShiftSummary } from './api'
 import { useApp } from './app'
+import { desktop, printSlips } from './print'
 
 export function Dialog({ title, onClose, children }: { title: string; onClose: () => void; children: ReactNode }) {
   useEffect(() => {
@@ -24,6 +25,63 @@ export function Dialog({ title, onClose, children }: { title: string; onClose: (
 }
 
 const digits = (v: string, max = 12) => v.replace(/\D/g, '').slice(0, max)
+
+/** Выбор принтера чеков — только в приложении NeoPos Kassa для Windows. */
+export function PrinterSetting() {
+  const { t, toast, boot } = useApp()
+  const [printers, setPrinters] = useState<{ name: string; displayName: string; isDefault: boolean }[]>([])
+  const [current, setCurrent] = useState<string | null>(null)
+  const [version, setVersion] = useState('')
+
+  useEffect(() => {
+    if (!desktop) return
+    void desktop.printers().then(setPrinters)
+    void desktop.info().then((i) => {
+      setCurrent(i?.printer ?? '')
+      setVersion(i?.version ?? '')
+    })
+  }, [])
+
+  if (!desktop || current === null) return null
+
+  async function choose(name: string) {
+    setCurrent(name)
+    await desktop!.setPrinter(name)
+  }
+
+  async function test() {
+    const now = new Date().toLocaleString('ru-RU', { timeZone: 'Asia/Tashkent' })
+    const err = await printSlips([
+      `<section class="slip"><div class="c big">${boot.venue.replace(/[<>&"]/g, '')}</div><hr /><div class="c">${t('printerTestText')}</div><div class="c small">${now}</div></section>`,
+    ])
+    toast(err ? `${t('printFailed')}: ${err}` : t('printerTestText'))
+  }
+
+  return (
+    <div style={{ display: 'grid', gap: 8 }}>
+      <label className="field">
+        <span>{t('printer')}</span>
+        <select className="input" value={current} onChange={(e) => void choose(e.target.value)}>
+          <option value="">{t('printerDefault')}</option>
+          {printers.map((p) => (
+            <option key={p.name} value={p.name}>
+              {p.displayName}
+              {p.isDefault ? ' ✓' : ''}
+            </option>
+          ))}
+        </select>
+      </label>
+      <button className="btn plain wide" onClick={() => void test()}>
+        {t('printerTest')}
+      </button>
+      {version && (
+        <div className="muted" style={{ fontSize: 12, textAlign: 'center' }}>
+          {t('appVersion')}: {version}
+        </div>
+      )}
+    </div>
+  )
+}
 
 /** Оплата: нажатие на способ подставляет остаток, для наличных считается сдача. */
 export function PayDialog({

@@ -1,7 +1,9 @@
 import { useCallback, useEffect, useState, type FormEvent } from 'react'
 import { api, ApiError, device, type Lang } from './api'
 import { useApp } from './app'
+import { DOWNLOAD_URL } from './download'
 import type { Key } from './i18n'
+import { desktop } from './print'
 
 type Base = { t: (k: Key) => string; tErr: (c: string) => string; lang: Lang; setLang: (l: Lang) => void }
 
@@ -77,6 +79,11 @@ export function Activate({ t, tErr, lang, setLang, onDone }: Base & { onDone: ()
           {t('connect')}
         </button>
         <LangPick lang={lang} setLang={setLang} />
+        {DOWNLOAD_URL && !desktop && (
+          <a className="btn plain wide" href={DOWNLOAD_URL} style={{ textDecoration: 'none' }}>
+            ⬇ {t('downloadApp')}
+          </a>
+        )}
       </form>
     </div>
   )

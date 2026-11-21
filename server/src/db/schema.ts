@@ -127,6 +127,8 @@ export const products = pgTable(
     type: text('type').notNull().default('goods'),
     name: jsonb('name').$type<L10n>().notNull(),
     price: money('price'),
+    /** Себестоимость единицы, вводится вручную (позже будет считаться по тех. карте) */
+    cost: money('cost'),
     barcode: text('barcode'),
     image: text('image'),
     /** pcs | kg | l */
@@ -356,6 +358,8 @@ export const receiptItems = pgTable(
     name: jsonb('name').$type<L10n>().notNull(),
     departmentId: uuid('department_id'),
     price: money('price'),
+    /** Снимок себестоимости единицы на момент продажи */
+    cost: money('cost'),
     /** Количество в тысячных: 1000 = 1 шт, 350 = 0,35 кг */
     qty: integer('qty').notNull().default(1000),
     modifiers: jsonb('modifiers')

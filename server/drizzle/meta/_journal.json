@@ -22,6 +22,13 @@
       "when": 1795276946026,
       "tag": "0002_graceful_khan",
       "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1795277918153,
+      "tag": "0003_normal_lester",
+      "breakpoints": true
     }
   ]
 }

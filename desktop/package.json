@@ -1,0 +1,48 @@
+{
+  "name": "neopos-desktop",
+  "productName": "NeoPos Kassa",
+  "version": "0.1.0",
+  "description": "NeoPos — kassa uchun Windows ilovasi",
+  "author": "NeoPos",
+  "private": true,
+  "main": "main.js",
+  "scripts": {
+    "start": "electron .",
+    "smoke": "electron . --smoke",
+    "dist": "electron-builder --win nsis --publish never"
+  },
+  "build": {
+    "appId": "uz.neopos.kassa",
+    "productName": "NeoPos Kassa",
+    "artifactName": "NeoPos-Setup.${ext}",
+    "files": [
+      "main.js",
+      "preload.js",
+      "offline.html",
+      "build/icon.png"
+    ],
+    "directories": {
+      "output": "dist",
+      "buildResources": "build"
+    },
+    "win": {
+      "target": "nsis",
+      "icon": "build/icon.png"
+    },
+    "nsis": {
+      "oneClick": true,
+      "perMachine": false,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "NeoPos Kassa",
+      "runAfterFinish": true
+    }
+  },
+  "devDependencies": {
+    "electron": "^45.4.1",
+    "electron-builder": "^26.18.0"
+  },
+  "dependencies": {
+    "electron-updater": "^6.8.11"
+  }
+}

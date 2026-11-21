@@ -6,9 +6,33 @@ import { ErrorNote, Field, Modal, Segmented, Switch, TILE_COLORS, Toggle } from 
 
 type Tab = 'products' | 'categories' | 'departments'
 
-type ProductDraft = Omit<Product, 'id' | 'price' | 'sort'> & { id?: string; price: string }
+type ProductDraft = Omit<Product, 'id' | 'price' | 'cost' | 'sort'> & { id?: string; price: string; cost: string }
 type CategoryDraft = { id?: string; name: L10n; color: string; active: boolean }
 type DepartmentDraft = { id?: string; name: string; printer: string }
+
+/** Наценка в процентах к себестоимости: (цена − себестоимость) / себестоимость */
+const markup = (price: number, cost: number) => Math.round(((price - cost) / cost) * 100)
+
+/** Прибыль с одной единицы и наценка — считаются сразу при вводе цены и себестоимости. */
+function ProfitBox({ price, cost }: { price: number; cost: number }) {
+  const { t } = useI18n()
+  const profit = price - cost
+  return (
+    <div className="rounded-lg bg-slate-50 px-3 py-2 text-sm">
+      <div className="text-xs font-medium text-slate-500">{t('unitProfit')}</div>
+      {cost > 0 && price > 0 ? (
+        <>
+          <div className={`text-lg font-bold tabular-nums ${profit < 0 ? 'text-red-600' : 'text-emerald-700'}`}>{money(profit)}</div>
+          <div className="text-xs tabular-nums text-slate-600">
+            {t('markup')}: {markup(price, cost)}% · {t('margin')}: {Math.round((profit / price) * 100)}%
+          </div>
+        </>
+      ) : (
+        <div className="mt-1 text-xs text-slate-500">{t('costEmpty')}</div>
+      )}
+    </div>
+  )
+}
 
 export function MenuPage() {
   const { t, tErr, lang } = useI18n()
@@ -93,6 +117,7 @@ export function MenuPage() {
       categoryId: filter !== 'all' && filter !== 'none' ? filter : null,
       departmentId: departments[0]?.id ?? null,
       price: '',
+      cost: '',
       barcode: '',
       unit: 'pcs',
       byWeight: false,
@@ -105,8 +130,8 @@ export function MenuPage() {
   function saveProduct(e: FormEvent) {
     e.preventDefault()
     if (!pDraft) return
-    const { id, price, ...rest } = pDraft
-    const body = { ...rest, price: Number(price) || 0, barcode: rest.barcode || null }
+    const { id, price, cost, ...rest } = pDraft
+    const body = { ...rest, price: Number(price) || 0, cost: Number(cost) || 0, barcode: rest.barcode || null }
     void run(
       () => (id ? api(`/products/${id}`, { method: 'PATCH', body }) : api('/products', { method: 'POST', body })),
       () => setPDraft(null),
@@ -257,6 +282,8 @@ export function MenuPage() {
                   <th className="px-4 py-3 font-medium">{t('name')}</th>
                   <th className="px-4 py-3 font-medium">{t('category')}</th>
                   <th className="px-4 py-3 text-right font-medium">{t('price')}</th>
+                  <th className="px-4 py-3 text-right font-medium">{t('cost')}</th>
+                  <th className="px-4 py-3 text-right font-medium">{t('markup')}</th>
                   <th className="px-4 py-3 text-center font-medium">{t('onSale')}</th>
                   <th className="px-4 py-3 text-center font-medium">{t('stopList')}</th>
                   <th className="px-4 py-3" />
@@ -282,6 +309,8 @@ export function MenuPage() {
                         )}
                       </td>
                       <td className="px-4 py-3 text-right font-medium tabular-nums">{money(p.price)}</td>
+                      <td className="px-4 py-3 text-right tabular-nums text-slate-600">{p.cost ? money(p.cost) : '—'}</td>
+                      <td className="px-4 py-3 text-right tabular-nums text-slate-600">{p.cost ? `${markup(p.price, p.cost)}%` : '—'}</td>
                       <td className="px-4 py-3 text-center">
                         <Switch label={t('onSale')} checked={p.active} disabled={!canEdit} onChange={(v) => void flag(p, { active: v })} />
                       </td>
@@ -294,7 +323,7 @@ export function MenuPage() {
                             className="cursor-pointer text-sm font-medium text-brand-600 hover:underline"
                             onClick={() => {
                               setError(null)
-                              setPDraft({ ...p, price: String(p.price), barcode: p.barcode ?? '' })
+                              setPDraft({ ...p, price: String(p.price), cost: p.cost ? String(p.cost) : '', barcode: p.barcode ?? '' })
                             }}
                           >
                             {t('edit')}
@@ -306,7 +335,7 @@ export function MenuPage() {
                 })}
                 {shown.length === 0 && (
                   <tr>
-                    <td colSpan={6} className="px-4 py-10 text-center text-slate-500">
+                    <td colSpan={8} className="px-4 py-10 text-center text-slate-500">
                       {t('emptyList')}
                     </td>
                   </tr>
@@ -384,6 +413,18 @@ export function MenuPage() {
                   onChange={(e) => setPDraft({ ...pDraft, price: e.target.value.replace(/\D/g, '').slice(0, 10) })}
                 />
               </Field>
+              <Field label={`${t('cost')}, ${t('sum')}`} hint={t('costHint')}>
+                <input
+                  className="input tabular-nums"
+                  inputMode="numeric"
+                  placeholder="0"
+                  value={pDraft.cost}
+                  onChange={(e) => setPDraft({ ...pDraft, cost: e.target.value.replace(/\D/g, '').slice(0, 10) })}
+                />
+              </Field>
+              <ProfitBox price={Number(pDraft.price) || 0} cost={Number(pDraft.cost) || 0} />
+            </div>
+            <div className="grid gap-3 sm:grid-cols-2">
               <Field label={t('category')}>
                 <select
                   className="input"

@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import { api, money, type OpenReceipt, type Receipt } from './api'
 import { useApp } from './app'
-import { Dialog, ShiftDialog } from './Dialogs'
+import { Dialog, PrinterSetting, ShiftDialog } from './Dialogs'
 
 /** Сколько минут открыт чек */
 const minutes = (iso: string) => Math.max(0, Math.round((Date.now() - new Date(iso).getTime()) / 60_000))
@@ -160,6 +160,7 @@ export function Hall({ onOpen }: { onOpen: (r: Receipt) => void }) {
           <button className="btn plain wide" onClick={() => setDialog('shift')}>
             {t('shift')} №{boot.shift?.number}
           </button>
+          <PrinterSetting />
           <button className="btn plain wide" onClick={logout}>
             {t('logout')}
           </button>

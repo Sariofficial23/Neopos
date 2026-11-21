@@ -110,9 +110,75 @@ export function guestReceipt(r: Receipt, boot: Boot, lang: Lang, opts: { final: 
     </section>`
 }
 
-/** Отправляет подготовленные бегунки на печать. */
-export function printSlips(slips: string[]) {
-  if (!slips.length) return
+/** Вид бумаги: термолента 80 мм, рабочая ширина 72 мм. */
+const SLIP_CSS = `
+  #print-root { width: 72mm; margin: 0 auto; color: #000; font-family: 'Courier New', 'Liberation Mono', monospace; font-size: 12px; line-height: 1.35; }
+  #print-root .slip { padding: 2mm 0 6mm; break-after: page; page-break-after: always; }
+  #print-root .slip:last-child { break-after: auto; page-break-after: auto; }
+  #print-root hr { border: 0; border-top: 1px dashed #000; margin: 2mm 0; }
+  #print-root .c { text-align: center; }
+  #print-root .big { font-size: 16px; font-weight: 700; }
+  #print-root .huge { font-size: 24px; font-weight: 700; margin: 1mm 0; }
+  #print-root .small { font-size: 10px; margin-top: 1mm; }
+  #print-root .inv { background: #000; color: #fff; font-size: 16px; font-weight: 700; padding: 1mm 0; margin: 1mm 0; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  #print-root .row { display: flex; justify-content: space-between; gap: 3mm; }
+  #print-root .row span:last-child { text-align: right; white-space: nowrap; }
+  #print-root .item { font-weight: 700; margin-top: 1mm; }
+  #print-root .total { font-size: 17px; font-weight: 700; margin-top: 1mm; }
+  #print-root .kline { display: flex; gap: 3mm; font-size: 17px; font-weight: 700; margin: 1.5mm 0; }
+  #print-root .kline b { min-width: 9mm; }
+  #print-root .strike { text-decoration: line-through; }
+  #print-root .note { font-size: 13px; font-style: italic; margin: 0 0 1.5mm 12mm; }
+`
+const PAGE_CSS = '@page { size: 80mm auto; margin: 0; } html, body { margin: 0; background: #fff; }'
+
+/** Мост к приложению NeoPos Kassa для Windows — есть только внутри приложения. */
+type Desktop = {
+  info: () => Promise<{ version: string; printer: string } | null>
+  printers: () => Promise<{ name: string; displayName: string; isDefault: boolean }[]>
+  setPrinter: (name: string) => Promise<boolean>
+  print: (html: string) => Promise<{ ok: boolean; error?: string }>
+}
+export const desktop: Desktop | null = (window as unknown as { neoposDesktop?: Desktop }).neoposDesktop ?? null
+
+/** Отдельный документ для печати без окна подтверждения (приложение Windows). */
+export const slipDocument = (slips: string[]) =>
+  `<!doctype html><html><head><meta charset="utf-8"><style>${PAGE_CSS}${SLIP_CSS}</style></head><body><div id="print-root">${slips.join('')}</div></body></html>`
+
+/**
+ * Отправляет подготовленные бегунки на печать.
+ * В приложении для Windows — сразу на выбранный принтер; в браузере — через окно печати.
+ * Возвращает текст ошибки, если приложение не смогло напечатать, иначе null.
+ */
+export async function printSlips(slips: string[]): Promise<string | null> {
+  if (!slips.length) return null
+  if (desktop) {
+    const res = await desktop.print(slipDocument(slips))
+    return res.ok ? null : (res.error ?? 'print_failed')
+  }
+  browserPrint(slips)
+  return null
+}
+
+/** Стили для печати из браузера: на экране бегунков не видно, на бумаге — только они. */
+function ensureBrowserStyles() {
+  if (document.getElementById('print-style')) return
+  const st = document.createElement('style')
+  st.id = 'print-style'
+  st.textContent = `#print-root { display: none; }
+@media print {
+  ${PAGE_CSS}
+  html, body, #root { height: auto !important; }
+  body { overflow: visible !important; }
+  #root, .toast, .veil { display: none !important; }
+  #print-root { display: block; }
+  ${SLIP_CSS}
+}`
+  document.head.append(st)
+}
+
+function browserPrint(slips: string[]) {
+  ensureBrowserStyles()
   let root = document.getElementById('print-root')
   if (!root) {
     root = document.createElement('div')

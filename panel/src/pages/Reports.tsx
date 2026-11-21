@@ -6,7 +6,17 @@ import { dateTime, PeriodPicker, todayPeriod, type Period } from '../period'
 import { ErrorNote, Segmented } from '../ui'
 
 type Summary = {
-  totals: { receipts: number; revenue: number; guests: number; discounts: number; service: number; average: number }
+  totals: {
+    receipts: number
+    revenue: number
+    guests: number
+    discounts: number
+    service: number
+    average: number
+    cost: number
+    profit: number
+    noCostAmount: number
+  }
   voids: { count: number; amount: number }
   byDay: { day: string; receipts: number; revenue: number }[]
   byHour: { hour: number; receipts: number; revenue: number }[]
@@ -280,10 +290,25 @@ export function ReportsPage() {
                 <Kpi label={t('kReceipts')} value={String(data.totals.receipts)} />
                 <Kpi label={t('kAverage')} value={money(data.totals.average)} />
                 <Kpi label={t('kGuests')} value={String(data.totals.guests)} />
+                <Kpi label={t('kCost')} value={money(data.totals.cost)} />
+                <Kpi
+                  label={t('kProfit')}
+                  value={money(data.totals.profit)}
+                  hint={data.totals.revenue ? `${t('margin')}: ${Math.round((data.totals.profit / data.totals.revenue) * 100)}%` : undefined}
+                />
                 <Kpi label={t('kDiscounts')} value={money(data.totals.discounts)} />
                 <Kpi label={t('kService')} value={money(data.totals.service)} />
                 <Kpi label={t('kVoids')} value={String(data.voids.count)} hint={data.voids.count ? money(data.voids.amount) : undefined} />
               </div>
+
+              {data.totals.noCostAmount > 0 && (
+                <div role="note" className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+                  ⚠ {t('noCostWarn')} <b className="tabular-nums">{money(data.totals.noCostAmount)}</b>.{' '}
+                  <Link to="/menu" className="font-medium underline">
+                    {t('navMenu')} →
+                  </Link>
+                </div>
+              )}
 
               {points.length > 0 ? (
                 <Bars title={oneDay ? t('chByHour') : t('chByDay')} points={points} />

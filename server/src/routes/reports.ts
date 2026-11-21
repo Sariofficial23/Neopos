@@ -118,6 +118,9 @@ export function reportRoutes(app: FastifyInstance, db: DB) {
           categoryId: sql<string | null>`min(${products.categoryId}::text)`,
           qty: num(sql`sum(${receiptItems.qty})`),
           amount: num(sql`sum(${receiptItems.total})`),
+          // Себестоимость берётся из снимка в строке чека: изменение цены закупки не переписывает прошлое.
+          cost: num(sql`sum(round(${receiptItems.cost} * ${receiptItems.qty} / 1000.0))`),
+          noCostAmount: num(sql`sum(case when ${receiptItems.cost} = 0 then ${receiptItems.total} else 0 end)`),
         })
         .from(receiptItems)
         .innerJoin(receipts, eq(receipts.id, receiptItems.receiptId))
@@ -138,17 +141,27 @@ export function reportRoutes(app: FastifyInstance, db: DB) {
       .from(categories)
       .where(eq(categories.tenantId, tenantId))
     const catById = new Map(cats.map((c) => [c.id, c]))
-    const byCategoryMap = new Map<string, { id: string | null; name: { uz: string; ru: string } | null; qty: number; amount: number }>()
+    const byCategoryMap = new Map<string, { id: string | null; name: { uz: string; ru: string } | null; qty: number; amount: number; cost: number }>()
     for (const p of byProduct) {
       const key = p.categoryId ?? ''
-      const cur = byCategoryMap.get(key) ?? { id: p.categoryId, name: catById.get(key)?.name ?? null, qty: 0, amount: 0 }
+      const cur = byCategoryMap.get(key) ?? { id: p.categoryId, name: catById.get(key)?.name ?? null, qty: 0, amount: 0, cost: 0 }
       cur.qty += p.qty
       cur.amount += p.amount
+      cur.cost += p.cost
       byCategoryMap.set(key, cur)
     }
 
+    const cost = byProduct.reduce((s, p) => s + p.cost, 0)
     return {
-      totals: { ...totals, average: totals.receipts ? Math.round(totals.revenue / totals.receipts) : 0 },
+      totals: {
+        ...totals,
+        average: totals.receipts ? Math.round(totals.revenue / totals.receipts) : 0,
+        cost,
+        /** Валовая прибыль: выручка минус себестоимость проданного */
+        profit: totals.revenue - cost,
+        /** Продажи товаров без указанной себестоимости — по ним прибыль завышена */
+        noCostAmount: byProduct.reduce((s, p) => s + p.noCostAmount, 0),
+      },
       voids,
       byDay,
       byHour,

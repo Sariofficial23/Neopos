@@ -85,6 +85,12 @@ export function Order({ receipt, setReceipt, onBack }: Props) {
   const kitchen = (r: Receipt, ids: Set<string>, cancelled = false) =>
     boot.print.kitchen ? kitchenSlips(r, r.items.filter((i) => ids.has(i.id)), boot, lang, cancelled) : []
 
+  /** Печать без ожидания: заказ уже сохранён, а о сбое принтера сообщаем строкой внизу. */
+  const printOut = (slips: string[]) =>
+    void printSlips(slips).then((err) => {
+      if (err) toast(`${t('printFailed')}: ${err}`)
+    })
+
   const add = (productId: string) => void call('/items', 'POST', { productId })
 
   async function back() {
@@ -105,7 +111,7 @@ export function Order({ receipt, setReceipt, onBack }: Props) {
     await enqueue(async () => {
       const res = await api<{ receipt: Receipt; sent: { id: string }[] }>(`${base}/send`, { method: 'POST' })
       setReceipt(res.receipt)
-      printSlips(kitchen(res.receipt, new Set(res.sent.map((s) => s.id))))
+      printOut(kitchen(res.receipt, new Set(res.sent.map((s) => s.id))))
     })
     setBusy(false)
   }
@@ -116,7 +122,7 @@ export function Order({ receipt, setReceipt, onBack }: Props) {
     await enqueue(async () => {
       const res = await api<{ receipt: Receipt; sentIds: string[] }>(`${base}/bill`, { method: 'POST' })
       setReceipt(res.receipt)
-      printSlips([...kitchen(res.receipt, new Set(res.sentIds)), guestReceipt(res.receipt, boot, lang, { final: false })])
+      printOut([...kitchen(res.receipt, new Set(res.sentIds)), guestReceipt(res.receipt, boot, lang, { final: false })])
     })
     setBusy(false)
   }
@@ -319,7 +325,7 @@ export function Order({ receipt, setReceipt, onBack }: Props) {
                     void call(`/items/${line.id}/void`, 'POST', { reasonId: r.id }, (next) => {
                       setLine(null)
                       // Кухня должна узнать, что блюдо готовить не нужно.
-                      printSlips(kitchen(next, new Set([line.id]), true))
+                      printOut(kitchen(next, new Set([line.id]), true))
                     })
                   }
                 >
@@ -366,7 +372,7 @@ export function Order({ receipt, setReceipt, onBack }: Props) {
             toast(change > 0 ? `${t('paid')} · ${t('change')}: ${money(change)}` : t('paid'))
             // Оплата сама отправляет на кухню то, что не успели отправить, — печатаем и это.
             const late = new Set(fresh.map((i) => i.id))
-            printSlips([
+            printOut([
               ...kitchen(closed, late),
               ...(boot.print.receipt ? [guestReceipt(closed, boot, lang, { final: true, change })] : []),
             ])

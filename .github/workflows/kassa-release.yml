@@ -1,0 +1,41 @@
+# Сборка и выпуск NeoPos Kassa для Windows.
+# Запуск: отправить тег вида kassa-v0.1.0 (git tag kassa-v0.1.0 && git push origin kassa-v0.1.0)
+# или вручную на вкладке Actions. Куда публикуется установщик — см. "publish" в desktop/package.json.
+name: Kassa for Windows
+
+on:
+  push:
+    tags: ['kassa-v*']
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: windows-latest
+    defaults:
+      run:
+        working-directory: desktop
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: desktop/package-lock.json
+
+      - run: npm ci
+
+      # Версия приложения берётся из тега: kassa-v0.2.0 → 0.2.0
+      - name: Set version from tag
+        if: startsWith(github.ref, 'refs/tags/kassa-v')
+        shell: bash
+        run: npm version --no-git-tag-version --allow-same-version "${GITHUB_REF_NAME#kassa-v}"
+
+      - name: Build and publish installer
+        run: npx electron-builder --win nsis --publish always
+        env:
+          # Для публикации в другой (публичный) репозиторий нужен токен в секрете RELEASES_TOKEN.
+          GH_TOKEN: ${{ secrets.RELEASES_TOKEN || secrets.GITHUB_TOKEN }}

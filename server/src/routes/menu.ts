@@ -32,6 +32,8 @@ const productBody = z.object({
   categoryId: z.string().uuid().nullish(),
   departmentId: z.string().uuid().nullish(),
   price: z.number().int().min(0).max(1_000_000_000),
+  /** Себестоимость единицы; 0 — не указана */
+  cost: z.number().int().min(0).max(1_000_000_000).default(0),
   barcode: z.string().trim().max(64).nullish(),
   unit: z.enum(['pcs', 'kg', 'l']).default('pcs'),
   byWeight: z.boolean().default(false),

@@ -1,5 +1,6 @@
 import { useState, type FormEvent } from 'react'
 import { api, ApiError } from '../api'
+import { DOWNLOAD_URL } from '../download'
 import { LangSwitch, useI18n } from '../i18n'
 import { useSession } from '../session'
 import { ErrorNote, Field } from '../ui'
@@ -95,6 +96,12 @@ export function Login() {
         >
           {mode === 'login' ? t('noAccount') : t('haveAccount')}
         </button>
+
+        {DOWNLOAD_URL && (
+          <a href={DOWNLOAD_URL} className="btn btn-ghost mt-6 w-full no-underline">
+            ⬇ {t('downloadApp')}
+          </a>
+        )}
       </div>
     </div>
   )

@@ -563,6 +563,7 @@ export function posRoutes(app: FastifyInstance, db: DB) {
           name: p.name,
           departmentId: p.departmentId,
           price: p.price,
+          cost: p.cost,
           qty: body.qty,
           total: Math.round((p.price * body.qty) / 1000),
           addedBy: req.auth.userId,
