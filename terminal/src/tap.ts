@@ -1,26 +1,33 @@
 /**
- * Звук нажатия: мягкая «капля», как на iPhone. Синтезируется в браузере — без файлов, работает и без интернета.
- * Тихий и короткий, чтобы не надоедал за смену.
+ * Звук нажатия: короткий сухой «клик», как у клавиатуры iPhone — без тона, едва слышный.
+ * Синтезируется в браузере — без файлов, работает и без интернета.
  */
 let ctx: AudioContext | null = null
+let noise: AudioBuffer | null = null
 
-function drop() {
+function click() {
   try {
     ctx ??= new AudioContext()
     if (ctx.state === 'suspended') void ctx.resume()
+    // 25 мс шума, который быстро затухает: так звучит щелчок клавиши.
+    if (!noise) {
+      const len = Math.round(ctx.sampleRate * 0.025)
+      noise = ctx.createBuffer(1, len, ctx.sampleRate)
+      const data = noise.getChannelData(0)
+      for (let i = 0; i < len; i++) data[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / len, 6)
+    }
     const t = ctx.currentTime
-    const osc = ctx.createOscillator()
+    const src = ctx.createBufferSource()
+    src.buffer = noise
+    // Оставляем только «щелчок» в середине диапазона: без шипения и без гула.
+    const band = ctx.createBiquadFilter()
+    band.type = 'bandpass'
+    band.frequency.value = 2600
+    band.Q.value = 0.9
     const gain = ctx.createGain()
-    osc.type = 'sine'
-    // Высота быстро падает — так звучит капля.
-    osc.frequency.setValueAtTime(1100, t)
-    osc.frequency.exponentialRampToValueAtTime(420, t + 0.07)
-    gain.gain.setValueAtTime(0.0001, t)
-    gain.gain.exponentialRampToValueAtTime(0.12, t + 0.008)
-    gain.gain.exponentialRampToValueAtTime(0.0001, t + 0.11)
-    osc.connect(gain).connect(ctx.destination)
-    osc.start(t)
-    osc.stop(t + 0.12)
+    gain.gain.setValueAtTime(0.35, t)
+    src.connect(band).connect(gain).connect(ctx.destination)
+    src.start(t)
   } catch {
     /* звук недоступен — работаем молча */
   }
@@ -32,7 +39,7 @@ export function installTapSound() {
     'pointerdown',
     (e) => {
       const el = (e.target as HTMLElement | null)?.closest('button, [role="button"], .switch')
-      if (el && !(el as HTMLButtonElement).disabled) drop()
+      if (el && !(el as HTMLButtonElement).disabled) click()
     },
     { capture: true, passive: true },
   )
