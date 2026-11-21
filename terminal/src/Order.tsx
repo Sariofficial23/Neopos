@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState, type FormEvent } from 'react'
 import { api, money, qtyText, type Receipt, type ReceiptItem } from './api'
 import { useApp } from './app'
 import { Dialog, PayDialog } from './Dialogs'
+import { CategoryForm, loadMenu, ProductForm, type FullCategory, type FullProduct } from './MenuEdit'
 import { guestReceipt, kitchenSlips, printSlips } from './print'
 
 type Props = { receipt: Receipt; setReceipt: (r: Receipt) => void; onBack: () => void }
@@ -35,12 +36,40 @@ const Icon = {
       <path d="m20 20-4.5-4.5" />
     </>
   ),
+  gear: (
+    <>
+      <circle cx="12" cy="12" r="3" />
+      <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z" />
+    </>
+  ),
 }
 const Svg = ({ children }: { children: React.ReactNode }) => <svg viewBox="0 0 24 24">{children}</svg>
 
 export function Order({ receipt, setReceipt, onBack }: Props) {
-  const { boot, t, lang, can, toast, fail } = useApp()
+  const { boot, t, lang, can, toast, fail, reloadBoot } = useApp()
   const [cat, setCat] = useState<string | null>(null)
+  // Настройка меню прямо на кассе: ⚙ рядом с «домиком», «+» добавляет, нажатие на плитку — изменить.
+  const [menu, setMenu] = useState<Awaited<ReturnType<typeof loadMenu>> | null>(null)
+  const [editing, setEditing] = useState<{ kind: 'category'; item: FullCategory | null } | { kind: 'product'; item: FullProduct | null } | null>(null)
+  const editMode = menu !== null
+
+  async function toggleEdit() {
+    if (editMode) return setMenu(null)
+    try {
+      setQuery(null)
+      setMenu(await loadMenu())
+    } catch (err) {
+      fail(err)
+    }
+  }
+
+  async function menuSaved() {
+    const [next] = await Promise.all([loadMenu(), reloadBoot()])
+    setMenu(next)
+  }
+
+  const fullCategory = (id: string) => menu?.categories.find((c) => c.id === id) ?? null
+  const fullProduct = (id: string) => menu?.products.find((p) => p.id === id) ?? null
   const [query, setQuery] = useState<string | null>(null)
   const [dialog, setDialog] = useState<'pay' | 'discount' | 'comment' | 'guests' | null>(null)
   const [line, setLine] = useState<ReceiptItem | null>(null)
@@ -255,6 +284,17 @@ export function Order({ receipt, setReceipt, onBack }: Props) {
             >
               <Svg>{Icon.home}</Svg>
             </button>
+            {can('menu.edit') && (
+              <button
+                className={`glass ${editMode ? 'on' : ''}`}
+                title={t('menuSettings')}
+                aria-label={t('menuSettings')}
+                aria-pressed={editMode}
+                onClick={() => void toggleEdit()}
+              >
+                <Svg>{Icon.gear}</Svg>
+              </button>
+            )}
             {query !== null ? (
               <input
                 className="glass"
@@ -275,21 +315,36 @@ export function Order({ receipt, setReceipt, onBack }: Props) {
             )}
           </div>
 
+          {editMode && <div className="edit-hint">⚙ {t('menuEditOn')}</div>}
+
           <div className="tiles">
             {query === null &&
               cat === null &&
               boot.categories.map((c) => (
-                <button key={c.id} className="tile" style={{ ['--c' as string]: c.color ?? '#64748b' }} onClick={() => setCat(c.id)}>
+                <button key={c.id} className={`tile ${editMode ? 'editing' : ''}`} style={{ ['--c' as string]: c.color ?? '#64748b' }} onClick={() => setCat(c.id)}>
+                  {editMode && (
+                    <span
+                      className="pen"
+                      role="button"
+                      aria-label={t('editCategory')}
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        setEditing({ kind: 'category', item: fullCategory(c.id) })
+                      }}
+                    >
+                      ✎
+                    </span>
+                  )}
                   {c.name[lang]}
                 </button>
               ))}
             {products.map((p) => (
               <button
                 key={p.id}
-                className="tile"
-                disabled={p.stopped}
+                className={`tile ${editMode ? 'editing' : ''}`}
+                disabled={p.stopped && !editMode}
                 style={{ ['--c' as string]: colorOf(p.categoryId) }}
-                onClick={() => add(p.id)}
+                onClick={() => (editMode ? setEditing({ kind: 'product', item: fullProduct(p.id) }) : add(p.id))}
               >
                 <span className="p num">{money(p.price)}</span>
                 {p.name[lang]}
@@ -297,10 +352,34 @@ export function Order({ receipt, setReceipt, onBack }: Props) {
                 {p.stopped && <span className="stop">{t('stop')}</span>}
               </button>
             ))}
+            {editMode && query === null && (
+              <button
+                className="tile add"
+                title={cat ? t('newProduct') : t('newCategory')}
+                aria-label={cat ? t('newProduct') : t('newCategory')}
+                onClick={() => setEditing(cat ? { kind: 'product', item: null } : { kind: 'category', item: null })}
+              >
+                +
+              </button>
+            )}
             {query !== null && query.trim() !== '' && products.length === 0 && <div className="muted">{t('nothingFound')}</div>}
           </div>
         </section>
       </div>
+
+      {editing?.kind === 'category' && (
+        <CategoryForm category={editing.item} sort={boot.categories.length} onClose={() => setEditing(null)} onSaved={menuSaved} />
+      )}
+      {editing?.kind === 'product' && menu && (
+        <ProductForm
+          product={editing.item}
+          categoryId={cat}
+          categories={menu.categories}
+          sort={products.length}
+          onClose={() => setEditing(null)}
+          onSaved={menuSaved}
+        />
+      )}
 
       {line && !line.sent && (
         <QtyDialog

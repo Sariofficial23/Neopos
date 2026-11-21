@@ -1,5 +1,5 @@
 import { and, asc, count, eq, inArray, isNull, ne } from 'drizzle-orm'
-import type { FastifyInstance } from 'fastify'
+import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify'
 import { z } from 'zod'
 import { HttpError, makeAuthGuards } from '../auth.js'
 import { schema, type DB } from '../db/index.js'
@@ -44,9 +44,21 @@ const productBody = z.object({
 })
 
 export function menuRoutes(app: FastifyInstance, db: DB) {
-  const { requirePerm } = makeAuthGuards(db)
-  const view = { preHandler: requirePerm('menu.view') }
-  const edit = { preHandler: requirePerm('menu.edit') }
+  const { requireAuth } = makeAuthGuards(db)
+  /**
+   * Меню правят и из панели, и прямо на кассе (кнопка ⚙ над плитками меню).
+   * Нужен вход в панель или в кассу и право на действие; на кассе для просмотра тоже нужно право правки.
+   */
+  const allow = (perms: string[]) => async (req: FastifyRequest, reply: FastifyReply) => {
+    await requireAuth(req, reply)
+    const role = req.auth.role
+    const ok = role.panelAccess
+      ? perms.some((p) => role.permissions.includes(p))
+      : role.terminalAccess && role.permissions.includes('menu.edit')
+    if (!ok) throw new HttpError(403, 'forbidden')
+  }
+  const view = { preHandler: allow(['menu.view', 'menu.edit']) }
+  const edit = { preHandler: allow(['menu.edit']) }
   const { departments, categories, products } = schema
 
   // ───────────── Отделы ─────────────
