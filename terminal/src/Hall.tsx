@@ -1,6 +1,5 @@
 import takeawaySticker from './assets/takeaway.webp?inline'
 import deliverySticker from './assets/delivery.webp?inline'
-import saleTypeBackground from './assets/burger.webp'
 import { useCallback, useEffect, useState } from 'react'
 import { api, money, type OpenReceipt, type Receipt } from './api'
 import { useApp } from './app'
@@ -68,8 +67,7 @@ export function Hall({ onOpen, onMenu }: { onOpen: (r: Receipt) => void; onMenu:
 
   return (
     <>
-      {awaySales.length > 1 && <link rel="prefetch" as="image" href={saleTypeBackground} />}
-      <header className="bar" data-scene={dialog === 'type' ? 'burger' : /ter{1,2}as|тер{1,2}ас|ayvon|айвон/i.test(hall?.name ?? '') ? 'ocean' : 'hall'}>
+      <header className="bar" data-scene={/ter{1,2}as|тер{1,2}ас|ayvon|айвон/i.test(hall?.name ?? '') ? 'ocean' : 'hall'}>
         <div className="logo"><img src={`${import.meta.env.BASE_URL}brand/neopos.webp`} alt="NeoPos" /><span className="who">· {boot.user.name}</span></div>
         <button className="new" onClick={newOrder}>
           + {t('newOrder')}

@@ -280,7 +280,6 @@ body:has([data-scene]) {
 body:has([data-scene="ocean"]) { --scene: url('./assets/ocean.webp'); }
 body:has([data-scene="hall"]) { --scene: url('./assets/hall.webp'); }
 body:has([data-scene="cafe"]) { --scene: url('./assets/cafe.webp'); }
-body:has([data-scene="burger"]) { --scene: url('./assets/burger.webp'); }
 .sticker .emoji:has(img) { width: 110px; height: 82px; background: transparent; }
 .sticker .emoji img { display: block; width: 100%; height: 100%; object-fit: contain; }
 
