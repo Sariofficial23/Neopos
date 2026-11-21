@@ -88,6 +88,7 @@ export type Boot = {
     receipt: boolean
   }
   departments: { id: string; name: string }[]
+  printers: NetPrinter[]
   user: { userId: string; name: string; lang: Lang; role: { name: string; permissions: string[] } }
   shift: Shift | null
   categories: { id: string; name: L10n; color: string | null }[]
@@ -110,7 +111,16 @@ export type ShiftSummary = {
   cashSales: number
   cashIn: number
   cashOut: number
-  movements: { id: string; kind: 'in' | 'out'; amount: number; note: string | null; createdAt: string; userName: string | null }[]
+  movements: {
+    id: string
+    kind: 'in' | 'out'
+    type: 'expense' | 'income' | 'collection' | null
+    category: string | null
+    amount: number
+    note: string | null
+    createdAt: string
+    userName: string | null
+  }[]
 }
 
 export type ReceiptItem = {
@@ -168,3 +178,15 @@ export const money = (n: number) => n.toLocaleString('ru-RU').replace(/,/g, ' ')
 
 /** Количество хранится в тысячных: 1000 → «1», 350 → «0,35». */
 export const qtyText = (q: number) => (q % 1000 === 0 ? String(q / 1000) : (q / 1000).toFixed(3).replace(/0+$/, '').replace('.', ','))
+
+/** Сетевой принтер заведения (печать по IP из приложения для Windows). */
+export type NetPrinter = {
+  id: string
+  name: string
+  ip: string
+  port: number
+  width: number
+  departmentIds: string[]
+  receipts: boolean
+  active: boolean
+}

@@ -11,6 +11,7 @@ import {
   verifyPassword,
 } from '../auth.js'
 import { schema, type DB } from '../db/index.js'
+import { listPrinters } from './finance.js'
 
 const idParam = z.object({ id: z.string().uuid() })
 const itemParam = z.object({ id: z.string().uuid(), itemId: z.string().uuid() })
@@ -209,6 +210,7 @@ export function posRoutes(app: FastifyInstance, db: DB) {
     return {
       venue: tenant.name,
       print: printSettings(tenant.settings),
+      printers: await listPrinters(db, tenantId),
       departments: deps,
       user: req.auth,
       shift: await openShift(db, tenantId),
@@ -261,6 +263,8 @@ export function posRoutes(app: FastifyInstance, db: DB) {
       .select({
         id: cashMovements.id,
         kind: cashMovements.kind,
+        type: cashMovements.type,
+        category: schema.financeCategories.name,
         amount: cashMovements.amount,
         note: cashMovements.note,
         createdAt: cashMovements.createdAt,
@@ -268,6 +272,7 @@ export function posRoutes(app: FastifyInstance, db: DB) {
       })
       .from(cashMovements)
       .leftJoin(users, eq(users.id, cashMovements.userId))
+      .leftJoin(schema.financeCategories, eq(schema.financeCategories.id, cashMovements.categoryId))
       .where(eq(cashMovements.shiftId, shift.id))
       .orderBy(asc(cashMovements.createdAt))
     const cashIn = movements.filter((m) => m.kind === 'in').reduce((s, m) => s + m.amount, 0)
@@ -296,25 +301,47 @@ export function posRoutes(app: FastifyInstance, db: DB) {
     need(req, 'shift.cash_movement')
     const body = z
       .object({
-        kind: z.enum(['in', 'out']),
+        type: z.enum(['expense', 'income', 'collection']),
         amount: z.number().int().min(1).max(1e12),
-        note: z.string().trim().min(1).max(200),
+        categoryId: z.string().uuid().nullish(),
+        note: z.string().trim().max(200).nullish(),
       })
       .parse(req.body)
     const tenantId = req.auth.tenantId
+    const kind = body.type === 'income' ? 'in' : 'out'
+    // Для расхода и дохода категория обязательна: по ней строится отчёт о расходах.
+    let categoryName: string | null = null
+    if (body.type !== 'collection') {
+      if (!body.categoryId) throw new HttpError(400, 'category_required')
+      const [cat] = await db
+        .select()
+        .from(schema.financeCategories)
+        .where(and(eq(schema.financeCategories.id, body.categoryId), eq(schema.financeCategories.tenantId, tenantId), isNull(schema.financeCategories.deletedAt)))
+      if (!cat || cat.kind !== body.type) throw new HttpError(400, 'bad_category')
+      categoryName = cat.name
+    }
     return db.transaction(async (tx) => {
       const shift = await openShift(tx, tenantId)
       if (!shift) throw new HttpError(409, 'shift_closed')
-      if (body.kind === 'out') {
+      if (kind === 'out') {
         const now = await shiftSummary(tx, shift)
         if (body.amount > now.expectedCash) throw new HttpError(409, 'not_enough_cash')
       }
-      await tx.insert(cashMovements).values({ tenantId, shiftId: shift.id, userId: req.auth.userId, ...body })
+      await tx.insert(cashMovements).values({
+        tenantId,
+        shiftId: shift.id,
+        userId: req.auth.userId,
+        kind,
+        type: body.type,
+        categoryId: body.type === 'collection' ? null : body.categoryId,
+        amount: body.amount,
+        note: body.note || null,
+      })
       await tx.insert(auditLog).values({
         tenantId,
         userId: req.auth.userId,
-        action: body.kind === 'in' ? 'cash.in' : 'cash.out',
-        data: { amount: body.amount, note: body.note, shift: shift.number },
+        action: 'cash.' + body.type,
+        data: { amount: body.amount, category: categoryName, note: body.note ?? null, shift: shift.number },
       })
       return { summary: await shiftSummary(tx, shift) }
     })

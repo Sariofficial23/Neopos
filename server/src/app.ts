@@ -6,6 +6,7 @@ import { getSecret, HttpError } from './auth.js'
 import type { DB } from './db/index.js'
 import { adminRoutes } from './routes/admin.js'
 import { authRoutes } from './routes/auth.js'
+import { financeRoutes } from './routes/finance.js'
 import { hallRoutes, menuRoutes } from './routes/menu.js'
 import { posRoutes } from './routes/pos.js'
 import { reportRoutes } from './routes/reports.js'
@@ -53,5 +54,6 @@ export async function buildApp(db: DB) {
   settingsRoutes(app, db)
   reportRoutes(app, db)
   adminRoutes(app, db)
+  financeRoutes(app, db)
   return app
 }

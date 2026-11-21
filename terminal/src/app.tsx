@@ -4,6 +4,7 @@ import { Activate, Pin, ShiftGate } from './Auth'
 import { ControlPanel } from './ControlPanel'
 import { Hall } from './Hall'
 import { makeT, type Key } from './i18n'
+import { setPrintContext } from './print'
 import { Order } from './Order'
 
 type AppCtx = {
@@ -91,6 +92,11 @@ export function App() {
   useEffect(() => {
     setSessionLostHandler(logout)
   }, [logout])
+
+  // Печать знает, какие сетевые принтеры у заведения и на каком языке писать ошибки.
+  useEffect(() => {
+    if (boot) setPrintContext(boot.printers ?? [], boot.user.lang)
+  }, [boot])
 
   useEffect(() => {
     if (token) void reloadBoot()

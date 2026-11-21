@@ -1,8 +1,10 @@
-import { useEffect, useState, type FormEvent, type ReactNode } from 'react'
+import { useEffect, useMemo, useState, type FormEvent, type ReactNode } from 'react'
 import { api, money, type L10n, type Receipt } from './api'
 import { useApp } from './app'
-import { Dialog, PrinterSetting, ShiftDialog } from './Dialogs'
-import { DOWNLOAD_URL } from './download'
+import type { Key } from './i18n'
+import { DevicesDialog } from './Devices'
+import { Dialog } from './Dialogs'
+import { ReportDialog } from './Report'
 import { desktop, guestReceipt, printSlips } from './print'
 
 /** Значки плиток — простые линии, как в остальной кассе. */
@@ -84,7 +86,7 @@ export function ControlPanel({ onBack }: { onBack: () => void }) {
         </div>
       </div>
 
-      {panel === 'report' && <ShiftDialog onClose={() => setPanel(null)} />}
+      {panel === 'report' && <ReportDialog onClose={() => setPanel(null)} />}
       {panel === 'cash' && <CashDialog onClose={() => setPanel(null)} />}
       {panel === 'archive' && <ArchiveDialog onClose={() => setPanel(null)} />}
       {panel === 'staff' && <StaffDialog onClose={() => setPanel(null)} />}
@@ -93,22 +95,56 @@ export function ControlPanel({ onBack }: { onBack: () => void }) {
   )
 }
 
-// ───────────── Добавить операцию: внесение или изъятие наличных ─────────────
+// ───────────── Добавить операцию: расход, доход, инкассация ─────────────
 
+type FinanceCategory = { id: string; kind: 'expense' | 'income'; parentId: string | null; name: string; sort: number }
+type OpType = 'expense' | 'income' | 'collection'
+
+/**
+ * «Добавить операцию», как в Clopos: по умолчанию «Расход».
+ * Порядок полей: сумма → категория → описание. Инкассация — без категории.
+ */
 function CashDialog({ onClose }: { onClose: () => void }) {
   const { t, fail, toast } = useApp()
-  const [kind, setKind] = useState<'out' | 'in'>('out')
+  const [type, setType] = useState<OpType>('expense')
   const [amount, setAmount] = useState('')
+  const [categoryId, setCategoryId] = useState('')
   const [note, setNote] = useState('')
+  const [cats, setCats] = useState<FinanceCategory[] | null>(null)
   const [busy, setBusy] = useState(false)
-  const quick = kind === 'out' ? [t('qProducts'), t('qSupplies'), t('qTaxi'), t('qSalary')] : [t('qChange'), t('qOwner')]
+
+  useEffect(() => {
+    api<FinanceCategory[]>('/pos/finance-categories').then(setCats).catch(fail)
+  }, [fail])
+
+  // Список для выбора: родитель, под ним его подкатегории с отступом.
+  const options = useMemo(() => {
+    if (!cats || type === 'collection') return []
+    const own = cats.filter((c) => c.kind === type)
+    const tops = own.filter((c) => !c.parentId)
+    return tops.flatMap((top) => [
+      { id: top.id, label: top.name },
+      ...own.filter((c) => c.parentId === top.id).map((c) => ({ id: c.id, label: `   — ${c.name}` })),
+    ])
+  }, [cats, type])
+
+  const pickType = (next: OpType) => {
+    setType(next)
+    setCategoryId('')
+  }
+
+  const valid = Number(amount) > 0 && (type === 'collection' || !!categoryId)
 
   async function submit(e: FormEvent) {
     e.preventDefault()
+    if (!valid) return
     setBusy(true)
     try {
-      await api('/pos/shift/cash', { method: 'POST', body: { kind, amount: Number(amount), note } })
-      toast(`${kind === 'out' ? t('cashOut') : t('cashIn')}: ${money(Number(amount))}`)
+      await api('/pos/shift/cash', {
+        method: 'POST',
+        body: { type, amount: Number(amount), categoryId: type === 'collection' ? null : categoryId, note: note.trim() || null },
+      })
+      toast(`${t(`op.${type}` as Key)}: ${money(Number(amount))}`)
       onClose()
     } catch (err) {
       fail(err)
@@ -120,13 +156,12 @@ function CashDialog({ onClose }: { onClose: () => void }) {
   return (
     <Dialog title={t('cpCash')} onClose={onClose}>
       <form onSubmit={submit} style={{ display: 'grid', gap: 14 }}>
-        <div className="seg">
-          <button type="button" className={kind === 'out' ? 'on' : ''} onClick={() => setKind('out')}>
-            {t('cashOut')}
-          </button>
-          <button type="button" className={kind === 'in' ? 'on' : ''} onClick={() => setKind('in')}>
-            {t('cashIn')}
-          </button>
+        <div className="seg seg3" role="radiogroup" aria-label={t('opType')}>
+          {(['expense', 'income', 'collection'] as const).map((k) => (
+            <button key={k} type="button" role="radio" aria-checked={type === k} className={type === k ? 'on' : ''} onClick={() => pickType(k)}>
+              {t(`op.${k}` as Key)}
+            </button>
+          ))}
         </div>
         <label className="field">
           <span>
@@ -137,23 +172,32 @@ function CashDialog({ onClose }: { onClose: () => void }) {
             inputMode="numeric"
             required
             autoFocus
+            placeholder="0"
             value={amount}
             onChange={(e) => setAmount(e.target.value.replace(/\D/g, '').slice(0, 12))}
           />
         </label>
+        {type !== 'collection' && (
+          <label className="field">
+            <span>{t('category')}</span>
+            <select className="input" required value={categoryId} onChange={(e) => setCategoryId(e.target.value)}>
+              <option value="" disabled>
+                {cats ? t('chooseCategory') : t('loading')}
+              </option>
+              {options.map((o) => (
+                <option key={o.id} value={o.id}>
+                  {o.label}
+                </option>
+              ))}
+            </select>
+          </label>
+        )}
         <label className="field">
-          <span>{t('comment')}</span>
-          <input className="input" required maxLength={200} value={note} onChange={(e) => setNote(e.target.value)} />
+          <span>{t('description')}</span>
+          <input className="input" maxLength={200} value={note} onChange={(e) => setNote(e.target.value)} />
         </label>
-        <div className="quick">
-          {quick.map((q) => (
-            <button type="button" key={q} onClick={() => setNote(q)}>
-              {q}
-            </button>
-          ))}
-        </div>
-        <button className="btn send wide" disabled={busy || !Number(amount) || !note.trim()}>
-          {t('save')}
+        <button className="btn send wide" disabled={busy || !valid}>
+          + {t('addOp')}
         </button>
       </form>
     </Dialog>
@@ -359,58 +403,6 @@ function StaffDialog({ onClose }: { onClose: () => void }) {
                 <span className="muted">{s.hasPin ? 'PIN ✓' : '—'}</span>
               </div>
             ))}
-        </div>
-      )}
-    </Dialog>
-  )
-}
-
-// ───────────── Устройства: принтер и кассы ─────────────
-
-type Device = { id: string; name: string; active: boolean; lastSeenAt: string | null; current: boolean }
-
-function DevicesDialog({ onClose }: { onClose: () => void }) {
-  const { t, fail } = useApp()
-  const [devices, setDevices] = useState<Device[] | null>(null)
-
-  useEffect(() => {
-    api<Device[]>('/pos/devices').then(setDevices).catch(fail)
-  }, [fail])
-
-  const seen = (iso: string | null) =>
-    iso ? new Date(iso).toLocaleString('ru-RU', { timeZone: 'Asia/Tashkent', day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }) : '—'
-
-  return (
-    <Dialog title={t('cpDevices')} onClose={onClose}>
-      {desktop ? (
-        <PrinterSetting />
-      ) : (
-        <div className="muted" style={{ fontSize: 14 }}>
-          {t('printerBrowserNote')}{' '}
-          {DOWNLOAD_URL && (
-            <a href={DOWNLOAD_URL} style={{ fontWeight: 700 }}>
-              {t('downloadApp')}
-            </a>
-          )}
-        </div>
-      )}
-      <div className="field">
-        <span>{t('kassaDevices')}</span>
-      </div>
-      {!devices ? (
-        <div className="muted">{t('loading')}</div>
-      ) : (
-        <div className="list" style={{ maxHeight: '36vh' }}>
-          {devices.map((d) => (
-            <div key={d.id} className="kv">
-              <span>
-                {d.current ? '● ' : ''}
-                {d.name}
-                {d.current && <small className="muted"> · {t('thisDevice')}</small>}
-              </span>
-              <span className="muted num">{seen(d.lastSeenAt)}</span>
-            </div>
-          ))}
         </div>
       )}
     </Dialog>

@@ -301,12 +301,54 @@ export const cashMovements = pgTable('cash_movements', {
   userId: uuid('user_id')
     .notNull()
     .references(() => users.id),
-  /** in — внесение, out — изъятие */
+  /** in — деньги в кассу, out — из кассы */
   kind: text('kind').notNull(),
+  /** expense — расход, income — доход, collection — инкассация (владелец забрал выручку) */
+  type: text('type'),
+  categoryId: uuid('category_id').references(() => financeCategories.id),
   amount: money('amount'),
   note: text('note'),
   createdAt: createdAt(),
 })
+
+/** Категории расходов и доходов кассы (с вложенностью: «Коммунальные → Интернет»). */
+export const financeCategories = pgTable(
+  'finance_categories',
+  {
+    id: id(),
+    tenantId: tenantRef(),
+    /** expense | income */
+    kind: text('kind').notNull(),
+    parentId: uuid('parent_id'),
+    name: text('name').notNull(),
+    sort: integer('sort').notNull().default(0),
+    deletedAt: timestamp('deleted_at', { withTimezone: true }),
+    createdAt: createdAt(),
+  },
+  (t) => [index('finance_categories_tenant_idx').on(t.tenantId)],
+)
+
+/** Сетевые принтеры заведения: печать напрямую по IP (порт 9100), без окон и драйверов. */
+export const printers = pgTable(
+  'printers',
+  {
+    id: id(),
+    tenantId: tenantRef(),
+    name: text('name').notNull(),
+    ip: text('ip').notNull(),
+    port: integer('port').notNull().default(9100),
+    /** Ширина ленты, мм: 80 или 58 */
+    width: integer('width').notNull().default(80),
+    /** Отделы, заказы которых печатаются на этом принтере (кухня, бар…) */
+    departmentIds: jsonb('department_ids').$type<string[]>().notNull().default([]),
+    /** Печатать здесь счета и чеки гостям, отчёты смены */
+    receipts: boolean('receipts').notNull().default(false),
+    active: boolean('active').notNull().default(true),
+    deletedAt: timestamp('deleted_at', { withTimezone: true }),
+    createdAt: createdAt(),
+  },
+  (t) => [index('printers_tenant_idx').on(t.tenantId)],
+)
 
 export const receipts = pgTable(
   'receipts',
