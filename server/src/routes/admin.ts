@@ -19,6 +19,8 @@ import { createTenant } from '../tenant.js'
 const { platformAdmins, platformSettings, tenants, users, roles, terminals, receipts } = schema
 
 const loginRe = /^[a-z0-9._-]{3,32}$/
+/** Логин администратора платформы: можно и e-mail (admin@neopos.com). */
+const adminLoginRe = /^[a-z0-9._@+-]{3,64}$/
 
 // ───────────── Настройки платформы ─────────────
 
@@ -54,8 +56,8 @@ export async function ensurePlatformAdmin(db: DB, log: (msg: string) => void) {
     if (!existsSync(file)) writeFileSync(file, `login: ${login}\npassword: ${password}\n`)
     log(`Создан администратор платформы для разработки, данные: ${file}`)
   }
-  if (!loginRe.test(login)) {
-    log('SUPERADMIN_LOGIN: только латинские буквы и цифры, 3–32 символа')
+  if (!adminLoginRe.test(login)) {
+    log('SUPERADMIN_LOGIN: латинские буквы, цифры и знаки . _ - @ +, от 3 до 64 символов, без пробелов')
     return
   }
   if (password.length < 8) {

@@ -35,7 +35,8 @@ export async function buildApp(db: DB) {
     return reply.status(500).send({ error: 'internal' })
   })
 
-  app.get('/api/health', async () => ({ ok: true }))
+  // commit — какая версия кода запущена (Render передаёт его сам); помогает понять, обновился ли сервер.
+  app.get('/api/health', async () => ({ ok: true, commit: process.env.RENDER_GIT_COMMIT?.slice(0, 7) ?? null }))
   authRoutes(app, db)
   staffRoutes(app, db)
   menuRoutes(app, db)
