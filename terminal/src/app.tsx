@@ -1,6 +1,7 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { api, ApiError, device, session, setSessionLostHandler, type Boot, type Lang, type Receipt } from './api'
 import { Activate, Pin, ShiftGate } from './Auth'
+import { ControlPanel } from './ControlPanel'
 import { Hall } from './Hall'
 import { makeT, type Key } from './i18n'
 import { Order } from './Order'
@@ -42,6 +43,7 @@ export function App() {
   const [bootError, setBootError] = useState<string | null>(null)
   const [uiLang, setUiLang] = useState<Lang>(savedLang)
   const [receipt, setReceipt] = useState<Receipt | null>(null)
+  const [menu, setMenu] = useState(false)
   const [toastText, setToastText] = useState<string | null>(null)
   const toastTimer = useRef<number | undefined>(undefined)
 
@@ -63,6 +65,7 @@ export function App() {
     setToken(null)
     setBoot(null)
     setReceipt(null)
+    setMenu(false)
   }, [])
 
   const toast = useCallback((text: string) => {
@@ -161,8 +164,10 @@ export function App() {
           <ShiftGate />
         ) : receipt ? (
           <Order receipt={receipt} setReceipt={setReceipt} onBack={() => setReceipt(null)} />
+        ) : menu ? (
+          <ControlPanel onBack={() => setMenu(false)} />
         ) : (
-          <Hall onOpen={setReceipt} />
+          <Hall onOpen={setReceipt} onMenu={() => setMenu(true)} />
         )}
       </Ctx.Provider>
     )

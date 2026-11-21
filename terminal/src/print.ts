@@ -1,4 +1,4 @@
-import { money, qtyText, type Boot, type Lang, type Receipt, type ReceiptItem } from './api'
+import { money, qtyText, type Boot, type Lang, type Receipt, type ReceiptItem, type ShiftSummary } from './api'
 
 /**
  * Печать через браузер на основной принтер компьютера (термолента 80 мм).
@@ -110,6 +110,42 @@ export function guestReceipt(r: Receipt, boot: Boot, lang: Lang, opts: { final: 
     </section>`
 }
 
+/** Отчёт по текущей смене (X-отчёт): продажи, оплата, движение наличных. Смену не закрывает. */
+export function shiftReport(s: ShiftSummary, boot: Boot, lang: Lang, shiftNumber: number): string {
+  const L = {
+    title: { uz: 'SMENA HISOBOTI', ru: 'ОТЧЁТ ПО СМЕНЕ' },
+    shift: { uz: 'Smena', ru: 'Смена' },
+    receipts: { uz: 'Cheklar', ru: 'Чеков' },
+    revenue: { uz: 'TUSHUM', ru: 'ВЫРУЧКА' },
+    opening: { uz: 'Smena boshida', ru: 'На начало смены' },
+    cashSales: { uz: 'Naqd savdo', ru: 'Продажи наличными' },
+    in: { uz: 'Kiritildi', ru: 'Внесено' },
+    out: { uz: 'Olindi', ru: 'Изъято' },
+    expected: { uz: 'KASSADA', ru: 'В КАССЕ' },
+    printed: { uz: 'Chop etildi', ru: 'Напечатано' },
+  }
+  const kv = (k: string, v: string, cls = '') => `<div class="row ${cls}"><span>${k}</span><span>${v}</span></div>`
+  return `
+    <section class="slip">
+      <div class="c big">${esc(boot.venue)}</div>
+      <div class="c big">${L.title[lang]}</div>
+      ${kv(`${L.shift[lang]} №${shiftNumber}`, time(new Date()))}
+      <hr />
+      ${kv(L.receipts[lang], String(s.receipts))}
+      ${s.byMethod.map((m) => kv(esc(m.name[lang]), money(m.amount))).join('')}
+      ${kv(L.revenue[lang], money(s.revenue), 'total')}
+      <hr />
+      ${kv(L.opening[lang], money(s.openingCash))}
+      ${kv(L.cashSales[lang], money(s.cashSales))}
+      ${s.movements
+        .map((m) => kv(`${m.kind === 'out' ? L.out[lang] : L.in[lang]}: ${esc(m.note ?? '')}`, `${m.kind === 'out' ? '−' : '+'}${money(m.amount)}`))
+        .join('')}
+      ${kv(L.expected[lang], money(s.expectedCash), 'total')}
+      <hr />
+      <div class="c small">${L.printed[lang]}: ${esc(boot.user.name)}</div>
+    </section>`
+}
+
 /** Вид бумаги: термолента 80 мм, рабочая ширина 72 мм. */
 const SLIP_CSS = `
   #print-root { width: 72mm; margin: 0 auto; color: #000; font-family: 'Courier New', 'Liberation Mono', monospace; font-size: 12px; line-height: 1.35; }
@@ -138,6 +174,8 @@ type Desktop = {
   printers: () => Promise<{ name: string; displayName: string; isDefault: boolean }[]>
   setPrinter: (name: string) => Promise<boolean>
   print: (html: string) => Promise<{ ok: boolean; error?: string }>
+  /** Есть с версии приложения 0.1.3: проверить и установить новую версию программы */
+  checkUpdate?: () => Promise<{ status: 'latest' | 'installing' | 'dev' | 'error'; version?: string; error?: string }>
 }
 export const desktop: Desktop | null = (window as unknown as { neoposDesktop?: Desktop }).neoposDesktop ?? null
 

@@ -10,4 +10,6 @@ contextBridge.exposeInMainWorld('neoposDesktop', {
   setPrinter: (name) => ipcRenderer.invoke('neopos:set-printer', name),
   /** To'liq HTML hujjatni so'ramasdan chop etish → { ok, error? } */
   print: (html) => ipcRenderer.invoke('neopos:print', html),
+  /** Проверить и установить новую версию программы → { status, version? } */
+  checkUpdate: () => ipcRenderer.invoke('neopos:check-update'),
 })

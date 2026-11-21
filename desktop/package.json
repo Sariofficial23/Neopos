@@ -33,7 +33,7 @@
       "provider": "github",
       "owner": "Sariofficial23",
       "repo": "Neopos",
-      "releaseType": "release"
+      "releaseType": "draft"
     },
     "nsisWeb": {
       "oneClick": true,

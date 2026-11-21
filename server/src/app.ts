@@ -4,6 +4,7 @@ import Fastify from 'fastify'
 import { ZodError } from 'zod'
 import { getSecret, HttpError } from './auth.js'
 import type { DB } from './db/index.js'
+import { adminRoutes } from './routes/admin.js'
 import { authRoutes } from './routes/auth.js'
 import { hallRoutes, menuRoutes } from './routes/menu.js'
 import { posRoutes } from './routes/pos.js'
@@ -13,7 +14,15 @@ import { staffRoutes } from './routes/staff.js'
 
 export async function buildApp(db: DB) {
   const app = Fastify({ logger: process.env.NODE_ENV !== 'test' })
-  await app.register(cors, { origin: true })
+  // Панель и касса живут на других доменах (Vercel), поэтому изменения и удаления
+  // нужно разрешить явно: по умолчанию @fastify/cors пропускает только GET, HEAD и POST.
+  // Вход по токену в заголовке, а не по cookie, поэтому разрешать любой домен безопасно.
+  await app.register(cors, {
+    origin: true,
+    methods: ['GET', 'HEAD', 'POST', 'PUT', 'PATCH', 'DELETE'],
+    allowedHeaders: ['Authorization', 'Content-Type'],
+    maxAge: 86400,
+  })
   await app.register(jwt, { secret: getSecret() })
 
   app.setErrorHandler((err, _req, reply) => {
@@ -34,7 +43,8 @@ export async function buildApp(db: DB) {
     return reply.status(500).send({ error: 'internal' })
   })
 
-  app.get('/api/health', async () => ({ ok: true }))
+  // commit — какая версия кода запущена (Render передаёт его сам); помогает понять, обновился ли сервер.
+  app.get('/api/health', async () => ({ ok: true, commit: process.env.RENDER_GIT_COMMIT?.slice(0, 7) ?? null }))
   authRoutes(app, db)
   staffRoutes(app, db)
   menuRoutes(app, db)
@@ -42,5 +52,6 @@ export async function buildApp(db: DB) {
   posRoutes(app, db)
   settingsRoutes(app, db)
   reportRoutes(app, db)
+  adminRoutes(app, db)
   return app
 }

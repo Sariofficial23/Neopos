@@ -34,8 +34,17 @@ jobs:
         shell: bash
         run: npm version --no-git-tag-version --allow-same-version "${GITHUB_REF_NAME#v}"
 
-      - name: Build and publish installer
-        run: npx electron-builder --win nsis --publish always
+      # Маленький веб-установщик (NeoPos-Setup.exe) + пакет приложения. Файлы загружаются
+      # в черновик релиза — так параллельные загрузки не создают дубликаты релиза.
+      - name: Build installer and upload to draft release
+        run: npx electron-builder --win nsis-web --publish always
         env:
-          # Для публикации в другой (публичный) репозиторий нужен токен в секрете RELEASES_TOKEN.
-          GH_TOKEN: ${{ secrets.RELEASES_TOKEN || secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      # Когда все файлы на месте — публикуем релиз и делаем его последним (на него ведёт ссылка «Скачать»).
+      - name: Publish release
+        if: startsWith(github.ref, 'refs/tags/v')
+        shell: bash
+        run: gh release edit "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY" --draft=false --latest
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}

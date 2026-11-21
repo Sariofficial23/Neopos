@@ -273,6 +273,11 @@ const dict = {
   'err.department_in_use': { uz: 'Bo‘limga mahsulotlar biriktirilgan', ru: 'К отделу привязаны товары' },
   'err.table_name_taken': { uz: 'Bu nomli stol allaqachon bor', ru: 'Стол с таким названием уже есть' },
   'err.table_busy': { uz: 'Stolda ochiq chek bor', ru: 'За столом открыт чек' },
+  'err.venue_blocked': {
+    uz: 'Muassasa bloklangan. NeoPos bilan bog‘laning.',
+    ru: 'Заведение заблокировано. Свяжитесь с NeoPos.',
+  },
+  'err.registration_closed': { uz: 'Ro‘yxatdan o‘tish yopiq', ru: 'Регистрация закрыта' },
   'err.bad_credentials': { uz: 'Login yoki parol noto‘g‘ri', ru: 'Неверный логин или пароль' },
   'err.too_many_attempts': { uz: 'Urinishlar ko‘p. Bir daqiqadan so‘ng qayta urining.', ru: 'Слишком много попыток. Повторите через минуту.' },
   'err.login_taken': { uz: 'Bu login band', ru: 'Этот логин уже занят' },

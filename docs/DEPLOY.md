@@ -91,3 +91,14 @@ https://github.com/Sariofficial23/Neopos/releases/latest/download/NeoPos-Setup.e
 
 Локальная сборка: `cd desktop`, `npm install`, `node node_modules/electron/install.js`,
 `npm run dist` → `desktop/dist/NeoPos-Setup.exe`. Проверка без установки: `npm run smoke`.
+
+## 6. Админ-панель NeoPos
+
+Адрес: https://neopos-panel.vercel.app/admin (или https://neopos-sepia.vercel.app/admin).
+Там создаются бренды (заведения) с логином и паролем владельца, блокируются и разблокируются,
+сбрасываются пароли владельцам, включается и выключается открытая регистрация.
+
+Логин и пароль администратора задаются на Render: сервис `neopos-api` → **Environment** →
+переменные `SUPERADMIN_LOGIN` (латиница и цифры, 3–32 символа) и `SUPERADMIN_PASSWORD`
+(не короче 8 символов) → **Save Changes**. Сервер перезапустится и создаст администратора.
+Чтобы сменить пароль — поменяйте `SUPERADMIN_PASSWORD`, при перезапуске он обновится.

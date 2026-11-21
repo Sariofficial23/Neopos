@@ -1,6 +1,7 @@
 import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom'
+import { AdminApp } from './admin/Admin'
 import './index.css'
 import { I18nProvider, useI18n, type Key } from './i18n'
 import { Layout } from './Layout'
@@ -63,11 +64,16 @@ function App() {
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
     <I18nProvider>
-      <SessionProvider>
-        <BrowserRouter>
-          <App />
-        </BrowserRouter>
-      </SessionProvider>
+      {/* Админ-панель NeoPos живёт отдельно от панели бренда: свой вход и свой токен. */}
+      {window.location.pathname.replace(/\/+$/, '') === '/admin' ? (
+        <AdminApp />
+      ) : (
+        <SessionProvider>
+          <BrowserRouter>
+            <App />
+          </BrowserRouter>
+        </SessionProvider>
+      )}
     </I18nProvider>
   </StrictMode>,
 )

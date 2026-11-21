@@ -68,8 +68,9 @@ declare module 'fastify' {
 declare module '@fastify/jwt' {
   interface FastifyJWT {
     // kind: 'device' — токен привязанного устройства кассы, сам по себе доступа к данным не даёт
-    payload: { sub?: string; tid: string; kind?: 'device'; did?: string }
-    user: { sub?: string; tid: string; kind?: 'device'; did?: string }
+    // kind: 'admin' — администратор платформы NeoPos, к данным заведений напрямую доступа не имеет
+    payload: { sub?: string; tid?: string; kind?: 'device' | 'admin'; did?: string }
+    user: { sub?: string; tid?: string; kind?: 'device' | 'admin'; did?: string }
   }
 }
 
@@ -91,12 +92,13 @@ export function makeAuthGuards(db: DB) {
     } catch {
       throw new HttpError(401, 'unauthorized')
     }
-    const { sub, tid } = req.user
-    if (!sub) throw new HttpError(401, 'unauthorized')
+    const { sub, tid, kind } = req.user
+    if (!sub || !tid || kind) throw new HttpError(401, 'unauthorized')
     const [row] = await db
-      .select({ user: schema.users, role: schema.roles })
+      .select({ user: schema.users, role: schema.roles, blocked: schema.tenants.blocked })
       .from(schema.users)
       .innerJoin(schema.roles, eq(schema.roles.id, schema.users.roleId))
+      .innerJoin(schema.tenants, eq(schema.tenants.id, schema.users.tenantId))
       .where(
         and(
           eq(schema.users.id, sub),
@@ -105,6 +107,8 @@ export function makeAuthGuards(db: DB) {
         ),
       )
     if (!row || !row.user.active) throw new HttpError(401, 'unauthorized')
+    // Заблокированный бренд теряет доступ сразу, даже с уже выданным токеном.
+    if (row.blocked) throw new HttpError(403, 'venue_blocked')
     req.auth = {
       userId: row.user.id,
       tenantId: row.user.tenantId,

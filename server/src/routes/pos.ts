@@ -36,6 +36,7 @@ const {
   receiptItems,
   payments,
   auditLog,
+  cashMovements,
 } = schema
 
 /** Настройки печати заведения с значениями по умолчанию. Хранятся в tenants.settings. */
@@ -109,6 +110,8 @@ export function posRoutes(app: FastifyInstance, db: DB) {
     if (!row.role.isOwner && !row.role.panelAccess) throw new HttpError(403, 'forbidden')
 
     const tenantId = row.user.tenantId
+    const [owner] = await db.select({ blocked: tenants.blocked }).from(tenants).where(eq(tenants.id, tenantId))
+    if (owner?.blocked) throw new HttpError(403, 'venue_blocked')
     const [terminal] = await db
       .insert(terminals)
       .values({
@@ -139,6 +142,8 @@ export function posRoutes(app: FastifyInstance, db: DB) {
       .from(terminals)
       .where(and(eq(terminals.id, device.did), eq(terminals.tenantId, device.tid)))
     if (!terminal || !terminal.active) throw new HttpError(401, 'device_not_activated')
+    const [venue] = await db.select({ blocked: tenants.blocked }).from(tenants).where(eq(tenants.id, device.tid))
+    if (venue?.blocked) throw new HttpError(403, 'venue_blocked')
 
     // ПИН короткий, поэтому перебор ограничиваем на само устройство.
     const key = `pin:${terminal.id}`
@@ -251,18 +256,104 @@ export function posRoutes(app: FastifyInstance, db: DB) {
       .from(receipts)
       .where(and(eq(receipts.shiftId, shift.id), eq(receipts.status, 'open')))
     const cash = byMethod.filter((m) => m.kind === 'cash').reduce((s, m) => s + m.amount, 0)
+    // Внесения и изъятия наличных за смену (например, дневные расходы).
+    const movements = await conn
+      .select({
+        id: cashMovements.id,
+        kind: cashMovements.kind,
+        amount: cashMovements.amount,
+        note: cashMovements.note,
+        createdAt: cashMovements.createdAt,
+        userName: users.name,
+      })
+      .from(cashMovements)
+      .leftJoin(users, eq(users.id, cashMovements.userId))
+      .where(eq(cashMovements.shiftId, shift.id))
+      .orderBy(asc(cashMovements.createdAt))
+    const cashIn = movements.filter((m) => m.kind === 'in').reduce((s, m) => s + m.amount, 0)
+    const cashOut = movements.filter((m) => m.kind === 'out').reduce((s, m) => s + m.amount, 0)
     return {
       receipts: closed.length,
       revenue: closed.reduce((s, r) => s + r.total, 0),
       byMethod,
       openReceipts: openCount,
-      expectedCash: shift.openingCash + cash,
+      openingCash: shift.openingCash,
+      cashSales: cash,
+      cashIn,
+      cashOut,
+      movements,
+      expectedCash: shift.openingCash + cash + cashIn - cashOut,
     }
   }
 
   app.get('/api/pos/shift', pos, async (req) => {
     const shift = await openShift(db, req.auth.tenantId)
     return { shift, summary: shift ? await shiftSummary(db, shift) : null }
+  })
+
+  /** Внесение или изъятие наличных из кассы — например, дневной расход на продукты. */
+  app.post('/api/pos/shift/cash', pos, async (req) => {
+    need(req, 'shift.cash_movement')
+    const body = z
+      .object({
+        kind: z.enum(['in', 'out']),
+        amount: z.number().int().min(1).max(1e12),
+        note: z.string().trim().min(1).max(200),
+      })
+      .parse(req.body)
+    const tenantId = req.auth.tenantId
+    return db.transaction(async (tx) => {
+      const shift = await openShift(tx, tenantId)
+      if (!shift) throw new HttpError(409, 'shift_closed')
+      if (body.kind === 'out') {
+        const now = await shiftSummary(tx, shift)
+        if (body.amount > now.expectedCash) throw new HttpError(409, 'not_enough_cash')
+      }
+      await tx.insert(cashMovements).values({ tenantId, shiftId: shift.id, userId: req.auth.userId, ...body })
+      await tx.insert(auditLog).values({
+        tenantId,
+        userId: req.auth.userId,
+        action: body.kind === 'in' ? 'cash.in' : 'cash.out',
+        data: { amount: body.amount, note: body.note, shift: shift.number },
+      })
+      return { summary: await shiftSummary(tx, shift) }
+    })
+  })
+
+  /** Чеки текущей смены: закрытые и отменённые. Кассир без права «чеки всех» видит только свои. */
+  app.get('/api/pos/archive', pos, async (req) => {
+    const tenantId = req.auth.tenantId
+    const shift = await openShift(db, tenantId)
+    if (!shift) return { shift: null, receipts: [] }
+    const mine = can(req, 'receipt.see_all') ? undefined : eq(receipts.waiterId, req.auth.userId)
+    const rows = await db
+      .select({
+        id: receipts.id,
+        number: receipts.number,
+        status: receipts.status,
+        tableName: tables.name,
+        saleTypeId: receipts.saleTypeId,
+        waiterName: users.name,
+        total: receipts.total,
+        closedAt: receipts.closedAt,
+      })
+      .from(receipts)
+      .leftJoin(tables, eq(tables.id, receipts.tableId))
+      .leftJoin(users, eq(users.id, receipts.waiterId))
+      .where(and(eq(receipts.shiftId, shift.id), inArray(receipts.status, ['closed', 'cancelled']), mine))
+      .orderBy(desc(receipts.closedAt))
+      .limit(300)
+    return { shift: { number: shift.number }, receipts: rows }
+  })
+
+  /** Кассы (устройства) заведения; текущее устройство отмечено. */
+  app.get('/api/pos/devices', pos, async (req) => {
+    const rows = await db
+      .select({ id: terminals.id, name: terminals.name, active: terminals.active, lastSeenAt: terminals.lastSeenAt, createdAt: terminals.createdAt })
+      .from(terminals)
+      .where(eq(terminals.tenantId, req.auth.tenantId))
+      .orderBy(desc(terminals.lastSeenAt))
+    return rows.map((r) => ({ ...r, current: r.id === req.user.did }))
   })
 
   app.post('/api/pos/shift/open', pos, async (req) => {

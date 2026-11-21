@@ -1,4 +1,4 @@
-import { useState, type FormEvent } from 'react'
+import { useEffect, useState, type FormEvent } from 'react'
 import { api, ApiError } from '../api'
 import { DOWNLOAD_URL } from '../download'
 import { LangSwitch, useI18n } from '../i18n'
@@ -12,6 +12,17 @@ export function Login() {
   const [form, setForm] = useState({ venue: '', name: '', login: '', password: '' })
   const [error, setError] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
+  // Ссылку «Регистрация» показываем, только если администратор NeoPos её не закрыл.
+  const [allowRegister, setAllowRegister] = useState(false)
+
+  useEffect(() => {
+    api<{ allowRegister: boolean }>('/meta/public')
+      .then((r) => {
+        setAllowRegister(r.allowRegister)
+        if (!r.allowRegister) setMode('login')
+      })
+      .catch(() => setAllowRegister(false))
+  }, [])
 
   const set = (k: keyof typeof form) => (e: { target: { value: string } }) =>
     setForm((f) => ({ ...f, [k]: e.target.value }))
@@ -86,16 +97,18 @@ export function Login() {
           </button>
         </form>
 
-        <button
-          type="button"
-          className="mt-4 w-full cursor-pointer text-center text-sm text-brand-600 hover:underline"
-          onClick={() => {
-            setMode(mode === 'login' ? 'register' : 'login')
-            setError(null)
-          }}
-        >
-          {mode === 'login' ? t('noAccount') : t('haveAccount')}
-        </button>
+        {allowRegister && (
+          <button
+            type="button"
+            className="mt-4 w-full cursor-pointer text-center text-sm text-brand-600 hover:underline"
+            onClick={() => {
+              setMode(mode === 'login' ? 'register' : 'login')
+              setError(null)
+            }}
+          >
+            {mode === 'login' ? t('noAccount') : t('haveAccount')}
+          </button>
+        )}
 
         {DOWNLOAD_URL && (
           <a href={DOWNLOAD_URL} className="btn btn-ghost mt-6 w-full no-underline">
