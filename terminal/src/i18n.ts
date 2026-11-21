@@ -51,6 +51,7 @@ const dict = {
   controlPanel: { uz: 'Boshqaruv paneli', ru: 'Панель управления' },
   cpReport: { uz: 'Hisobot yaratish', ru: 'Создать отчёт' },
   report: { uz: 'Hisobot', ru: 'Отчёт' },
+  billPrintedTag: { uz: 'Hisob berildi', ru: 'Счёт выдан' },
   printReceiptSwitch: { uz: 'Chekni chop etish', ru: 'Печать чека' },
   netOnline: { uz: 'Internet bor', ru: 'Онлайн' },
   netOffline: { uz: 'Internet yo‘q', ru: 'Нет интернета' },

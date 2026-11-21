@@ -118,10 +118,16 @@ export function Hall({ onOpen, onMenu }: { onOpen: (r: Receipt) => void; onMenu:
                   <b>{tb.name}</b>
                   {r ? (
                     <>
-                      <small className="num">{money(r.total)}</small>
-                      <small>
-                        {r.waiterName} · {minutes(r.openedAt)} {t('min')}
+                      {/* Кто обслуживает стол — сразу видно в зале */}
+                      <span className="waiter">👤 {r.waiterName}</span>
+                      <small className="num">
+                        {money(r.total)} · {minutes(r.openedAt)} {t('min')}
                       </small>
+                      {r.billPrinted && (
+                        <span className="bill-tag" title={t('billPrintedTag')}>
+                          ✓ {t('billPrintedTag')}
+                        </span>
+                      )}
                     </>
                   ) : (
                     <small>{foreign ? '•••' : t('free')}</small>
