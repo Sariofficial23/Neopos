@@ -14,7 +14,15 @@ import { staffRoutes } from './routes/staff.js'
 
 export async function buildApp(db: DB) {
   const app = Fastify({ logger: process.env.NODE_ENV !== 'test' })
-  await app.register(cors, { origin: true })
+  // Панель и касса живут на других доменах (Vercel), поэтому изменения и удаления
+  // нужно разрешить явно: по умолчанию @fastify/cors пропускает только GET, HEAD и POST.
+  // Вход по токену в заголовке, а не по cookie, поэтому разрешать любой домен безопасно.
+  await app.register(cors, {
+    origin: true,
+    methods: ['GET', 'HEAD', 'POST', 'PUT', 'PATCH', 'DELETE'],
+    allowedHeaders: ['Authorization', 'Content-Type'],
+    maxAge: 86400,
+  })
   await app.register(jwt, { secret: getSecret() })
 
   app.setErrorHandler((err, _req, reply) => {
