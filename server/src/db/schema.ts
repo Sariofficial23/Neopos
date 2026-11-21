@@ -204,6 +204,8 @@ export const tables = pgTable('tables', {
     .references(() => halls.id, { onDelete: 'cascade' }),
   name: text('name').notNull(),
   seats: integer('seats').notNull().default(4),
+  /** Плата за обслуживание для этого стола, сотые доли процента (1000 = 10%). null — как у способа продажи. */
+  serviceBp: integer('service_bp'),
   x: integer('x').notNull().default(0),
   y: integer('y').notNull().default(0),
   w: integer('w').notNull().default(1),

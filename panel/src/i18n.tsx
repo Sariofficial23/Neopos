@@ -238,6 +238,16 @@ const dict = {
   addTables: { uz: 'Bir nechta stol', ru: 'Несколько столов' },
   tableName: { uz: 'Stol nomi yoki raqami', ru: 'Название или номер стола' },
   seats: { uz: 'O‘rinlar', ru: 'Мест' },
+  servicePercent: { uz: 'Xizmat haqi', ru: 'Плата за обслуживание' },
+  servicePercentHint: {
+    uz: 'Shu stoldagi yangi cheklarga qo‘shiladi. Istalgan vaqtda o‘zgartirish mumkin. 0 — xizmat haqisiz.',
+    ru: 'Добавляется к новым чекам этого стола. Можно изменить в любое время. 0 — без обслуживания.',
+  },
+  serviceForAll: { uz: 'Zaldagi barcha stollar uchun xizmat haqi', ru: 'Обслуживание для всех столов зала' },
+  serviceForAllHint: {
+    uz: 'To‘ldirsangiz — zaldagi hamma stolga shu foiz qo‘yiladi. Bo‘sh qoldirsangiz — o‘zgarmaydi.',
+    ru: 'Если заполнить — этот процент встанет у всех столов зала. Если оставить пустым — ничего не изменится.',
+  },
   from: { uz: 'Dan', ru: 'С номера' },
   to: { uz: 'Gacha', ru: 'По номер' },
   noHalls: { uz: 'Avval zal qo‘shing', ru: 'Сначала добавьте зал' },

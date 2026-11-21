@@ -21,11 +21,12 @@ const I = ({ children }: { children: ReactNode }) => (
 )
 
 const NAV: NavItem[] = [
+  // Отчёты — первым пунктом: это то, что владелец открывает чаще всего.
+  { to: '/reports', label: 'navReports', perm: 'reports.view', icon: <I><path d="M4 20V4M4 20h16M8 16v-5M12 16V8M16 16v-3" /></I> },
   { to: '/', label: 'navDashboard', icon: <I><path d="M4 13h6V4H4zM14 20h6v-9h-6zM4 20h6v-3H4zM14 7h6V4h-6z" /></I> },
   { to: '/menu', label: 'navMenu', perm: 'menu.view', icon: <I><path d="M7 3v8M4 3v5a3 3 0 0 0 6 0V3M7 11v10M17 3c-2 2-3 4-3 7h3zM17 10v11" /></I> },
   { to: '/halls', label: 'navHalls', perm: 'halls.edit', icon: <I><path d="M3 9h18M5 9v10M19 9v10M8 9V5h8v4M8 14h8" /></I> },
   { to: '/receipts', label: 'navReceipts', perm: 'sales.view', icon: <I><path d="M6 3h12v18l-3-2-3 2-3-2-3 2zM9 8h6M9 12h6" /></I> },
-  { to: '/reports', label: 'navReports', perm: 'reports.view', icon: <I><path d="M4 20V4M4 20h16M8 16v-5M12 16V8M16 16v-3" /></I> },
   { to: '/customers', label: 'navCustomers', perm: 'customers.view', icon: <I><circle cx="12" cy="8" r="4" /><path d="M4 21c0-4 4-6 8-6s8 2 8 6" /></I> },
   { to: '/staff', label: 'navStaff', perm: 'staff.view', icon: <I><circle cx="9" cy="8" r="3.5" /><path d="M2 20c0-3.5 3-5.5 7-5.5s7 2 7 5.5M16 4.5a3.5 3.5 0 0 1 0 7M18.5 14.8c2 .7 3.5 2.3 3.5 5.2" /></I> },
   { to: '/roles', label: 'navRoles', perm: 'staff.view', icon: <I><path d="M12 3 4 6v6c0 4.5 3.2 8 8 9 4.8-1 8-4.5 8-9V6zM9 12l2 2 4-4" /></I> },

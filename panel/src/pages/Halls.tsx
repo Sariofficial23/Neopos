@@ -3,9 +3,19 @@ import { api, ApiError, type Hall, type Table } from '../api'
 import { useI18n } from '../i18n'
 import { ErrorNote, Field, Modal, Segmented } from '../ui'
 
-type HallDraft = { id?: string; name: string }
-type TableDraft = { id?: string; name: string; seats: string }
-type BulkDraft = { from: string; to: string; seats: string }
+type HallDraft = { id?: string; name: string; service: string }
+type TableDraft = { id?: string; name: string; seats: string; service: string }
+type BulkDraft = { from: string; to: string; seats: string; service: string }
+
+/** Процент из сотых долей: 1000 → «10», 750 → «7.5» */
+const bpText = (bp: number | null) => (bp == null ? '' : String(bp / 100))
+/** Поле процента: цифры и одна точка, не больше 100 */
+const percentInput = (v: string) => {
+  const [whole, ...rest] = v.replace(',', '.').replace(/[^\d.]/g, '').split('.')
+  const clean = (rest.length ? `${whole}.${rest.join('')}` : whole).slice(0, 5)
+  return Number(clean) > 100 ? '100' : clean
+}
+const percentValue = (v: string) => (v === '' ? null : Number(v))
 
 export function HallsPage() {
   const { t, tErr } = useI18n()
@@ -55,7 +65,7 @@ export function HallsPage() {
   function saveHall(e: FormEvent) {
     e.preventDefault()
     if (!hDraft) return
-    const body = { name: hDraft.name }
+    const body = { name: hDraft.name, servicePercentForAll: hDraft.id ? percentValue(hDraft.service) : null }
     void run(
       async () => {
         if (hDraft.id) return api(`/halls/${hDraft.id}`, { method: 'PATCH', body })
@@ -69,7 +79,7 @@ export function HallsPage() {
   function saveTable(e: FormEvent) {
     e.preventDefault()
     if (!tDraft || !hall) return
-    const body = { hallId: hall.id, name: tDraft.name, seats: Number(tDraft.seats) || 1 }
+    const body = { hallId: hall.id, name: tDraft.name, seats: Number(tDraft.seats) || 1, servicePercent: percentValue(tDraft.service) }
     void run(
       () => (tDraft.id ? api(`/tables/${tDraft.id}`, { method: 'PATCH', body }) : api('/tables', { method: 'POST', body })),
       () => setTDraft(null),
@@ -79,7 +89,13 @@ export function HallsPage() {
   function saveBulk(e: FormEvent) {
     e.preventDefault()
     if (!bulk || !hall) return
-    const body = { hallId: hall.id, from: Number(bulk.from), to: Number(bulk.to), seats: Number(bulk.seats) || 1 }
+    const body = {
+      hallId: hall.id,
+      from: Number(bulk.from),
+      to: Number(bulk.to),
+      seats: Number(bulk.seats) || 1,
+      servicePercent: percentValue(bulk.service),
+    }
     void run(() => api('/tables/bulk', { method: 'POST', body }), () => setBulk(null))
   }
 
@@ -115,6 +131,12 @@ export function HallsPage() {
     return String((nums.length ? Math.max(...nums) : 0) + 1)
   }
 
+  /** Процент для нового стола: как у последнего стола зала, а в пустом зале — 10%. */
+  const defaultService = (list: Table[]) => {
+    const last = [...list].reverse().find((x) => x.serviceBp != null)
+    return last ? bpText(last.serviceBp) : '10'
+  }
+
   const open = (fn: () => void) => {
     setError(null)
     fn()
@@ -124,7 +146,7 @@ export function HallsPage() {
     <div className="mx-auto max-w-6xl">
       <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
         <h1 className="text-2xl font-semibold">{t('navHalls')}</h1>
-        <button className="btn btn-primary" onClick={() => open(() => setHDraft({ name: '' }))}>
+        <button className="btn btn-primary" onClick={() => open(() => setHDraft({ name: '', service: '' }))}>
           + {t('addHall')}
         </button>
       </div>
@@ -142,7 +164,7 @@ export function HallsPage() {
             />
             <button
               className="cursor-pointer text-sm font-medium text-brand-600 hover:underline"
-              onClick={() => open(() => setHDraft({ id: hall.id, name: hall.name }))}
+              onClick={() => open(() => setHDraft({ id: hall.id, name: hall.name, service: '' }))}
             >
               {t('editHall')}
             </button>
@@ -151,7 +173,7 @@ export function HallsPage() {
           <div className="mb-4 flex flex-wrap gap-2">
             <button
               className="btn btn-ghost"
-              onClick={() => open(() => setTDraft({ name: nextNumber(hall.tables), seats: '4' }))}
+              onClick={() => open(() => setTDraft({ name: nextNumber(hall.tables), seats: '4', service: defaultService(hall.tables) }))}
             >
               + {t('addTable')}
             </button>
@@ -160,7 +182,7 @@ export function HallsPage() {
               onClick={() =>
                 open(() => {
                   const from = Number(nextNumber(hall.tables))
-                  setBulk({ from: String(from), to: String(from + 9), seats: '4' })
+                  setBulk({ from: String(from), to: String(from + 9), seats: '4', service: defaultService(hall.tables) })
                 })
               }
             >
@@ -175,13 +197,18 @@ export function HallsPage() {
               {hall.tables.map((tb) => (
                 <button
                   key={tb.id}
-                  onClick={() => open(() => setTDraft({ id: tb.id, name: tb.name, seats: String(tb.seats) }))}
+                  onClick={() => open(() => setTDraft({ id: tb.id, name: tb.name, seats: String(tb.seats), service: bpText(tb.serviceBp) }))}
                   className="card flex aspect-square cursor-pointer flex-col items-center justify-center gap-1 p-2 transition hover:border-brand-500 hover:shadow-md"
                 >
                   <span className="max-w-full truncate text-xl font-bold">{tb.name}</span>
                   <span className="text-xs text-slate-500">
                     {t('seats')}: {tb.seats}
                   </span>
+                  {tb.serviceBp != null && (
+                    <span className="rounded-full bg-brand-50 px-2 py-0.5 text-xs font-semibold tabular-nums text-brand-700" title={t('servicePercent')}>
+                      {bpText(tb.serviceBp)}%
+                    </span>
+                  )}
                 </button>
               ))}
             </div>
@@ -202,6 +229,17 @@ export function HallsPage() {
                 onChange={(e) => setHDraft({ ...hDraft, name: e.target.value })}
               />
             </Field>
+            {hDraft.id && (
+              <Field label={`${t('serviceForAll')}, %`} hint={t('serviceForAllHint')}>
+                <input
+                  className="input tabular-nums"
+                  inputMode="decimal"
+                  placeholder="—"
+                  value={hDraft.service}
+                  onChange={(e) => setHDraft({ ...hDraft, service: percentInput(e.target.value) })}
+                />
+              </Field>
+            )}
             <ErrorNote text={error} />
             {footer(hDraft.id ? () => remove(`/halls/${hDraft.id}`, () => setHDraft(null)) : null, () => setHDraft(null))}
           </form>
@@ -232,6 +270,15 @@ export function HallsPage() {
                 />
               </Field>
             </div>
+            <Field label={`${t('servicePercent')}, %`} hint={t('servicePercentHint')}>
+              <input
+                className="input tabular-nums"
+                inputMode="decimal"
+                placeholder="0"
+                value={tDraft.service}
+                onChange={(e) => setTDraft({ ...tDraft, service: percentInput(e.target.value) })}
+              />
+            </Field>
             <ErrorNote text={error} />
             {footer(tDraft.id ? () => remove(`/tables/${tDraft.id}`, () => setTDraft(null)) : null, () => setTDraft(null))}
           </form>
@@ -271,6 +318,15 @@ export function HallsPage() {
                 />
               </Field>
             </div>
+            <Field label={`${t('servicePercent')}, %`} hint={t('servicePercentHint')}>
+              <input
+                className="input tabular-nums"
+                inputMode="decimal"
+                placeholder="0"
+                value={bulk.service}
+                onChange={(e) => setBulk({ ...bulk, service: percentInput(e.target.value) })}
+              />
+            </Field>
             <ErrorNote text={error} />
             {footer(null, () => setBulk(null))}
           </form>

@@ -219,7 +219,7 @@ export function posRoutes(app: FastifyInstance, db: DB) {
       halls: hallRows.map((h) => ({
         id: h.id,
         name: h.name,
-        tables: tableRows.filter((t) => t.hallId === h.id).map((t) => ({ id: t.id, name: t.name, seats: t.seats })),
+        tables: tableRows.filter((t) => t.hallId === h.id).map((t) => ({ id: t.id, name: t.name, seats: t.seats, serviceBp: t.serviceBp })),
       })),
       saleTypes: sales.map((s) => ({ id: s.id, kind: s.kind, name: s.name, serviceBp: s.serviceBp })),
       paymentMethods: methods.map((m) => ({ id: m.id, kind: m.kind, name: m.name })),
@@ -435,12 +435,15 @@ export function posRoutes(app: FastifyInstance, db: DB) {
       const shift = await openShift(tx, tenantId)
       if (!shift) throw new HttpError(409, 'shift_closed')
 
+      // Процент обслуживания стола важнее процента способа продажи.
+      let tableServiceBp: number | null = null
       if (body.tableId) {
         const [t] = await tx
-          .select({ id: tables.id })
+          .select({ id: tables.id, serviceBp: tables.serviceBp })
           .from(tables)
           .where(and(eq(tables.id, body.tableId), eq(tables.tenantId, tenantId), isNull(tables.deletedAt)))
         if (!t) throw new HttpError(400, 'bad_table')
+        tableServiceBp = t.serviceBp
         // Если за столом уже открыт чек — возвращаем его, а не создаём второй.
         const [existing] = await tx
           .select({ id: receipts.id, waiterId: receipts.waiterId })
@@ -473,7 +476,7 @@ export function posRoutes(app: FastifyInstance, db: DB) {
           tableId: body.tableId ?? null,
           waiterId: req.auth.userId,
           guests: body.guests,
-          serviceBp: type.serviceBp,
+          serviceBp: tableServiceBp ?? type.serviceBp,
         })
         .returning()
       await log(tx, req, r.id, 'receipt.open', { number: r.number })

@@ -267,13 +267,20 @@ export function menuRoutes(app: FastifyInstance, db: DB) {
 const hallBody = z.object({
   name: z.string().trim().min(1).max(60),
   sort: z.number().int().min(0).max(100000).default(0),
+  /** Если задано — этот процент обслуживания ставится всем столам зала. */
+  servicePercentForAll: z.number().min(0).max(100).nullish(),
 })
 
 const tableBody = z.object({
   hallId: z.string().uuid(),
   name: z.string().trim().min(1).max(30),
   seats: z.number().int().min(1).max(100).default(4),
+  /** Процент обслуживания для стола: 0–100, можно с десятыми. */
+  servicePercent: z.number().min(0).max(100).nullish(),
 })
+
+/** Проценты в сотые доли процента; пусто — брать из способа продажи. */
+const toBp = (percent: number | null | undefined) => (percent == null ? null : Math.round(percent * 100))
 
 export function hallRoutes(app: FastifyInstance, db: DB) {
   const { requirePerm } = makeAuthGuards(db)
@@ -330,7 +337,7 @@ export function hallRoutes(app: FastifyInstance, db: DB) {
   })
 
   app.post('/api/halls', edit, async (req) => {
-    const body = hallBody.parse(req.body)
+    const { servicePercentForAll: _unused, ...body } = hallBody.parse(req.body)
     const tenantId = req.auth.tenantId
     const [row] = await db
       .insert(halls)
@@ -341,9 +348,15 @@ export function hallRoutes(app: FastifyInstance, db: DB) {
 
   app.patch('/api/halls/:id', edit, async (req) => {
     const { id } = idParam.parse(req.params)
-    const body = hallBody.parse(req.body)
+    const { servicePercentForAll, ...body } = hallBody.parse(req.body)
     await loadHall(req.auth.tenantId, id)
     const [row] = await db.update(halls).set(body).where(eq(halls.id, id)).returning()
+    if (servicePercentForAll != null) {
+      await db
+        .update(tables)
+        .set({ serviceBp: toBp(servicePercentForAll) })
+        .where(and(eq(tables.hallId, id), isNull(tables.deletedAt)))
+    }
     return row
   })
 
@@ -378,9 +391,10 @@ export function hallRoutes(app: FastifyInstance, db: DB) {
     const tenantId = req.auth.tenantId
     await loadHall(tenantId, body.hallId)
     await assertTableNameFree(body.hallId, [body.name])
+    const { servicePercent, ...rest } = body
     const [row] = await db
       .insert(tables)
-      .values({ tenantId, ...body })
+      .values({ tenantId, ...rest, serviceBp: toBp(servicePercent) })
       .returning()
     return row
   })
@@ -393,6 +407,7 @@ export function hallRoutes(app: FastifyInstance, db: DB) {
         from: z.number().int().min(1).max(9999),
         to: z.number().int().min(1).max(9999),
         seats: z.number().int().min(1).max(100).default(4),
+        servicePercent: z.number().min(0).max(100).nullish(),
       })
       .refine((v) => v.to >= v.from && v.to - v.from < 200, { message: 'bad_range' })
       .parse(req.body)
@@ -402,7 +417,7 @@ export function hallRoutes(app: FastifyInstance, db: DB) {
     await assertTableNameFree(body.hallId, names)
     const rows = await db
       .insert(tables)
-      .values(names.map((name) => ({ tenantId, hallId: body.hallId, name, seats: body.seats })))
+      .values(names.map((name) => ({ tenantId, hallId: body.hallId, name, seats: body.seats, serviceBp: toBp(body.servicePercent) })))
       .returning()
     return rows
   })
@@ -413,9 +428,10 @@ export function hallRoutes(app: FastifyInstance, db: DB) {
     const tenantId = req.auth.tenantId
     await loadHall(tenantId, body.hallId)
     await assertTableNameFree(body.hallId, [body.name], id)
+    const { servicePercent, ...rest } = body
     const [row] = await db
       .update(tables)
-      .set(body)
+      .set({ ...rest, serviceBp: toBp(servicePercent) })
       .where(and(eq(tables.id, id), eq(tables.tenantId, tenantId), isNull(tables.deletedAt)))
       .returning()
     if (!row) throw new HttpError(404, 'not_found')

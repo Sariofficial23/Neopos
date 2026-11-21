@@ -121,7 +121,7 @@ export type Product = {
   sort: number
 }
 
-export type Table = { id: string; hallId: string; name: string; seats: number }
+export type Table = { id: string; hallId: string; name: string; seats: number; serviceBp: number | null }
 export type Hall = { id: string; name: string; sort: number; tables: Table[] }
 
 /** Сумма в сумах с пробелами между разрядами: 38 000 */

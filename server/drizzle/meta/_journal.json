@@ -15,6 +15,13 @@
       "when": 1795260552047,
       "tag": "0001_smooth_mac_gargan",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1795276946026,
+      "tag": "0002_graceful_khan",
+      "breakpoints": true
     }
   ]
 }
