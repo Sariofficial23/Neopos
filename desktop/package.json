@@ -9,12 +9,11 @@
   "scripts": {
     "start": "electron .",
     "smoke": "electron . --smoke",
-    "dist": "electron-builder --win nsis --publish never"
+    "dist": "electron-builder --win nsis-web --publish never"
   },
   "build": {
     "appId": "uz.neopos.kassa",
     "productName": "NeoPos Kassa",
-    "artifactName": "NeoPos-Setup.${ext}",
     "files": [
       "main.js",
       "preload.js",
@@ -26,22 +25,23 @@
       "buildResources": "build"
     },
     "win": {
-      "target": "nsis",
+      "target": "nsis-web",
       "icon": "build/icon.png"
-    },
-    "nsis": {
-      "oneClick": true,
-      "perMachine": false,
-      "createDesktopShortcut": true,
-      "createStartMenuShortcut": true,
-      "shortcutName": "NeoPos Kassa",
-      "runAfterFinish": true
     },
     "publish": {
       "provider": "github",
       "owner": "Sariofficial23",
       "repo": "Neopos",
       "releaseType": "release"
+    },
+    "nsisWeb": {
+      "oneClick": true,
+      "perMachine": false,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "NeoPos Kassa",
+      "runAfterFinish": true,
+      "artifactName": "NeoPos-Setup.${ext}"
     }
   },
   "devDependencies": {
