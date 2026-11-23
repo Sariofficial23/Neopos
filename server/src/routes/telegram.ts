@@ -1,4 +1,5 @@
 import { createHmac, timingSafeEqual } from 'node:crypto'
+import { request as httpsRequest } from 'node:https'
 import type { FastifyInstance } from 'fastify'
 
 /**
@@ -29,14 +30,39 @@ const TEXT = {
   },
 } as const
 
-async function call<T = unknown>(method: string, body: unknown): Promise<{ ok: boolean; description?: string; result?: T }> {
-  const res = await fetch(`https://api.telegram.org/bot${TOKEN()}/${method}`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(body),
-    signal: AbortSignal.timeout(10_000),
+/**
+ * Запрос к Telegram. Идёт строго по IPv4: у api.telegram.org есть IPv6-адрес,
+ * а на хостинге (Render) исходящего IPv6 нет — обычный fetch зависает до таймаута.
+ */
+function call<T = unknown>(method: string, body: unknown): Promise<{ ok: boolean; description?: string; result?: T }> {
+  const data = JSON.stringify(body)
+  return new Promise((resolve, reject) => {
+    const req = httpsRequest(
+      {
+        host: 'api.telegram.org',
+        path: `/bot${TOKEN()}/${method}`,
+        method: 'POST',
+        family: 4,
+        timeout: 10_000,
+        headers: { 'Content-Type': 'application/json', 'Content-Length': Buffer.byteLength(data) },
+      },
+      (res) => {
+        let text = ''
+        res.setEncoding('utf8')
+        res.on('data', (chunk) => (text += chunk))
+        res.on('end', () => {
+          try {
+            resolve(JSON.parse(text))
+          } catch {
+            reject(new Error('bad_response'))
+          }
+        })
+      },
+    )
+    req.on('timeout', () => req.destroy(new Error('timeout')))
+    req.on('error', reject)
+    req.end(data)
   })
-  return (await res.json()) as { ok: boolean; description?: string; result?: T }
 }
 
 type Update = { message?: { chat: { id: number; type: string }; from?: { language_code?: string } } }
@@ -118,7 +144,7 @@ export async function setupTelegramBot(log: { info: (m: string) => void; warn: (
     state.setup = 'ok'
     log.info('telegram: бот подключён')
   } catch (err) {
-    state.setup = `unreachable: ${err instanceof Error ? err.name : 'error'}`
+    state.setup = `unreachable: ${err instanceof Error ? err.message : 'error'}`
     log.warn('telegram: не удалось связаться с Telegram')
   }
 }
