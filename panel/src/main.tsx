@@ -14,6 +14,7 @@ import { ReportsPage, TodayTiles } from './pages/Reports'
 import { RolesPage } from './pages/Roles'
 import { StaffPage } from './pages/Staff'
 import { SessionProvider, useSession } from './session'
+import { TgApp } from './tg/Tg'
 
 function Dashboard() {
   const { t } = useI18n()
@@ -67,6 +68,11 @@ createRoot(document.getElementById('root')!).render(
       {/* Админ-панель NeoPos живёт отдельно от панели бренда: свой вход и свой токен. */}
       {window.location.pathname.replace(/\/+$/, '') === '/admin' ? (
         <AdminApp />
+      ) : window.location.pathname.replace(/\/+$/, '') === '/tg' ? (
+        // Мини-приложение Telegram: тот же вход, экран отчётов для телефона.
+        <SessionProvider>
+          <TgApp />
+        </SessionProvider>
       ) : (
         <SessionProvider>
           <BrowserRouter>
