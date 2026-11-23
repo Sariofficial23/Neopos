@@ -34,6 +34,10 @@ const W = {
   },
   noNet: { uz: 'Telegram’ga ulanib bo‘lmadi. Internetni tekshiring.', ru: 'Не удалось связаться с Telegram. Проверьте интернет.' },
   open: { uz: 'Botni ochish', ru: 'Открыть бота' },
+  extraFailed: {
+    uz: 'Bot ulandi va ishlaydi. Faqat menyu tugmasi o‘rnatilmadi — keyinroq yana bosing',
+    ru: 'Бот подключён и работает. Не установилась только кнопка меню — нажмите ещё раз позже',
+  },
 } as const
 
 /** Ошибка Telegram с кодом ответа: по нему видно, неверен токен или мешает что-то ещё. */
@@ -93,13 +97,35 @@ export function TelegramCard() {
     try {
       // В токене не должно быть пробелов и лишних слов: только «цифры:буквы».
       if (!tk) throw new Error(W.badFormat[lang])
-      const me = await tgCall<{ username: string }>(tk, 'getMe')
-      await tgCall(tk, 'setWebhook', { url: setup.webhookUrl, secret_token: setup.secret, allowed_updates: JSON.stringify(['message']) })
-      await tgCall(tk, 'setChatMenuButton', { menu_button: JSON.stringify({ type: 'web_app', text: 'NeoPos', web_app: { url: setup.miniappUrl } }) })
-      await tgCall(tk, 'setMyCommands', { commands: JSON.stringify([{ command: 'start', description: 'Hisobotlarni ochish' }]) })
-      await tgCall(tk, 'setMyCommands', { language_code: 'ru', commands: JSON.stringify([{ command: 'start', description: 'Открыть отчёты' }]) })
+      // Шаг пишем в ошибку: по нему видно, на чём остановился Telegram.
+      const step = async <T,>(method: string, params: Record<string, string> = {}) => {
+        try {
+          return await tgCall<T>(tk, method, params)
+        } catch (err) {
+          if (err instanceof TgError) err.message = `${method}: ${err.message}`
+          throw err
+        }
+      }
+      // Главное — привязка к серверу: без неё бот не отвечает. Делаем первой.
+      await step('setWebhook', { url: setup.webhookUrl, secret_token: setup.secret, allowed_updates: JSON.stringify(['message']) })
+      const me = await step<{ username: string }>('getMe').catch(() => ({ username: 'bot' }))
       setBot(me.username)
       setToken('')
+      // Кнопка меню и подсказка команды — удобства: их сбой не отменяет привязку.
+      const extras: [string, Record<string, string>][] = [
+        ['setChatMenuButton', { menu_button: JSON.stringify({ type: 'web_app', text: 'NeoPos', web_app: { url: setup.miniappUrl } }) }],
+        ['setMyCommands', { commands: JSON.stringify([{ command: 'start', description: 'Hisobotlarni ochish' }]) }],
+        ['setMyCommands', { language_code: 'ru', commands: JSON.stringify([{ command: 'start', description: 'Открыть отчёты' }]) }],
+      ]
+      for (const [method, params] of extras) {
+        await new Promise((r) => setTimeout(r, 1200))
+        try {
+          await step(method, params)
+        } catch (err) {
+          setError(`${W.extraFailed[lang]} (${err instanceof Error ? err.message : method})`)
+          break
+        }
+      }
     } catch (err) {
       setError(
         err instanceof TgError
