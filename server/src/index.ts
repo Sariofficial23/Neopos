@@ -12,3 +12,14 @@ const hosted = process.env.NODE_ENV === 'production' || !!process.env.RENDER
 await app.listen({ port, host: process.env.HOST ?? (hosted ? '0.0.0.0' : '127.0.0.1') })
 // Telegram-бот подключается после старта: его сбой не должен мешать работе кассы.
 void setupTelegramBot({ info: (m) => app.log.info(m), warn: (m) => app.log.warn(m) })
+
+// Бесплатный сервер Render засыпает после 15 минут без запросов, и бот отвечает с задержкой.
+// Раз в 10 минут сервер обращается к себе по внешнему адресу — этого достаточно, чтобы не засыпать.
+const selfUrl = (process.env.PUBLIC_URL || process.env.RENDER_EXTERNAL_URL || '').replace(/\/+$/, '')
+if (selfUrl) {
+  setInterval(() => {
+    fetch(`${selfUrl}/api/health`, { signal: AbortSignal.timeout(20_000) }).catch(() => {
+      /* следующий раз через 10 минут */
+    })
+  }, 10 * 60_000).unref()
+}

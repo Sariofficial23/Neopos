@@ -1,0 +1,15 @@
+# Будильник для бесплатного сервера Render: раз в 5 минут обращается к серверу, чтобы он не засыпал
+# (иначе Telegram-бот и касса отвечают с задержкой до минуты). На платном сервере этот файл можно удалить.
+name: keep-awake
+on:
+  schedule:
+    - cron: '*/5 * * * *'
+  workflow_dispatch:
+permissions: {}
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - name: Ping server
+        run: curl -fsS --retry 3 --retry-delay 20 --max-time 90 https://neopos-api-bvue.onrender.com/api/health
