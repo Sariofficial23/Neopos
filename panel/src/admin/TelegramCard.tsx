@@ -21,7 +21,7 @@ const W = {
   },
   token: { uz: 'Bot tokeni', ru: 'Токен бота' },
   connect: { uz: 'Botni ulash', ru: 'Подключить бота' },
-  working: { uz: 'Ulanmoqda…', ru: 'Подключаю…' },
+  working: { uz: 'Ulanmoqda… (1 daqiqagacha)', ru: 'Подключаю… (до минуты)' },
   done: { uz: 'ulandi. Botni oching va «Start» bosing.', ru: 'подключён. Откройте бота и нажмите «Старт».' },
   badToken: { uz: 'Token noto‘g‘ri — @BotFather’dan qayta nusxalang', ru: 'Токен неверный — скопируйте его заново из @BotFather' },
   badFormat: {
@@ -48,16 +48,24 @@ class TgError extends Error {
 
 /** Запрос к Telegram из браузера: «простая» форма, чтобы не было предварительной проверки CORS. */
 async function tgCall<T>(token: string, method: string, params: Record<string, string> = {}): Promise<T> {
-  const res = await fetch(`https://api.telegram.org/bot${token}/${method}`, { method: 'POST', body: new URLSearchParams(params) })
-  let data: { ok: boolean; result?: T; description?: string }
-  try {
-    data = await res.json()
-  } catch {
-    // Ответ пришёл не от Telegram (например, страница блокировки провайдера или расширения браузера).
-    throw new TgError(res.status, 'not_telegram')
+  for (let attempt = 0; ; attempt++) {
+    const res = await fetch(`https://api.telegram.org/bot${token}/${method}`, { method: 'POST', body: new URLSearchParams(params) })
+    let data: { ok: boolean; result?: T; description?: string; parameters?: { retry_after?: number } }
+    try {
+      data = await res.json()
+    } catch {
+      // Ответ пришёл не от Telegram (например, страница блокировки провайдера или расширения браузера).
+      throw new TgError(res.status, 'not_telegram')
+    }
+    if (data.ok) return data.result as T
+    // «Слишком много запросов»: Telegram сам говорит, сколько секунд подождать — ждём и повторяем.
+    const wait = data.parameters?.retry_after
+    if (res.status === 429 && wait && wait <= 90 && attempt < 3) {
+      await new Promise((r) => setTimeout(r, (wait + 1) * 1000))
+      continue
+    }
+    throw new TgError(res.status, data.description ?? 'error')
   }
-  if (!data.ok) throw new TgError(res.status, data.description ?? 'error')
-  return data.result as T
 }
 
 export function TelegramCard() {
