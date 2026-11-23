@@ -22,7 +22,7 @@ const W = {
   token: { uz: 'Bot tokeni', ru: 'Токен бота' },
   connect: { uz: 'Botni ulash', ru: 'Подключить бота' },
   working: { uz: 'Ulanmoqda… (1 daqiqagacha)', ru: 'Подключаю… (до минуты)' },
-  done: { uz: 'ulandi. Botni oching va «Start» bosing.', ru: 'подключён. Откройте бота и нажмите «Старт».' },
+  done: { uz: 'ulandi. Botni oching va pastdagi «NeoPos» tugmasini bosing.', ru: 'подключён. Откройте бота и нажмите кнопку «NeoPos» внизу.' },
   badToken: { uz: 'Token noto‘g‘ri — @BotFather’dan qayta nusxalang', ru: 'Токен неверный — скопируйте его заново из @BotFather' },
   badFormat: {
     uz: 'Bu tokenga o‘xshamaydi. Token ko‘rinishi: 1234567890:AAH… (bo‘sh joysiz, ortiqcha so‘zlarsiz).',
@@ -35,8 +35,8 @@ const W = {
   noNet: { uz: 'Telegram’ga ulanib bo‘lmadi. Internetni tekshiring.', ru: 'Не удалось связаться с Telegram. Проверьте интернет.' },
   open: { uz: 'Botni ochish', ru: 'Открыть бота' },
   extraFailed: {
-    uz: 'Bot ulandi va ishlaydi. Faqat menyu tugmasi o‘rnatilmadi — keyinroq yana bosing',
-    ru: 'Бот подключён и работает. Не установилась только кнопка меню — нажмите ещё раз позже',
+    uz: 'Bot ishlaydi: «NeoPos» tugmasi o‘rnatildi. Bitta qo‘shimcha sozlama o‘tmadi',
+    ru: 'Бот работает: кнопка «NeoPos» установлена. Не прошла одна дополнительная настройка',
   },
 } as const
 
@@ -51,7 +51,7 @@ class TgError extends Error {
 }
 
 /** Запрос к Telegram из браузера: «простая» форма, чтобы не было предварительной проверки CORS. */
-async function tgCall<T>(token: string, method: string, params: Record<string, string> = {}): Promise<T> {
+async function tgCall<T>(token: string, method: string, params: Record<string, string> = {}, retries = 3): Promise<T> {
   for (let attempt = 0; ; attempt++) {
     const res = await fetch(`https://api.telegram.org/bot${token}/${method}`, { method: 'POST', body: new URLSearchParams(params) })
     let data: { ok: boolean; result?: T; description?: string; parameters?: { retry_after?: number } }
@@ -64,7 +64,7 @@ async function tgCall<T>(token: string, method: string, params: Record<string, s
     if (data.ok) return data.result as T
     // «Слишком много запросов»: Telegram сам говорит, сколько секунд подождать — ждём и повторяем.
     const wait = data.parameters?.retry_after
-    if (res.status === 429 && wait && wait <= 90 && attempt < 3) {
+    if (res.status === 429 && wait && wait <= 90 && attempt < retries) {
       await new Promise((r) => setTimeout(r, (wait + 1) * 1000))
       continue
     }
@@ -106,24 +106,32 @@ export function TelegramCard() {
           throw err
         }
       }
-      // Главное — привязка к серверу: без неё бот не отвечает. Делаем первой.
-      await step('setWebhook', { url: setup.webhookUrl, secret_token: setup.secret, allowed_updates: JSON.stringify(['message']) })
-      const me = await step<{ username: string }>('getMe').catch(() => ({ username: 'bot' }))
+      const pause = () => new Promise((r) => setTimeout(r, 1200))
+      const me = await step<{ username: string }>('getMe')
+      // Главное — кнопка «NeoPos» в боте: она открывает мини-приложение напрямую, сервер для неё не нужен.
+      await pause()
+      await step('setChatMenuButton', { menu_button: JSON.stringify({ type: 'web_app', text: 'NeoPos', web_app: { url: setup.miniappUrl } }) })
       setBot(me.username)
       setToken('')
-      // Кнопка меню и подсказка команды — удобства: их сбой не отменяет привязку.
-      const extras: [string, Record<string, string>][] = [
-        ['setChatMenuButton', { menu_button: JSON.stringify({ type: 'web_app', text: 'NeoPos', web_app: { url: setup.miniappUrl } }) }],
-        ['setMyCommands', { commands: JSON.stringify([{ command: 'start', description: 'Hisobotlarni ochish' }]) }],
-        ['setMyCommands', { language_code: 'ru', commands: JSON.stringify([{ command: 'start', description: 'Открыть отчёты' }]) }],
+      // Дальше — удобства: текст на экране бота до «Старт» и ответ на /start. Их сбой не отменяет подключение.
+      const about = {
+        uz: 'NeoPos — kafe va restoran hisobotlari.\n\nPastdagi «NeoPos» tugmasini bosing va veb-paneldagi login va parolingiz bilan kiring.',
+        ru: 'NeoPos — отчёты кафе и ресторана.\n\nНажмите кнопку «NeoPos» внизу и войдите логином и паролем от веб-панели.',
+      }
+      const extras: [string, Record<string, string>, number][] = [
+        ['setMyDescription', { description: about.uz }, 3],
+        ['setMyDescription', { language_code: 'ru', description: about.ru }, 3],
+        ['setMyCommands', { commands: JSON.stringify([{ command: 'start', description: 'Hisobotlarni ochish' }]) }, 3],
+        ['setMyCommands', { language_code: 'ru', commands: JSON.stringify([{ command: 'start', description: 'Открыть отчёты' }]) }, 3],
+        // Ответ на «Старт» идёт через адрес панели: адреса бесплатного хостинга Telegram ограничивает. Без повторов.
+        ['setWebhook', { url: `${window.location.origin}/api/telegram/webhook`, secret_token: setup.secret, allowed_updates: JSON.stringify(['message']) }, 0],
       ]
-      for (const [method, params] of extras) {
-        await new Promise((r) => setTimeout(r, 1200))
+      for (const [method, params, retries] of extras) {
+        await pause()
         try {
-          await step(method, params)
+          await tgCall(tk, method, params, retries)
         } catch (err) {
-          setError(`${W.extraFailed[lang]} (${err instanceof Error ? err.message : method})`)
-          break
+          setError(`${W.extraFailed[lang]} (${method}: ${err instanceof Error ? err.message : ''})`)
         }
       }
     } catch (err) {

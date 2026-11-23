@@ -2,6 +2,10 @@
   "framework": "vite",
   "rewrites": [
     {
+      "source": "/api/telegram/webhook",
+      "destination": "https://neopos-api-bvue.onrender.com/api/telegram/webhook"
+    },
+    {
       "source": "/(.*)",
       "destination": "/index.html"
     }
