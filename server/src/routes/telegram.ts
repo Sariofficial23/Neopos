@@ -1,5 +1,7 @@
 import { createHmac, timingSafeEqual } from 'node:crypto'
+import { lookup } from 'node:dns/promises'
 import { request as httpsRequest } from 'node:https'
+import { connect } from 'node:net'
 import type { FastifyInstance } from 'fastify'
 
 /**
@@ -65,6 +67,23 @@ function call<T = unknown>(method: string, body: unknown): Promise<{ ok: boolean
   })
 }
 
+/** Проверка сети с сервера: DNS, соединение с адресами Telegram и с посторонним сайтом. */
+async function probe() {
+  const tcp = (host: string) =>
+    new Promise<string>((resolve) => {
+      const started = Date.now()
+      const sock = connect({ host, port: 443, family: 4, timeout: 6000 })
+      sock.on('connect', () => (sock.destroy(), resolve(`ok ${Date.now() - started}ms`)))
+      sock.on('timeout', () => (sock.destroy(), resolve('timeout')))
+      sock.on('error', (e) => resolve(`error ${(e as NodeJS.ErrnoException).code ?? e.message}`))
+    })
+  const dns = await lookup('api.telegram.org', { all: true }).catch((e) => `dns error ${e.code}`)
+  const v4 = Array.isArray(dns) ? dns.filter((d) => d.family === 4).map((d) => d.address) : []
+  const hosts = [...new Set([...v4, '149.154.167.220', '149.154.166.110', 'example.com'])]
+  const results = await Promise.all(hosts.map(async (h) => [h, await tcp(h)] as const))
+  return { dns, tcp: Object.fromEntries(results) }
+}
+
 type Update = { message?: { chat: { id: number; type: string }; from?: { language_code?: string } } }
 
 /** Что получилось при подключении бота — для страницы диагностики. Токена и секрета здесь нет. */
@@ -91,7 +110,7 @@ export function telegramRoutes(app: FastifyInstance) {
         publicUrl: (process.env.PUBLIC_URL || process.env.RENDER_EXTERNAL_URL || '') || null,
       }
     } catch {
-      return { configured: true, error: 'telegram_unreachable', setup: state.setup }
+      return { configured: true, error: 'telegram_unreachable', setup: state.setup, lastSend: state.lastSend, net: await probe() }
     }
   })
 
@@ -106,16 +125,13 @@ export function telegramRoutes(app: FastifyInstance) {
     // Отвечаем только в личных чатах: в группе кнопка мини-приложения не работает.
     if (msg && msg.chat.type === 'private') {
       const L = TEXT[msg.from?.language_code?.startsWith('ru') ? 'ru' : 'uz']
-      try {
-        const sent = await call('sendMessage', {
-          chat_id: msg.chat.id,
-          text: L.hello,
-          reply_markup: { inline_keyboard: [[{ text: L.open, web_app: { url: MINIAPP_URL() } }]] },
-        })
-        state.lastSend = sent.ok ? 'ok' : (sent.description ?? 'error')
-      } catch (err) {
-        state.lastSend = 'telegram_unreachable'
-        req.log.warn({ err }, 'telegram: sendMessage failed')
+      state.lastSend = 'replied_in_webhook'
+      // Ответ отдаём прямо в ответе на запрос Telegram: серверу не нужно самому соединяться с Telegram.
+      return {
+        method: 'sendMessage',
+        chat_id: msg.chat.id,
+        text: L.hello,
+        reply_markup: { inline_keyboard: [[{ text: L.open, web_app: { url: MINIAPP_URL() } }]] },
       }
     }
     // Telegram повторяет доставку, пока не получит 200 — отвечаем всегда.
