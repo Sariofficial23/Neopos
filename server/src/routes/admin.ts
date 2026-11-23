@@ -4,6 +4,7 @@ import { dirname, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { and, asc, count, desc, eq, isNull, max, sql } from 'drizzle-orm'
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify'
+import { telegramSetupInfo } from './telegram.js'
 import { z } from 'zod'
 import {
   checkThrottle,
@@ -113,6 +114,9 @@ export function adminRoutes(app: FastifyInstance, db: DB) {
     clearThrottle(key)
     return { token: app.jwt.sign({ kind: 'admin', sub: admin.id }, { expiresIn: '12h' }), login: admin.login }
   })
+
+  // Привязка Telegram-бота: адрес вебхука и секрет для браузера администратора.
+  app.get('/api/admin/telegram', guard, async () => telegramSetupInfo())
 
   app.get('/api/admin/me', guard, async (req) => {
     const [admin] = await db.select({ login: platformAdmins.login }).from(platformAdmins).where(eq(platformAdmins.id, req.adminId))

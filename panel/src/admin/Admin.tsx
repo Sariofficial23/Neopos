@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState, type FormEvent } from 'react
 import { API_BASE, money } from '../api'
 import { LangSwitch, useI18n, type Lang } from '../i18n'
 import { Badge, ErrorNote, Field, Modal, Switch, Toggle } from '../ui'
+import { TelegramCard } from './TelegramCard'
 
 /** Сайт для клиентов — там кнопка «Скачать кассу». */
 const SITE_URL = 'https://neopos-sepia.vercel.app'
@@ -115,7 +116,7 @@ const setToken = (v: string | null) => {
   }
 }
 
-async function adminApi<R>(path: string, init: { method?: string; body?: unknown } = {}): Promise<R> {
+export async function adminApi<R>(path: string, init: { method?: string; body?: unknown } = {}): Promise<R> {
   const token = getToken()
   let res: Response
   try {
@@ -369,6 +370,8 @@ function AdminHome({ me, setMe, onSignOut }: { me: Me; setMe: (m: Me) => void; o
             onChange={(v) => void setRegistration(v)}
           />
         </section>
+
+        <TelegramCard />
 
         <ErrorNote text={error} />
 

@@ -164,3 +164,14 @@ export async function setupTelegramBot(log: { info: (m: string) => void; warn: (
     log.warn('telegram: не удалось связаться с Telegram')
   }
 }
+
+/**
+ * Данные для привязки бота из админ-панели. С хостинга Telegram недоступен, поэтому вебхук
+ * один раз подключает браузер администратора: ему нужны адрес вебхука и секрет.
+ */
+export function telegramSetupInfo() {
+  const token = TOKEN()
+  const base = (process.env.PUBLIC_URL || process.env.RENDER_EXTERNAL_URL || '').replace(/\/+$/, '')
+  if (!token || !base) return { configured: false as const }
+  return { configured: true as const, webhookUrl: `${base}/api/telegram/webhook`, secret: secretOf(token), miniappUrl: MINIAPP_URL() }
+}
