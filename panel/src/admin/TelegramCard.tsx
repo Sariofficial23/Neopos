@@ -78,7 +78,7 @@ export function TelegramCard() {
     e.preventDefault()
     if (!setup?.configured) return
     // Токен ищем внутри вставленного текста: можно вставить и всё сообщение BotFather целиком.
-    const tk = /d{6,}:[w-]{30,}/.exec(token)?.[0] ?? ''
+    const tk = /[0-9]{6,}:[A-Za-z0-9_-]{30,}/.exec(token)?.[0] ?? ''
     setBusy(true)
     setError(null)
     setBot(null)
