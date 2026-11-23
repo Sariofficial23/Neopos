@@ -1,7 +1,7 @@
 import { buildApp } from './app.js'
 import { openDb } from './db/index.js'
 import { ensurePlatformAdmin } from './routes/admin.js'
-import { setupTelegramBot } from './routes/telegram.js'
+import { startTelegramBot } from './routes/telegram.js'
 
 const db = await openDb()
 const app = await buildApp(db)
@@ -11,7 +11,7 @@ const port = Number(process.env.PORT ?? 4000)
 const hosted = process.env.NODE_ENV === 'production' || !!process.env.RENDER
 await app.listen({ port, host: process.env.HOST ?? (hosted ? '0.0.0.0' : '127.0.0.1') })
 // Telegram-бот подключается после старта: его сбой не должен мешать работе кассы.
-void setupTelegramBot({ info: (m) => app.log.info(m), warn: (m) => app.log.warn(m) })
+void startTelegramBot({ info: (m) => app.log.info(m), warn: (m) => app.log.warn(m) })
 
 // Бесплатный сервер Render засыпает после 15 минут без запросов, и бот отвечает с задержкой.
 // Раз в 10 минут сервер обращается к себе по внешнему адресу — этого достаточно, чтобы не засыпать.

@@ -175,3 +175,15 @@ export function telegramSetupInfo() {
   if (!token || !base) return { configured: false as const }
   return { configured: true as const, webhookUrl: `${base}/api/telegram/webhook`, secret: secretOf(token), miniappUrl: MINIAPP_URL() }
 }
+
+/**
+ * Подключение бота с повторами: связь хостинга с Telegram нестабильна, поэтому при неудаче
+ * пробуем снова раз в 2 минуты (до 15 раз) — редко, чтобы не упереться в ограничение запросов.
+ */
+export async function startTelegramBot(log: { info: (m: string) => void; warn: (m: string) => void }) {
+  for (let attempt = 0; attempt < 15; attempt++) {
+    await setupTelegramBot(log)
+    if (state.setup === 'ok' || !TOKEN()) return
+    await new Promise((r) => setTimeout(r, 2 * 60_000).unref())
+  }
+}
