@@ -24,15 +24,39 @@ const W = {
   working: { uz: 'Ulanmoqda…', ru: 'Подключаю…' },
   done: { uz: 'ulandi. Botni oching va «Start» bosing.', ru: 'подключён. Откройте бота и нажмите «Старт».' },
   badToken: { uz: 'Token noto‘g‘ri — @BotFather’dan qayta nusxalang', ru: 'Токен неверный — скопируйте его заново из @BotFather' },
+  badFormat: {
+    uz: 'Bu tokenga o‘xshamaydi. Token ko‘rinishi: 1234567890:AAH… (bo‘sh joysiz, ortiqcha so‘zlarsiz).',
+    ru: 'Это не похоже на токен. Токен выглядит так: 1234567890:AAH… (без пробелов и лишних слов).',
+  },
+  notTelegram: {
+    uz: 'Javob Telegram’dan kelmadi: provayder yoki brauzer kengaytmasi to‘sayotgan bo‘lishi mumkin. VPN yoki boshqa brauzerda urinib ko‘ring',
+    ru: 'Ответ пришёл не от Telegram: возможно, мешает провайдер или расширение браузера. Попробуйте с VPN или в другом браузере',
+  },
   noNet: { uz: 'Telegram’ga ulanib bo‘lmadi. Internetni tekshiring.', ru: 'Не удалось связаться с Telegram. Проверьте интернет.' },
   open: { uz: 'Botni ochish', ru: 'Открыть бота' },
 } as const
 
+/** Ошибка Telegram с кодом ответа: по нему видно, неверен токен или мешает что-то ещё. */
+class TgError extends Error {
+  constructor(
+    public status: number,
+    message: string,
+  ) {
+    super(message)
+  }
+}
+
 /** Запрос к Telegram из браузера: «простая» форма, чтобы не было предварительной проверки CORS. */
 async function tgCall<T>(token: string, method: string, params: Record<string, string> = {}): Promise<T> {
   const res = await fetch(`https://api.telegram.org/bot${token}/${method}`, { method: 'POST', body: new URLSearchParams(params) })
-  const data = (await res.json()) as { ok: boolean; result?: T; description?: string }
-  if (!data.ok) throw new Error(data.description ?? 'error')
+  let data: { ok: boolean; result?: T; description?: string }
+  try {
+    data = await res.json()
+  } catch {
+    // Ответ пришёл не от Telegram (например, страница блокировки провайдера или расширения браузера).
+    throw new TgError(res.status, 'not_telegram')
+  }
+  if (!data.ok) throw new TgError(res.status, data.description ?? 'error')
   return data.result as T
 }
 
@@ -58,12 +82,9 @@ export function TelegramCard() {
     setError(null)
     setBot(null)
     try {
-      let me: { username: string }
-      try {
-        me = await tgCall<{ username: string }>(tk, 'getMe')
-      } catch (err) {
-        throw new Error(err instanceof TypeError ? W.noNet[lang] : W.badToken[lang])
-      }
+      // В токене не должно быть пробелов и лишних слов: только «цифры:буквы».
+      if (!/^d{6,}:[w-]{30,}$/.test(tk)) throw new Error(W.badFormat[lang])
+      const me = await tgCall<{ username: string }>(tk, 'getMe')
       await tgCall(tk, 'setWebhook', { url: setup.webhookUrl, secret_token: setup.secret, allowed_updates: JSON.stringify(['message']) })
       await tgCall(tk, 'setChatMenuButton', { menu_button: JSON.stringify({ type: 'web_app', text: 'NeoPos', web_app: { url: setup.miniappUrl } }) })
       await tgCall(tk, 'setMyCommands', { commands: JSON.stringify([{ command: 'start', description: 'Hisobotlarni ochish' }]) })
@@ -71,7 +92,19 @@ export function TelegramCard() {
       setBot(me.username)
       setToken('')
     } catch (err) {
-      setError(err instanceof Error ? err.message : W.noNet[lang])
+      setError(
+        err instanceof TgError
+          ? err.message === 'not_telegram'
+            ? `${W.notTelegram[lang]} (HTTP ${err.status})`
+            : err.status === 401 || err.status === 404
+              ? `${W.badToken[lang]} (Telegram: ${err.status} ${err.message})`
+              : `Telegram: ${err.status} ${err.message}`
+          : err instanceof TypeError
+            ? W.noNet[lang]
+            : err instanceof Error
+              ? err.message
+              : W.noNet[lang],
+      )
     } finally {
       setBusy(false)
     }
