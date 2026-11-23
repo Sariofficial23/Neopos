@@ -77,13 +77,14 @@ export function TelegramCard() {
   async function connect(e: FormEvent) {
     e.preventDefault()
     if (!setup?.configured) return
-    const tk = token.trim()
+    // Токен ищем внутри вставленного текста: можно вставить и всё сообщение BotFather целиком.
+    const tk = /d{6,}:[w-]{30,}/.exec(token)?.[0] ?? ''
     setBusy(true)
     setError(null)
     setBot(null)
     try {
       // В токене не должно быть пробелов и лишних слов: только «цифры:буквы».
-      if (!/^d{6,}:[w-]{30,}$/.test(tk)) throw new Error(W.badFormat[lang])
+      if (!tk) throw new Error(W.badFormat[lang])
       const me = await tgCall<{ username: string }>(tk, 'getMe')
       await tgCall(tk, 'setWebhook', { url: setup.webhookUrl, secret_token: setup.secret, allowed_updates: JSON.stringify(['message']) })
       await tgCall(tk, 'setChatMenuButton', { menu_button: JSON.stringify({ type: 'web_app', text: 'NeoPos', web_app: { url: setup.miniappUrl } }) })
@@ -121,9 +122,14 @@ export function TelegramCard() {
         <form onSubmit={connect} className="flex flex-wrap gap-2">
           <input
             className="input min-w-56 flex-1"
-            type="password"
+            type="text"
+            name="neopos-bot-key"
             required
             autoComplete="off"
+            autoCorrect="off"
+            spellCheck={false}
+            data-lpignore="true"
+            data-1p-ignore
             placeholder="1234567890:AA…"
             aria-label={W.token[lang]}
             value={token}
