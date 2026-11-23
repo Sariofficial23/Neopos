@@ -29,19 +29,46 @@ const TEXT = {
   },
 } as const
 
-async function call(method: string, body: unknown): Promise<{ ok: boolean; description?: string }> {
+async function call<T = unknown>(method: string, body: unknown): Promise<{ ok: boolean; description?: string; result?: T }> {
   const res = await fetch(`https://api.telegram.org/bot${TOKEN()}/${method}`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(body),
     signal: AbortSignal.timeout(10_000),
   })
-  return (await res.json()) as { ok: boolean; description?: string }
+  return (await res.json()) as { ok: boolean; description?: string; result?: T }
 }
 
 type Update = { message?: { chat: { id: number; type: string }; from?: { language_code?: string } } }
 
+/** Что получилось при подключении бота — для страницы диагностики. Токена и секрета здесь нет. */
+const state: { setup: string; lastSend: string | null } = { setup: 'not_started', lastSend: null }
+
 export function telegramRoutes(app: FastifyInstance) {
+  // Диагностика подключения: имя бота, адрес вебхука и последняя ошибка доставки по данным Telegram.
+  app.get('/api/telegram/status', async () => {
+    if (!TOKEN()) return { configured: false }
+    try {
+      const me = await call<{ username: string }>('getMe', {})
+      if (!me.ok) return { configured: true, tokenValid: false, error: me.description, setup: state.setup }
+      const hook = await call<{ url: string; pending_update_count: number; last_error_message?: string; last_error_date?: number }>('getWebhookInfo', {})
+      return {
+        configured: true,
+        tokenValid: true,
+        bot: me.result?.username,
+        setup: state.setup,
+        webhookUrl: hook.result?.url ?? '',
+        pending: hook.result?.pending_update_count ?? 0,
+        lastError: hook.result?.last_error_message ?? null,
+        lastErrorAt: hook.result?.last_error_date ? new Date(hook.result.last_error_date * 1000).toISOString() : null,
+        lastSend: state.lastSend,
+        publicUrl: (process.env.PUBLIC_URL || process.env.RENDER_EXTERNAL_URL || '') || null,
+      }
+    } catch {
+      return { configured: true, error: 'telegram_unreachable', setup: state.setup }
+    }
+  })
+
   app.post('/api/telegram/webhook', async (req, reply) => {
     const token = TOKEN()
     if (!token) return reply.code(404).send({ error: 'not_found' })
@@ -54,12 +81,14 @@ export function telegramRoutes(app: FastifyInstance) {
     if (msg && msg.chat.type === 'private') {
       const L = TEXT[msg.from?.language_code?.startsWith('ru') ? 'ru' : 'uz']
       try {
-        await call('sendMessage', {
+        const sent = await call('sendMessage', {
           chat_id: msg.chat.id,
           text: L.hello,
           reply_markup: { inline_keyboard: [[{ text: L.open, web_app: { url: MINIAPP_URL() } }]] },
         })
+        state.lastSend = sent.ok ? 'ok' : (sent.description ?? 'error')
       } catch (err) {
+        state.lastSend = 'telegram_unreachable'
         req.log.warn({ err }, 'telegram: sendMessage failed')
       }
     }
@@ -73,15 +102,23 @@ export async function setupTelegramBot(log: { info: (m: string) => void; warn: (
   const token = TOKEN()
   if (!token) return
   const base = (process.env.PUBLIC_URL || process.env.RENDER_EXTERNAL_URL || '').replace(/\/+$/, '')
-  if (!base) return log.warn('telegram: адрес сервера неизвестен (PUBLIC_URL), вебхук не подключён')
+  if (!base) {
+    state.setup = 'no_public_url'
+    return log.warn('telegram: адрес сервера неизвестен (PUBLIC_URL), вебхук не подключён')
+  }
   try {
     const hook = await call('setWebhook', { url: `${base}/api/telegram/webhook`, secret_token: secretOf(token), allowed_updates: ['message'] })
-    if (!hook.ok) return log.warn(`telegram: вебхук не подключён — ${hook.description ?? 'ошибка'}`)
+    if (!hook.ok) {
+      state.setup = `webhook_failed: ${hook.description ?? 'error'}`
+      return log.warn(`telegram: вебхук не подключён — ${hook.description ?? 'ошибка'}`)
+    }
     await call('setChatMenuButton', { menu_button: { type: 'web_app', text: TEXT.ru.menu, web_app: { url: MINIAPP_URL() } } })
     await call('setMyCommands', { commands: [{ command: 'start', description: TEXT.uz.start }] })
     await call('setMyCommands', { language_code: 'ru', commands: [{ command: 'start', description: TEXT.ru.start }] })
+    state.setup = 'ok'
     log.info('telegram: бот подключён')
-  } catch {
+  } catch (err) {
+    state.setup = `unreachable: ${err instanceof Error ? err.name : 'error'}`
     log.warn('telegram: не удалось связаться с Telegram')
   }
 }
