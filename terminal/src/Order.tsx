@@ -165,11 +165,15 @@ export function Order({ receipt, setReceipt, onBack }: Props) {
   const products = useMemo(() => {
     if (query !== null) {
       const q = query.trim().toLowerCase()
-      if (!q) return []
-      return boot.products.filter((p) => p.name.uz.toLowerCase().includes(q) || p.name.ru.toLowerCase().includes(q))
+      if (!q && editMode) return []
+      if (q) return boot.products.filter((p) => p.name.uz.toLowerCase().includes(q) || p.name.ru.toLowerCase().includes(q))
+    }
+    if (!editMode && cat === null) {
+      const favorites = boot.products.filter((p) => p.favorite && !p.stopped)
+      return favorites.length ? favorites : boot.products
     }
     return boot.products.filter((p) => p.categoryId === cat)
-  }, [boot.products, cat, query])
+  }, [boot.products, cat, query, editMode])
 
   const colorOf = (categoryId: string | null) => boot.categories.find((c) => c.id === categoryId)?.color ?? '#64748b'
   const current = boot.categories.find((c) => c.id === cat)
@@ -177,12 +181,12 @@ export function Order({ receipt, setReceipt, onBack }: Props) {
 
   return (
     <>
-      <header className="bar" data-scene="cafe">
+      <header className="bar order-bar" data-scene="samarkand">
         <div className="logo"><img src={`${import.meta.env.BASE_URL}brand/neopos.webp`} alt="NeoPos" /></div>
         <span className="lnk hide">{boot.user.name}</span>
       </header>
 
-      <div className="work">
+      <div className="work order-work">
         <section className="check glass" aria-label={title}>
           <nav className="rail">
             <button title={t('back')} aria-label={t('back')} onClick={() => void back()}>
@@ -295,14 +299,14 @@ export function Order({ receipt, setReceipt, onBack }: Props) {
                 <Svg>{Icon.gear}</Svg>
               </button>
             )}
-            {query !== null ? (
+            {(!editMode || query !== null) ? (
               <input
                 className="glass"
-                autoFocus
+                autoFocus={editMode}
                 type="search"
                 placeholder={t('search')}
                 aria-label={t('search')}
-                value={query}
+                value={query ?? ''}
                 onChange={(e) => setQuery(e.target.value)}
               />
             ) : (
@@ -315,10 +319,22 @@ export function Order({ receipt, setReceipt, onBack }: Props) {
             )}
           </div>
 
+          {!editMode && (
+            <nav className="tabs order-tabs" aria-label={t('allCategories')}>
+              <button aria-pressed={cat === null} className={cat === null ? 'on' : ''} onClick={() => { setCat(null); setQuery(null) }}>
+                {t('quickMenu')}
+              </button>
+              {boot.categories.map((c) => (
+                <button key={c.id} aria-pressed={cat === c.id} className={cat === c.id ? 'on' : ''} onClick={() => { setCat(c.id); setQuery(null) }}>
+                  {c.name[lang]}
+                </button>
+              ))}
+            </nav>
+          )}
           {editMode && <div className="edit-hint">⚙ {t('menuEditOn')}</div>}
 
           <div className="tiles">
-            {query === null &&
+            {editMode && query === null &&
               cat === null &&
               boot.categories.map((c) => (
                 <button key={c.id} className={`tile ${editMode ? 'editing' : ''}`} style={{ ['--c' as string]: c.color ?? '#64748b' }} onClick={() => setCat(c.id)}>
@@ -346,8 +362,9 @@ export function Order({ receipt, setReceipt, onBack }: Props) {
                 style={{ ['--c' as string]: colorOf(p.categoryId) }}
                 onClick={() => (editMode ? setEditing({ kind: 'product', item: fullProduct(p.id) }) : add(p.id))}
               >
-                <span className="p num">{money(p.price)}</span>
-                {p.name[lang]}
+                <span className="p num">{money(p.price)} {t('sum')}</span>
+                {p.image && !editMode && <img className="product-thumb" src={p.image} alt="" loading="lazy" decoding="async" onError={(e) => { e.currentTarget.hidden = true }} />}
+                <span>{p.name[lang]}</span>
                 {p.favorite && <span className="star">★</span>}
                 {p.stopped && <span className="stop">{t('stop')}</span>}
               </button>

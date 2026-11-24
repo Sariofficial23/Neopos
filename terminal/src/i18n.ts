@@ -186,6 +186,7 @@ const dict = {
   service: { uz: 'xizmat haqi', ru: 'обслуживание' },
   send: { uz: 'Yuborish', ru: 'Отправить' },
   closeCheck: { uz: 'Chekni yopish', ru: 'Закрыть чек' },
+  quickMenu: { uz: 'Tezkor', ru: 'Быстрый выбор' },
   allCategories: { uz: 'Barcha kategoriyalar', ru: 'Все категории' },
   search: { uz: 'Qidirish', ru: 'Поиск' },
   stop: { uz: 'STOP', ru: 'СТОП' },

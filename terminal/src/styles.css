@@ -404,3 +404,25 @@ body:has([data-scene="samarkand"]) {
   .hall-tabs { order: 1; flex: 1 0 100%; }
   .samarkand .tgrid { grid-template-columns: repeat(auto-fit,minmax(min(145px,100%),1fr)); }
 }
+
+.order-bar { background: #fff3e1ed; }
+.order-tabs { margin-bottom: 10px; padding: 2px; }
+.order-tabs button { background: #fff5e6ed; }
+.order-tabs button.on { background: #19233f; }
+.order-work .check, .order-work .glass { background-color: #fff4e4ed; }
+.order-bar, .order-work .glass, .order-work .tile {
+  backdrop-filter: none; -webkit-backdrop-filter: none; transition: none;
+}
+.order-work .tiles { grid-template-columns: repeat(auto-fill,minmax(min(156px,100%),1fr)); }
+.order-work .tile:not(.add) {
+  background: #fff5e8f5; color: #18213c; text-shadow: none; text-align: left;
+  border-top: 4px solid var(--c); padding: 12px 12px 28px;
+  display: flex; align-items: center; justify-content: flex-start; gap: 8px;
+}
+.order-work .tile .p { top: auto; bottom: 6px; right: 8px; color: #19233f; background: transparent; font-size: 14px; }
+.order-work .tile .stop { bottom: auto; top: 1px; }
+.order-work .product-thumb { width: 46px; height: 46px; object-fit: cover; border-radius: 8px; }
+.order-work .btn.send { background: #19233f; color: white; }
+@media (min-width: 860px) {
+  .order-work { grid-template-columns: minmax(310px, 1fr) minmax(0, 1.9fr); }
+}

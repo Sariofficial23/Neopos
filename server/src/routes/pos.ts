@@ -285,6 +285,7 @@ export function posRoutes(app: FastifyInstance, db: DB) {
       shift: await openShift(db, tenantId),
       categories: cats.map((c) => ({ id: c.id, name: c.name, color: c.color })),
       products: prods.map((p) => ({
+        image: p.image?.startsWith('https://') ? p.image : null,
         id: p.id,
         name: p.name,
         price: p.price,
