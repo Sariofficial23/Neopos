@@ -1,11 +1,11 @@
-import { useEffect, useMemo, useRef, useState, type FormEvent } from 'react'
+import { useEffect, useMemo, useRef, useState, type FormEvent, type RefObject } from 'react'
 import { api, money, qtyText, type Receipt, type ReceiptItem } from './api'
 import { useApp } from './app'
 import { Dialog, PayDialog } from './Dialogs'
 import { CategoryForm, loadMenu, ProductForm, type FullCategory, type FullProduct } from './MenuEdit'
 import { guestReceipt, kitchenSlips, printSlips } from './print'
 
-type Props = { receipt: Receipt; setReceipt: (r: Receipt) => void; onBack: () => void }
+type Props = { queue: RefObject<Promise<unknown>>; receipt: Receipt; setReceipt: (r: Receipt) => void; onBack: () => void }
 
 const Icon = {
   back: <path d="M19 12H5M11 6l-6 6 6 6" />,
@@ -45,7 +45,7 @@ const Icon = {
 }
 const Svg = ({ children }: { children: React.ReactNode }) => <svg viewBox="0 0 24 24">{children}</svg>
 
-export function Order({ receipt, setReceipt, onBack }: Props) {
+export function Order({ queue, receipt, setReceipt, onBack }: Props) {
   const { boot, t, lang, can, toast, fail, reloadBoot } = useApp()
   const [cat, setCat] = useState<string | null>(null)
   // Настройка меню прямо на кассе: ⚙ рядом с «домиком», «+» добавляет, нажатие на плитку — изменить.
@@ -76,7 +76,7 @@ export function Order({ receipt, setReceipt, onBack }: Props) {
   const [busy, setBusy] = useState(false)
   const linesRef = useRef<HTMLUListElement>(null)
   // Запросы к чеку идут строго по очереди: быстрые нажатия на плитки не должны обгонять друг друга.
-  const queue = useRef<Promise<unknown>>(Promise.resolve())
+
 
   const base = `/pos/receipts/${receipt.id}`
   const fresh = receipt.items.filter((i) => !i.sent && !i.voided)
@@ -182,7 +182,7 @@ export function Order({ receipt, setReceipt, onBack }: Props) {
     <>
       <header className="bar order-bar">
         <div className="logo"><img src={`${import.meta.env.BASE_URL}brand/neopos.webp`} alt="NeoPos" /></div>
-        <span className="lnk hide">{boot.user.name}</span>
+        <span className="receipt-owner">{t('receiptOwner')}: <b>{receipt.waiterName || '—'}</b></span>
       </header>
 
       <div className="work order-work">

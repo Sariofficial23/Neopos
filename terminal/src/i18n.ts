@@ -55,6 +55,7 @@ const dict = {
   tablesTitle: { uz: 'Stollar', ru: 'Столы' },
   hallsTitle: { uz: 'Zallar', ru: 'Залы' },
   occupied: { uz: 'Band', ru: 'Занят' },
+  receiptOwner: { uz: 'Chek egasi', ru: 'Владелец чека' },
   servedBy: { uz: 'Ofitsiant', ru: 'Официант' },
   dishMenu: { uz: 'Menyu', ru: 'Меню' },
   table: { uz: 'Stol', ru: 'Стол' },

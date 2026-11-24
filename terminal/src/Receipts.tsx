@@ -170,7 +170,7 @@ export function ReceiptsScreen({
                     №{detail.number} · {place(detail)}
                   </b>
                   <span className="muted">
-                    {detail.guests} 👤
+                    {t('receiptOwner')}: {detail.waiterName || '—'} · {detail.guests} 👤
                   </span>
                 </div>
                 <div className="rc-items">

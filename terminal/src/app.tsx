@@ -46,6 +46,8 @@ export function App() {
   const [bootError, setBootError] = useState<string | null>(null)
   const [uiLang, setUiLang] = useState<Lang>(savedLang)
   const [receipt, setReceipt] = useState<Receipt | null>(null)
+  const orderQueue = useRef<Promise<unknown>>(Promise.resolve())
+  const [signingOut, setSigningOut] = useState(false)
   const [hallId, setHallId] = useState('')
   const [menu, setMenu] = useState(false)
   const [toastText, setToastText] = useState<string | null>(null)
@@ -72,11 +74,18 @@ export function App() {
 
   const logout = useCallback(() => {
     session.set(null)
+    setSigningOut(false)
     setToken(null)
     setBoot(null)
     setReceipt(null)
     setMenu(false)
   }, [])
+
+  async function signOut() {
+    setSigningOut(true)
+    await orderQueue.current
+    logout()
+  }
 
   // Терминал удалили или выключили в панели — касса возвращается на экран подключения.
   const deviceLost = useCallback(() => {
@@ -99,7 +108,10 @@ export function App() {
 
   const reloadBoot = useCallback(async () => {
     try {
-      setBoot(await api<Boot>('/pos/bootstrap'))
+      const currentSession = session.get()
+      const nextBoot = await api<Boot>('/pos/bootstrap')
+      if (session.get() !== currentSession) return
+      setBoot(nextBoot)
       setBootError(null)
     } catch (err) {
       if (!(err instanceof ApiError && err.status === 401)) setBootError(err instanceof ApiError ? err.code : 'internal')
@@ -134,6 +146,10 @@ export function App() {
       events.forEach((e) => window.removeEventListener(e, reset))
     }
   }, [token, logout])
+
+  function showReceipt(next: Receipt) {
+    if (token && session.get() === token) setReceipt(next)
+  }
 
   let screen: ReactNode
   if (!hasDevice) {
@@ -185,17 +201,17 @@ export function App() {
         {!boot.shift ? (
           <ShiftGate />
         ) : receipt ? (
-          <Order receipt={receipt} setReceipt={setReceipt} onBack={() => setReceipt(null)} />
+          <Order queue={orderQueue} receipt={receipt} setReceipt={showReceipt} onBack={() => setReceipt(null)} />
         ) : menu ? (
           <ControlPanel
             onBack={() => setMenu(false)}
             onOpenReceipt={(r) => {
               setMenu(false)
-              setReceipt(r)
+              showReceipt(r)
             }}
           />
         ) : (
-          <Hall hallId={hallId} setHallId={setHallId} onOpen={setReceipt} onMenu={() => setMenu(true)} />
+          <Hall hallId={hallId} setHallId={setHallId} onOpen={showReceipt} onMenu={() => setMenu(true)} />
         )}
       </Ctx.Provider>
     )
@@ -203,6 +219,14 @@ export function App() {
 
   return (
     <>
+      {hasDevice && token && (
+        <div className="session-bar">
+          <button type="button" disabled={signingOut} onClick={() => void signOut()}>
+            {boot && <span className="session-name">{boot.user.name}</span>}
+            <strong>{t('logout')}</strong>
+          </button>
+        </div>
+      )}
       {screen}
       {toastText && (
         <div className="toast" role="status">

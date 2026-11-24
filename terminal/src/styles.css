@@ -435,3 +435,17 @@ body:has(.order-bar) {
 @media (min-width: 860px) {
   .order-work { grid-template-columns: minmax(310px, 1fr) minmax(0, 1.9fr); }
 }
+
+.session-bar {
+  flex: none; height: 46px; display: flex; align-items: center; justify-content: flex-end;
+  padding: 0 10px; background: #edf0f3; border-bottom: 1px solid #cbd1d7;
+  position: relative; z-index: 30;
+}
+.session-bar button {
+  display: flex; align-items: center; gap: 12px; max-width: 100%; min-height: 40px;
+  padding: 0 14px; background: #fff; border: 1px solid #c4cad1; border-radius: 8px; color: #20252c;
+}
+.session-name, .receipt-owner { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.receipt-owner { min-width: 0; font-size: 14px; }
+#root:has(.session-bar) .veil { top: 46px; }
+#root:has(.session-bar button:disabled) > :not(.session-bar) { pointer-events: none; }
