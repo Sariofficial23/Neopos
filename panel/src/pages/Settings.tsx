@@ -17,6 +17,7 @@ type Settings = {
   receiptShowTime: boolean
   printKitchen: boolean
   printReceipt: boolean
+  tableRedMinutes: number
 }
 
 export function SettingsPage() {
@@ -108,6 +109,19 @@ export function SettingsPage() {
                 <Toggle label={t('printReceipt')} checked={form.printReceipt} onChange={(v) => up('printReceipt', v)} />
               </div>
               <p className="text-xs text-slate-500">{t('printNote')}</p>
+            </section>
+
+            <section className="card space-y-4 p-5">
+              <h2 className="font-semibold">{t('setTerminal')}</h2>
+              <Field label={t('tableRedMinutes')} hint={t('tableRedHint')}>
+                <input
+                  className="input max-w-40"
+                  inputMode="numeric"
+                  value={form.tableRedMinutes ? String(form.tableRedMinutes) : ''}
+                  placeholder="0"
+                  onChange={(e) => up('tableRedMinutes', Math.min(1000, Number(e.target.value.replace(/[^0-9]/g, '')) || 0))}
+                />
+              </Field>
             </section>
 
             <ErrorNote text={error} />

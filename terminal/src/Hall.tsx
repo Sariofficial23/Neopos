@@ -40,6 +40,7 @@ export function Hall({ onOpen, onMenu, hallId, setHallId }: { hallId: string; se
   const hall = boot.halls.find((h) => h.id === hallId) ?? boot.halls[0]
   const byTable = new Map(open.filter((r) => r.tableId).map((r) => [r.tableId!, r]))
   const awaySales = boot.saleTypes.filter((s) => s.kind !== 'hall')
+  const redMs = (boot.tableRedMinutes ?? 0) * 60_000
 
   async function start(body: { tableId?: string; saleTypeId?: string; guests?: number }) {
     if (pending) return
@@ -95,10 +96,13 @@ export function Hall({ onOpen, onMenu, hallId, setHallId }: { hallId: string; se
               const r = byTable.get(tb.id)
               // Стол занят чужим чеком, которого этот сотрудник не видит.
               const foreign = !r && busyTables.includes(tb.id)
+              // Цвета как в Clopos: синий — мой стол, фиолетовый — другого сотрудника, красный — давно ничего не добавляли.
+              const mine = r?.waiterId === boot.user.userId
+              const late = !!r && redMs > 0 && Date.now() - new Date(r.lastItemAt ?? r.openedAt).getTime() > redMs
               return (
                 <button
                   key={tb.id}
-                  className={`table ${r ? (r.billPrinted ? 'busy bill' : 'busy') : foreign ? 'other' : ''}`}
+                  className={`table ${r ? `busy ${late ? 'late' : mine ? 'mine' : ''} ${r.billPrinted ? 'bill' : ''}` : foreign ? 'other' : ''}`}
                   // Свободный стол сначала спрашивает число гостей, занятый открывается сразу.
                   onClick={() => (r || foreign ? void start({ tableId: tb.id }) : setGuestsFor({ id: tb.id, name: tb.name }))}
                 >

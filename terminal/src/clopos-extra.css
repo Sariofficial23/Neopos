@@ -10,3 +10,18 @@
 .move-grid button.taken { background: var(--cl-purple); opacity: 0.45; }
 .move-grid button.current { background: var(--cl-blue); }
 .rc-refunded { align-self: center; padding: 6px 14px; font-size: 13px; }
+
+/* Цвета столов как в Clopos: синий — мой, фиолетовый — другого сотрудника, красный — истекло время */
+.table.busy.mine, .samarkand .table.busy.mine { background: var(--cl-blue); }
+.table.busy.late, .samarkand .table.busy.late { background: #d8405c; }
+.table.bill, .samarkand .table.bill { background: var(--cl-purple); }
+.table.bill.mine, .samarkand .table.bill.mine { background: var(--cl-blue); }
+.table.bill.late, .samarkand .table.bill.late { background: #d8405c; }
+
+/* История чека на экране «Чеки» */
+.rc-actions { display: grid; gap: 6px; }
+.rc-history { display: grid; gap: 4px; max-height: 46vh; overflow-y: auto; font-size: 13px; }
+.rc-history div { display: grid; grid-template-columns: 46px minmax(0, 1fr); gap: 8px; padding: 6px 8px; border-radius: 3px; background: #f4f6f9; }
+.rc-history div.sus { background: #fff6d6; }
+.rc-history time { color: var(--muted); }
+.rc-history small { display: block; color: var(--muted); }

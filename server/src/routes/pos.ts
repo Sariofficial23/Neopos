@@ -280,6 +280,7 @@ export function posRoutes(app: FastifyInstance, db: DB) {
       print: printSettings(tenant.settings),
       printers: await listPrinters(db, tenantId),
       brand: await brandImages(db, tenantId),
+      tableRedMinutes: Number((tenant.settings as Record<string, unknown>).tableRedMinutes ?? 0) || 0,
       departments: deps,
       user: req.auth,
       shift: await openShift(db, tenantId),
@@ -596,6 +597,8 @@ export function posRoutes(app: FastifyInstance, db: DB) {
         waiterName: users.name,
         total: receipts.total,
         billPrinted: receipts.billPrinted,
+        // Когда в чек последний раз добавляли позицию: по этому стол краснеет после простоя.
+        lastItemAt: sql<string | null>`(select max(ri.created_at) from receipt_items ri where ri.receipt_id = ${receipts.id})`,
         openedAt: receipts.openedAt,
       })
       .from(receipts)
@@ -837,6 +840,49 @@ export function posRoutes(app: FastifyInstance, db: DB) {
       await tx.update(receipts).set({ billPrinted: true }).where(eq(receipts.id, id))
       await log(tx, req, id, 'receipt.bill', { total: r.total, reprint: r.billPrinted })
       return { receipt: await fullReceipt(tx, req.auth.tenantId, id), sentIds: sent.map((s) => s.id) }
+    })
+  })
+
+  /** История чека для кассы: кто, что и когда делал; подозрительные действия помечены. */
+  app.get('/api/pos/receipts/:id/history', pos, async (req) => {
+    const { id } = idParam.parse(req.params)
+    const tenantId = req.auth.tenantId
+    const [r] = await db.select({ waiterId: receipts.waiterId }).from(receipts).where(and(eq(receipts.id, id), eq(receipts.tenantId, tenantId)))
+    if (!r) throw new HttpError(404, 'not_found')
+    if (r.waiterId !== req.auth.userId && !can(req, 'receipt.see_all')) throw new HttpError(403, 'no_permission')
+    return db
+      .select({ id: auditLog.id, action: auditLog.action, data: auditLog.data, suspicious: auditLog.suspicious, createdAt: auditLog.createdAt, userName: users.name })
+      .from(auditLog)
+      .leftJoin(users, eq(users.id, auditLog.userId))
+      .where(and(eq(auditLog.receiptId, id), eq(auditLog.tenantId, tenantId)))
+      .orderBy(asc(auditLog.createdAt))
+  })
+
+  /**
+   * «Открыть чек ещё раз»: закрытый чек текущей смены снова становится открытым, оплата снимается.
+   * Нужно право; стол чека должен быть свободен.
+   */
+  app.post('/api/pos/receipts/:id/reopen', pos, async (req) => {
+    const { id } = idParam.parse(req.params)
+    need(req, 'receipt.reopen')
+    const tenantId = req.auth.tenantId
+    return db.transaction(async (tx) => {
+      const [r] = await tx.select().from(receipts).where(and(eq(receipts.id, id), eq(receipts.tenantId, tenantId)))
+      if (!r) throw new HttpError(404, 'not_found')
+      if (r.status !== 'closed') throw new HttpError(409, 'receipt_not_closed')
+      const shift = await openShift(tx, tenantId)
+      if (!shift || shift.id !== r.shiftId) throw new HttpError(409, 'refund_other_shift')
+      if (r.tableId) {
+        const [taken] = await tx
+          .select({ id: receipts.id })
+          .from(receipts)
+          .where(and(eq(receipts.tenantId, tenantId), eq(receipts.tableId, r.tableId), eq(receipts.status, 'open')))
+        if (taken) throw new HttpError(409, 'table_taken')
+      }
+      await tx.delete(payments).where(eq(payments.receiptId, id))
+      await tx.update(receipts).set({ status: 'open', closedAt: null, billPrinted: false, suspicious: true }).where(eq(receipts.id, id))
+      await log(tx, req, id, 'receipt.reopen', { number: r.number, total: r.total }, true)
+      return fullReceipt(tx, tenantId, id)
     })
   })
 

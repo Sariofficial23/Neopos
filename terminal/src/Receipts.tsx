@@ -1,7 +1,28 @@
 import { useCallback, useEffect, useState } from 'react'
 import { api, money, qtyText, type L10n, type OpenReceipt, type Receipt } from './api'
 import { useApp } from './app'
+import { Dialog } from './Dialogs'
 import { guestReceipt, printSlips } from './print'
+
+type HistoryRow = { id: string; action: string; suspicious: boolean; createdAt: string; userName: string | null }
+
+/** Названия действий в истории чека. */
+const ACTIONS: Record<string, { uz: string; ru: string }> = {
+  'receipt.open': { uz: 'Chek ochildi', ru: 'Чек открыт' },
+  'receipt.send': { uz: 'Oshxonaga yuborildi', ru: 'Отправлено на кухню' },
+  'receipt.bill': { uz: 'Hisob chop etildi', ru: 'Напечатан счёт' },
+  'receipt.discount': { uz: 'Chegirma o‘zgartirildi', ru: 'Изменена скидка' },
+  'receipt.pay': { uz: 'To‘lov qabul qilindi', ru: 'Принята оплата' },
+  'receipt.close': { uz: 'Chek yopildi', ru: 'Чек закрыт' },
+  'receipt.cancel': { uz: 'Savdo bekor qilindi', ru: 'Продажа отменена' },
+  'receipt.move': { uz: 'Boshqa stolga ko‘chirildi', ru: 'Перенесён на другой стол' },
+  'receipt.refund': { uz: 'Qaytarildi', ru: 'Возврат' },
+  'receipt.reopen': { uz: 'Chek qayta ochildi', ru: 'Чек открыт ещё раз' },
+  'item.void': { uz: 'Pozitsiya o‘chirildi', ru: 'Удалена позиция' },
+  'item.price': { uz: 'Narx o‘zgartirildi', ru: 'Изменена цена' },
+  'item.comp': { uz: 'Mehmon qilindi (bepul)', ru: 'Угощение' },
+  'item.uncomp': { uz: 'Mehmon qilish bekor qilindi', ru: 'Угощение отменено' },
+}
 
 type ClosedRow = {
   id: string
@@ -42,6 +63,7 @@ export function ReceiptsScreen({
   const [closed, setClosed] = useState<ClosedRow[] | null>(null)
   const [detail, setDetail] = useState<Receipt | null>(null)
   const [selected, setSelected] = useState<string | null>(null)
+  const [history, setHistory] = useState<HistoryRow[] | null>(null)
 
   const loadClosed = useCallback(() => {
     api<{ receipts: ClosedRow[] }>('/pos/archive')
@@ -83,6 +105,25 @@ export function ReceiptsScreen({
   async function reprint(r: Receipt) {
     const err = await printSlips([guestReceipt(r, boot, lang, { final: true })])
     if (err) toast(`${t('printFailed')}: ${err}`)
+  }
+
+  /** История чека: кто и что делал. Подозрительные действия подсвечены. */
+  async function showHistory(r: Receipt) {
+    try {
+      setHistory(await api<HistoryRow[]>(`/pos/receipts/${r.id}/history`))
+    } catch (err) {
+      fail(err)
+    }
+  }
+
+  /** «Открыть чек ещё раз»: чек снова открыт, оплата снята. */
+  async function reopen(r: Receipt) {
+    if (!window.confirm(`№${r.number} · ${money(r.total)}\n\n${t('reopenConfirm')}`)) return
+    try {
+      onOpen(await api<Receipt>(`/pos/receipts/${r.id}/reopen`, { method: 'POST' }))
+    } catch (err) {
+      fail(err)
+    }
   }
 
   /** Возврат закрытого чека: только с правом и после подтверждения. */
@@ -233,6 +274,14 @@ export function ReceiptsScreen({
                     🧾 {t('reprint')}
                   </button>
                 )}
+                <button className="btn plain wide" onClick={() => void showHistory(detail)}>
+                  🕘 {t('receiptHistory')}
+                </button>
+                {detail.status === 'closed' && can('receipt.reopen') && (
+                  <button className="btn plain wide" onClick={() => void reopen(detail)}>
+                    ↺ {t('reopenReceipt')}
+                  </button>
+                )}
                 {detail.status === 'closed' && can('receipt.refund') && (
                   <button className="btn plain wide danger-text" onClick={() => void refund(detail)}>
                     ↩ {t('refund')}
@@ -244,6 +293,24 @@ export function ReceiptsScreen({
           </aside>
         </div>
       </div>
+
+      {history && (
+        <Dialog title={t('receiptHistory')} onClose={() => setHistory(null)}>
+          <div className="rc-history">
+            {history.length === 0 && <span className="muted">—</span>}
+            {history.map((h) => (
+              <div key={h.id} className={h.suspicious ? 'sus' : ''}>
+                <time className="num">{clock(h.createdAt)}</time>
+                <span>
+                  {h.suspicious ? '⚠ ' : ''}
+                  {ACTIONS[h.action]?.[lang] ?? h.action}
+                  <small>{h.userName ?? '—'}</small>
+                </span>
+              </div>
+            ))}
+          </div>
+        </Dialog>
+      )}
     </>
   )
 }

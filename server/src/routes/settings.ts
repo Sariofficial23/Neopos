@@ -16,6 +16,8 @@ const body = z.object({
   receiptShowTime: z.boolean().default(true),
   printKitchen: z.boolean().default(true),
   printReceipt: z.boolean().default(true),
+  /** Через сколько минут без новых позиций стол в зале краснеет; 0 — не краснеет (как «Изменение цвета стола» в Clopos) */
+  tableRedMinutes: z.number().int().min(0).max(1000).default(0),
 })
 
 export function settingsRoutes(app: FastifyInstance, db: DB) {
@@ -38,6 +40,7 @@ export function settingsRoutes(app: FastifyInstance, db: DB) {
       receiptShowTime: p.showTime,
       printKitchen: p.kitchen,
       printReceipt: p.receipt,
+      tableRedMinutes: Number((t.settings as Record<string, unknown>).tableRedMinutes ?? 0) || 0,
     }
   }
 

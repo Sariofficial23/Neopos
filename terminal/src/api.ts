@@ -90,6 +90,8 @@ export type Boot = {
   departments: { id: string; name: string }[]
   printers: NetPrinter[]
   brand?: { logo: string | null; photo: string | null }
+  /** Через сколько минут простоя стол краснеет; 0 — выключено */
+  tableRedMinutes?: number
   user: { userId: string; name: string; lang: Lang; role: { name: string; permissions: string[] } }
   shift: Shift | null
   categories: { id: string; name: L10n; color: string | null }[]
@@ -159,6 +161,7 @@ export type Receipt = {
   openedAt: string
   closedAt: string | null
   billPrinted: boolean
+  lastItemAt?: string | null
   payments: { name: L10n; kind: string; amount: number }[]
   items: ReceiptItem[]
 }
@@ -173,6 +176,7 @@ export type OpenReceipt = {
   waiterName: string | null
   total: number
   billPrinted: boolean
+  lastItemAt?: string | null
   openedAt: string
 }
 

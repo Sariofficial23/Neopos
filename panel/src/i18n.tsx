@@ -42,6 +42,12 @@ const dict = {
   navRoles: { uz: 'Lavozimlar', ru: 'Должности' },
   navSettings: { uz: 'Sozlamalar', ru: 'Настройки' },
   navTerminals: { uz: 'Terminallar', ru: 'Терминалы' },
+  setTerminal: { uz: 'Terminal', ru: 'Терминал' },
+  tableRedMinutes: { uz: 'Stol rangini o‘zgartirish, daqiqa', ru: 'Изменение цвета стола, минут' },
+  tableRedHint: {
+    uz: 'Shuncha daqiqa chekka hech narsa qo‘shilmasa, stol kassada qizil bo‘ladi. 0 — o‘chirilgan. Tavsiya: 10–1000.',
+    ru: 'Если столько минут в чек ничего не добавляли, стол на кассе становится красным. 0 — выключено. Обычно 10–1000.',
+  },
   navSubscription: { uz: 'Abonent to‘lovi', ru: 'Абонентская плата' },
   downloadApp: { uz: 'Windows uchun kassani yuklab olish', ru: 'Скачать кассу для Windows' },
   navExpand: { uz: 'Menyuni to‘liq ochish', ru: 'Раскрыть меню полностью' },
