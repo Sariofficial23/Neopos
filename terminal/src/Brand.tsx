@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { api, API_BASE, ApiError, type Lang } from './api'
 import type { Key } from './i18n'
+import type { SyncState } from './print'
 
 /** Что показывает экран ПИН-кода до входа: название, логотип и фото заведения, язык владельца. */
 export type DeviceInfo = { venue: string; lang: Lang; logo: string | null; photo: string | null }
@@ -90,9 +91,48 @@ export function useOnline() {
   return online
 }
 
-/** Значок Wi-Fi с подписью: зелёный — есть интернет, красный — нет. */
+/**
+ * Касса открыта с главного терминала (локальная сеть)? Тогда он сообщает, есть ли у него связь с облаком.
+ * null — касса работает напрямую через интернет.
+ */
+function useLocalSync() {
+  const [sync, setSync] = useState<SyncState | null>(null)
+  useEffect(() => {
+    let alive = true
+    const check = () =>
+      fetch(`${API_BASE}/api/sync/status`, { cache: 'no-store' })
+        .then((r) => (r.ok ? r.json() : null))
+        .then((s: SyncState | null) => alive && setSync(s?.mode === 'local' ? s : null))
+        .catch(() => {})
+    void check()
+    const timer = window.setInterval(check, 10_000)
+    return () => {
+      alive = false
+      window.clearInterval(timer)
+    }
+  }, [])
+  return sync
+}
+
+/** Значок Wi-Fi с подписью: зелёный — есть интернет, красный — нет. В локальной сети — оранжевый, когда облако недоступно. */
 export function NetStatus({ t }: { t: (k: Key) => string }) {
   const online = useOnline()
+  const local = useLocalSync()
+  if (local && online)
+    return (
+      <span className={`net ${local.online ? 'ok' : 'lan'}`} role="status">
+        <svg viewBox="0 0 24 24" aria-hidden="true">
+          <path d="M12 3v6M5 21v-5h14v5M12 9v7M3 21h4M10 21h4M17 21h4" />
+        </svg>
+        {local.online ? t('netLocal') : `${t('netLocalWait')} ${local.pendingReceipts}`}
+      </span>
+    )
+  if (local === null && !online && window.location.port === '4455')
+    return (
+      <span className="net off" role="status">
+        {t('netNoMain')}
+      </span>
+    )
   return (
     <span className={`net ${online ? 'ok' : 'off'}`} role="status">
       <svg viewBox="0 0 24 24" aria-hidden="true">

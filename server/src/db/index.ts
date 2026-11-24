@@ -10,7 +10,8 @@ export { schema }
 export type DB = PgliteDatabase<typeof schema>
 
 const here = dirname(fileURLToPath(import.meta.url))
-const migrationsFolder = resolve(here, '../../drizzle')
+// В приложении для Windows сервер собран в один файл, и папку миграций ему указывают явно.
+const migrationsFolder = process.env.MIGRATIONS_DIR ?? resolve(here, '../../drizzle')
 
 /**
  * Если задан DATABASE_URL — подключаемся к настоящему PostgreSQL (боевой режим).

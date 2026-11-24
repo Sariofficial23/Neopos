@@ -25,3 +25,15 @@
 .rc-history div.sus { background: #fff6d6; }
 .rc-history time { color: var(--muted); }
 .rc-history small { display: block; color: var(--muted); }
+
+/* ───── Локальная сеть ───── */
+.net.lan { background: #f08c00; }
+.pin-bar .net.lan, .session-bar .net.lan { background: none; color: #f08c00; }
+.session-bar .net.lan { font-size: 12px; gap: 6px; }
+.lan-box { display: grid; gap: 8px; padding: 12px 14px; border-radius: 10px; background: rgba(120, 130, 150, 0.12); }
+.lan-line { display: flex; justify-content: space-between; gap: 12px; font-size: 14px; }
+.lan-line span { color: #6b7385; }
+.lan-line b.ok { color: #2bb656; }
+.lan-line b.off { color: #e03131; }
+.lan-h { margin: 6px 0 0; font-size: 15px; }
+.lan-manual { display: grid; grid-template-columns: 1fr auto; gap: 8px; }

@@ -28,6 +28,15 @@ jobs:
 
       - run: npm ci
 
+      # Главный терминал (работа без интернета): в приложение кладём экран кассы и сервер NeoPos.
+      - name: Install workspace dependencies
+        working-directory: .
+        run: npm ci
+
+      - name: Build kassa and local server
+        working-directory: .
+        run: node desktop/scripts/build-local.mjs
+
       # Версия приложения берётся из тега: v0.2.0 → 0.2.0
       - name: Set version from tag
         if: startsWith(github.ref, 'refs/tags/v')

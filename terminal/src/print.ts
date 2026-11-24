@@ -173,8 +173,20 @@ const SLIP_CSS = `
 `
 const PAGE_CSS = '@page { size: 80mm auto; margin: 0; } html, body { margin: 0; background: #fff; }'
 
+/** Состояние обмена главного терминала с облаком */
+export type SyncState = { mode: 'local' | 'cloud'; online: boolean; lastSyncAt: string | null; error: string | null; pendingReceipts: number }
+/** Локальная сеть: работает ли касса через интернет, сама является главным терминалом или подключена к нему */
+export type NetState = { mode: 'cloud' | 'main' | 'lan'; host: string | null; port: number; addresses: string[]; running: boolean; sync: SyncState | null }
+type NetResult = { ok: boolean; error?: string }
+
 /** Мост к приложению NeoPos Kassa для Windows — есть только внутри приложения. */
 type Desktop = {
+  /** Есть с версии приложения 0.2.0: локальная сеть (главный терминал, работа без интернета) */
+  netStatus?: () => Promise<NetState | null>
+  netMainOn?: (cfg: { token: string; cloud: string }) => Promise<NetResult>
+  netLanFind?: () => Promise<{ ip: string }[]>
+  netLanOn?: (host: string) => Promise<NetResult>
+  netOff?: () => Promise<NetResult>
   info: () => Promise<{ version: string; printer: string } | null>
   printers: () => Promise<{ name: string; displayName: string; isDefault: boolean }[]>
   setPrinter: (name: string) => Promise<boolean>

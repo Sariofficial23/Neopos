@@ -28,18 +28,31 @@
   <body>
     <div class="card">
       <h1><img src="build/neopos.webp" alt="NeoPos" width="168" height="56" style="display:block;margin:auto;border-radius:10px"></h1>
-      <p>Internet bilan aloqa yo‘q.<br />Нет связи с интернетом.</p>
+      <p id="msg">Internet bilan aloqa yo‘q.<br />Нет связи с интернетом.</p>
       <button id="retry">Qayta urinish · Повторить</button>
+      <button id="cloud" hidden style="background:#7d8a99">Internet orqali ishlash · Работать через интернет</button>
       <small id="note"></small>
     </div>
     <script>
-      const target = new URLSearchParams(location.search).get('url')
-      const go = () => { if (target && /^https:\/\//.test(target)) location.href = target }
+      const params = new URLSearchParams(location.search)
+      const target = params.get('url')
+      const mode = params.get('mode')
+      const go = () => { if (target && /^(https:\/\/|http:\/\/[0-9.]+:4455)/.test(target)) location.href = target }
+      if (mode === 'starting') {
+        document.getElementById('msg').innerHTML = 'Bosh terminal ishga tushmoqda…<br />Главный терминал запускается…'
+        document.getElementById('retry').hidden = true
+      } else if (mode === 'lan') {
+        document.getElementById('msg').innerHTML = 'Bosh terminal bilan aloqa yo‘q.<br />Нет связи с главным терминалом. Проверьте, что он включён.'
+        const cloud = document.getElementById('cloud')
+        cloud.hidden = false
+        cloud.onclick = () => window.neoposDesktop.netOff()
+      }
       document.getElementById('retry').onclick = go
       let left = 15
       setInterval(() => {
         left -= 1
         document.getElementById('note').textContent = left > 0 ? left + ' s' : ''
+        if (mode === 'starting') return (document.getElementById('note').textContent = '')
         if (left <= 0) { left = 15; go() }
       }, 1000)
     </script>

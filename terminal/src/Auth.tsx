@@ -4,6 +4,7 @@ import { useApp } from './app'
 import { mediaUrl, NetStatus, type DeviceInfo } from './Brand'
 import { DOWNLOAD_URL } from './download'
 import type { Key } from './i18n'
+import { LocalNetDialog } from './LocalNet'
 import { desktop } from './print'
 
 type Base = { t: (k: Key) => string; tErr: (c: string) => string; lang: Lang; setLang: (l: Lang) => void }
@@ -107,6 +108,7 @@ export function Pin({
   // Меню «⋮» рядом с брендом: «Обновить» и «Выйти». Выход из бренда — только по ПИН-коду администратора.
   const [menuOpen, setMenuOpen] = useState(false)
   const [exiting, setExiting] = useState(false)
+  const [lanOpen, setLanOpen] = useState(false)
 
   async function refresh() {
     setMenuOpen(false)
@@ -159,15 +161,18 @@ export function Pin({
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
+      // Пока открыто окно «Локальная сеть», цифры идут в его поле, а не в ПИН-код входа.
+      if (lanOpen) return
       if (/^\d$/.test(e.key)) press(e.key)
       else if (e.key === 'Backspace') setPin((p) => p.slice(0, -1))
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [press])
+  }, [press, lanOpen])
 
   return (
     <div className="pin-split" data-scene="ocean">
+      {lanOpen && <LocalNetDialog t={t} tErr={tErr} onClose={() => setLanOpen(false)} />}
       {/* Как в Clopos: слева фото заведения с названием бренда, справа белая панель с клавиатурой. */}
       <div className="pin-photo">
         {info?.venue && (
@@ -193,6 +198,17 @@ export function Pin({
                   <button role="menuitem" onClick={() => void refresh()}>
                     ↻ {t('cpRefresh')}
                   </button>
+                  {desktop?.netStatus && (
+                    <button
+                      role="menuitem"
+                      onClick={() => {
+                        setMenuOpen(false)
+                        setLanOpen(true)
+                      }}
+                    >
+                      ⇄ {t('lanTitle')}
+                    </button>
+                  )}
                   <button
                     role="menuitem"
                     className="danger-text"

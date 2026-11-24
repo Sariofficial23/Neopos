@@ -9,7 +9,8 @@
   "scripts": {
     "start": "electron .",
     "smoke": "electron . --smoke",
-    "dist": "electron-builder --win nsis-web --publish never"
+    "dist": "node scripts/build-local.mjs && electron-builder --win nsis-web --publish never",
+    "local": "node scripts/build-local.mjs"
   },
   "build": {
     "appId": "uz.neopos.kassa",
@@ -19,7 +20,9 @@
       "preload.js",
       "offline.html",
       "build/icon.png",
-      "build/neopos.webp"
+      "build/neopos.webp",
+      "server/**",
+      "kassa/**"
     ],
     "directories": {
       "output": "dist",
@@ -43,13 +46,15 @@
       "shortcutName": "NeoPos Kassa",
       "runAfterFinish": true,
       "artifactName": "NeoPos-Setup.${ext}"
-    }
+    },
+    "asar": false
   },
   "devDependencies": {
     "electron": "^45.4.1",
     "electron-builder": "^26.18.0"
   },
   "dependencies": {
-    "electron-updater": "^6.8.11"
+    "electron-updater": "^6.8.11",
+    "@electric-sql/pglite": "^0.5.17"
   }
 }

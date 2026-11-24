@@ -132,7 +132,26 @@ export function syncRoutes(app: FastifyInstance, db: DB) {
     return { mode: 'local', ...localState, pendingReceipts: n }
   })
 
-  if (isLocal()) return
+  if (isLocal()) {
+    /**
+     * Приложение на главном терминале получает токен устройства для своей кассы: предъявляет облачный
+     * токен, которым ведётся обмен. Только с этого же компьютера.
+     */
+    app.post('/api/sync/adopt', async (req) => {
+      const token = String(req.headers.authorization ?? '').replace(/^Bearer /, '')
+      const loopback = req.ip === '127.0.0.1' || req.ip === '::1' || req.ip === '::ffff:127.0.0.1'
+      if (!loopback || !process.env.SYNC_TOKEN || token !== process.env.SYNC_TOKEN) throw new HttpError(401, 'unauthorized')
+      const claims = app.jwt.decode<{ kind?: string; tid?: string; did?: string }>(token)
+      if (claims?.kind !== 'device' || !claims.tid || !claims.did) throw new HttpError(401, 'unauthorized')
+      const [terminal] = await db
+        .select({ id: s.terminals.id })
+        .from(s.terminals)
+        .where(and(eq(s.terminals.id, claims.did), eq(s.terminals.tenantId, claims.tid)))
+      if (!terminal) throw new HttpError(409, 'not_synced')
+      return { deviceToken: app.jwt.sign({ kind: 'device', tid: claims.tid, did: claims.did }) }
+    })
+    return
+  }
 
   app.get('/api/sync/pull', async (req) => {
     const tenantId = await deviceTenant(req)
@@ -162,7 +181,9 @@ export function syncRoutes(app: FastifyInstance, db: DB) {
     seed.payments = (rids.length ? await db.select().from(s.payments).where(inArray(s.payments.receiptId, rids)) : []) as Row[]
     seed.cashMovements = (shiftIds.length ? await db.select().from(s.cashMovements).where(inArray(s.cashMovements.shiftId, shiftIds)) : []) as Row[]
 
-    return { tenant, pinKey: pinKey(tenantId), tables, base: { receipt, shift }, seed, serverTime: new Date().toISOString() }
+    // Логотип и фото заведения тяжёлые — отдаём только по запросу (?media=1).
+    const media = (req.query as { media?: string }).media === '1' ? ((await db.select().from(s.brandMedia).where(eq(s.brandMedia.tenantId, tenantId))) as Row[]) : null
+    return { tenant, pinKey: pinKey(tenantId), tables, base: { receipt, shift }, seed, media, serverTime: new Date().toISOString() }
   })
 
   app.post('/api/sync/push', { bodyLimit: 30_000_000 }, async (req) => {
@@ -232,7 +253,9 @@ async function cloudCall<T>(path: string, init: { method?: string; body?: unknow
   return (await res.json()) as T
 }
 
-type Pulled = { tenant: Row & { id: string }; pinKey: string; tables: Record<string, Row[]>; base: { receipt: number; shift: number }; seed: Record<string, Row[]> }
+type Pulled = { tenant: Row & { id: string }; pinKey: string; tables: Record<string, Row[]>; base: { receipt: number; shift: number }; seed: Record<string, Row[]>; media?: Row[] | null }
+/** Логотип и фото забираем при первом обмене и затем раз в ~10 минут. */
+let pulls = 0
 
 /** Сохраняем ключ ПИН-кодов и базу нумерации на диск: после перезапуска без интернета они должны быть на месте. */
 async function remember(db: DB, tenantId: string, key: string, base: { receipt: number; shift: number }, pushedAt: Date | null = lastPush) {
@@ -263,7 +286,8 @@ export async function restoreLocalState(db: DB) {
 
 /** Забрать настройки из облака и записать их в локальную базу. */
 export async function pullFromCloud(db: DB) {
-  const data = await cloudCall<Pulled>('/sync/pull')
+  const withMedia = pulls++ % 30 === 0
+  const data = await cloudCall<Pulled>(withMedia ? '/sync/pull?media=1' : '/sync/pull')
   const tenantId = data.tenant.id
   await db.transaction(async (tx) => {
     await upsert(tx, s.tenants as unknown as AnyTable, [data.tenant])
@@ -271,6 +295,10 @@ export async function pullFromCloud(db: DB) {
     // Открытую смену из облака берём только на пустой базе: дальше продажами владеет главный терминал.
     const [{ n }] = await tx.select({ n: sql<number>`count(*)::int`.mapWith(Number) }).from(s.shifts).where(eq(s.shifts.tenantId, tenantId))
     if (n === 0) for (const [name, table] of SALES) if (name !== 'auditLog') await upsert(tx, table, data.seed[name] ?? [])
+    if (data.media) {
+      await tx.delete(s.brandMedia).where(eq(s.brandMedia.tenantId, tenantId))
+      await upsert(tx, s.brandMedia as unknown as AnyTable, data.media)
+    }
   })
   // Что удалено в облаке, убираем и здесь. Если на строку ещё ссылаются чеки — оставляем (не страшно).
   for (const [name, table] of [...CONFIG].reverse()) {

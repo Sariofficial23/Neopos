@@ -1,6 +1,7 @@
 // NeoPos Kassa — Windows ilovasi. Kassa sahifasini oynada ochadi va chekni
 // so'ramasdan tanlangan printerga chiqaradi.
-const { app, BrowserWindow, ipcMain, Menu, shell } = require('electron')
+const { app, BrowserWindow, ipcMain, Menu, shell, utilityProcess } = require('electron')
+const crypto = require('node:crypto')
 const path = require('node:path')
 const fs = require('node:fs')
 const net = require('node:net')
@@ -39,7 +40,10 @@ let win = null
 
 function isOurPage(url) {
   try {
-    return url.startsWith('file:') || new URL(url).origin === ORIGIN
+    if (url.startsWith('file:')) return true
+    const origin = new URL(url).origin
+    // Касса открыта с сайта, с этого компьютера (главный терминал) или с главного терминала в локальной сети.
+    return origin === ORIGIN || origin === new URL(homeUrl()).origin
   } catch {
     return false
   }
@@ -87,8 +91,8 @@ function createWindow({ show = true } = {}) {
 
   // Internet bo'lmasa — "aloqa yo'q" sahifasi, u o'zi qayta urinadi.
   win.webContents.on('did-fail-load', (_e, code, _desc, url, isMainFrame) => {
-    if (isMainFrame && code !== -3 && url.startsWith(ORIGIN)) {
-      win.loadFile(path.join(__dirname, 'offline.html'), { query: { url: APP_URL } })
+    if (isMainFrame && code !== -3 && /^https?:/.test(url) && isOurPage(url)) {
+      win.loadFile(path.join(__dirname, 'offline.html'), { query: { url: homeUrl(), mode: netMode().mode } })
     }
   })
 
@@ -110,8 +114,237 @@ function createWindow({ show = true } = {}) {
   win.on('closed', () => {
     win = null
   })
-  return win.loadURL(APP_URL)
+  return openHome()
 }
+
+// ───────────── Локальная сеть: главный терминал и кассы, подключённые к нему ─────────────
+// Главный терминал запускает на этом компьютере свой сервер NeoPos с базой на диске: касса работает
+// без интернета, а сервер сам обменивается с облаком. Остальные кассы открывают кассу с его адреса.
+
+const LOCAL_PORT = 4455
+const LOCAL_URL = `http://127.0.0.1:${LOCAL_PORT}`
+const DEV_CLOUD_RE = /^http:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/
+const CLOUD_RE = /^https:\/\/[a-z0-9.-]+(:\d+)?$/i
+
+/** { mode: 'cloud' } | { mode: 'main', token, cloud } | { mode: 'lan', host } */
+function netMode() {
+  const n = readSettings().net || {}
+  if (n.mode === 'main' && typeof n.token === 'string' && typeof n.cloud === 'string') return n
+  if (n.mode === 'lan' && IP_RE.test(String(n.host))) return n
+  return { mode: 'cloud' }
+}
+
+function homeUrl() {
+  const n = netMode()
+  return n.mode === 'main' ? LOCAL_URL : n.mode === 'lan' ? `http://${n.host}:${LOCAL_PORT}` : APP_URL
+}
+
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms))
+async function getJson(url, init = {}) {
+  const res = await fetch(url, { ...init, signal: AbortSignal.timeout(init.timeout ?? 4000) })
+  if (!res.ok) throw new Error('http_' + res.status)
+  return res.json()
+}
+async function waitFor(fn, ms) {
+  const end = Date.now() + ms
+  while (Date.now() < end) {
+    try {
+      const v = await fn()
+      if (v) return v
+    } catch {
+      /* ещё не готово */
+    }
+    await sleep(500)
+  }
+  return null
+}
+
+/** @type {Electron.UtilityProcess | null} */
+let serverProc = null
+
+function startServer(cfg, dataDir = path.join(app.getPath('userData'), 'local-db')) {
+  if (serverProc) return
+  let secret = readSettings().localSecret
+  if (!secret) {
+    secret = crypto.randomBytes(32).toString('hex')
+    writeSettings({ localSecret: secret })
+  }
+  const logFile = path.join(app.getPath('userData'), 'local-server.log')
+  try {
+    if (fs.statSync(logFile).size > 5_000_000) fs.rmSync(logFile)
+  } catch {
+    /* журнала ещё нет */
+  }
+  const log = fs.createWriteStream(logFile, { flags: 'a' })
+  const proc = utilityProcess.fork(path.join(__dirname, 'server', 'server.mjs'), [], {
+    serviceName: 'NeoPos local server',
+    stdio: 'pipe',
+    env: {
+      ...process.env,
+      NODE_ENV: 'production',
+      NEOPOS_LOCAL: '1',
+      CLOUD_URL: cfg.cloud,
+      SYNC_TOKEN: cfg.token,
+      PGLITE_DIR: dataDir,
+      MIGRATIONS_DIR: path.join(__dirname, 'server', 'drizzle'),
+      KASSA_DIR: path.join(__dirname, 'kassa'),
+      PORT: String(LOCAL_PORT),
+      HOST: '0.0.0.0',
+      JWT_SECRET: secret,
+      TELEGRAM_BOT_TOKEN: '',
+      DATABASE_URL: '',
+    },
+  })
+  proc.stdout?.pipe(log, { end: false })
+  proc.stderr?.pipe(log, { end: false })
+  proc.on('exit', () => {
+    if (serverProc === proc) serverProc = null
+  })
+  serverProc = proc
+}
+
+async function stopServer() {
+  const proc = serverProc
+  if (!proc) return
+  serverProc = null
+  await new Promise((resolve) => {
+    proc.once('exit', resolve)
+    proc.kill()
+    setTimeout(resolve, 5000)
+  })
+}
+
+const syncStatus = (origin = LOCAL_URL) => getJson(origin + '/api/sync/status')
+
+function ownAddresses() {
+  return Object.values(os.networkInterfaces())
+    .flat()
+    .filter((i) => i && i.family === 'IPv4' && !i.internal)
+    .map((i) => i.address)
+}
+
+/** Адреса своей локальной сети (x.x.x.1–254), где открыт нужный порт. */
+async function scanPort(port) {
+  const own = ownAddresses()
+  const prefixes = [...new Set(own.map((a) => a.split('.').slice(0, 3).join('.')))].slice(0, 2)
+  const targets = prefixes.flatMap((p) => Array.from({ length: 254 }, (_, i) => `${p}.${i + 1}`)).filter((ip) => !own.includes(ip))
+  const found = []
+  const probe = (ip) =>
+    new Promise((resolve) => {
+      const s = net.connect({ host: ip, port })
+      const done = (ok) => {
+        s.destroy()
+        if (ok) found.push(ip)
+        resolve()
+      }
+      s.setTimeout(400, () => done(false))
+      s.on('connect', () => done(true))
+      s.on('error', () => done(false))
+    })
+  for (let i = 0; i < targets.length; i += 64) await Promise.all(targets.slice(i, i + 64).map(probe))
+  return found.sort((a, b) => Number(a.split('.')[3]) - Number(b.split('.')[3]))
+}
+
+/** Открывает кассу там, где она сейчас живёт. Главный терминал сначала поднимает свой сервер. */
+async function openHome() {
+  const n = netMode()
+  if (n.mode !== 'main') return win.loadURL(homeUrl())
+  await win.loadFile(path.join(__dirname, 'offline.html'), { query: { mode: 'starting' } })
+  startServer(n)
+  await waitFor(() => getJson(LOCAL_URL + '/api/health'), 120_000)
+  return win?.loadURL(LOCAL_URL)
+}
+
+/** Запускает сервер, ждёт первый обмен с облаком и получает токен кассы для этого компьютера. */
+async function bringUpMain(cfg, dataDir) {
+  startServer(cfg, dataDir)
+  const first = await waitFor(async () => {
+    const st = await syncStatus()
+    return st.lastSyncAt ? st : null
+  }, 120_000)
+  if (!first) {
+    const alive = !!serverProc
+    await stopServer()
+    throw new Error(alive ? 'no_sync' : 'server_failed')
+  }
+  const { deviceToken } = await getJson(LOCAL_URL + '/api/sync/adopt', { method: 'POST', headers: { Authorization: 'Bearer ' + cfg.token } })
+  return deviceToken
+}
+
+/** Кладёт токен устройства в память страницы кассы на новом адресе и перезагружает её. */
+async function openWithDevice(url, deviceToken) {
+  await win.loadURL(url)
+  await win.webContents.executeJavaScript(`localStorage.setItem('neopos.device', ${JSON.stringify(deviceToken)}); location.reload()`)
+}
+
+ipcMain.handle('neopos:net-status', async (e) => {
+  if (!trusted(e)) return null
+  const n = netMode()
+  let sync = null
+  if (n.mode !== 'cloud') sync = await syncStatus(new URL(homeUrl()).origin).catch(() => null)
+  return { mode: n.mode, host: n.mode === 'lan' ? n.host : null, port: LOCAL_PORT, addresses: ownAddresses(), running: !!serverProc, sync }
+})
+
+ipcMain.handle('neopos:net-main-on', async (e, cfg) => {
+  if (!trusted(e)) return { ok: false, error: 'rejected' }
+  const token = String(cfg?.token ?? '')
+  const cloud = String(cfg?.cloud ?? '').replace(/\/+$/, '')
+  if (!token || token.length > 4000 || !(CLOUD_RE.test(cloud) || (!app.isPackaged && DEV_CLOUD_RE.test(cloud)))) return { ok: false, error: 'bad_request' }
+  if (netMode().mode !== 'cloud') return { ok: false, error: 'already_on' }
+  try {
+    const deviceToken = await bringUpMain({ token, cloud })
+    writeSettings({ net: { mode: 'main', token, cloud } })
+    // Главный терминал должен подняться сам после включения компьютера.
+    if (app.isPackaged) app.setLoginItemSettings({ openAtLogin: true })
+    setTimeout(() => openWithDevice(LOCAL_URL, deviceToken).catch(() => {}), 300)
+    return { ok: true }
+  } catch (err) {
+    await stopServer()
+    return { ok: false, error: String(err?.message || err) }
+  }
+})
+
+const isMainTerminal = (ip) =>
+  syncStatus(`http://${ip}:${LOCAL_PORT}`)
+    .then((st) => st.mode === 'local')
+    .catch(() => false)
+
+ipcMain.handle('neopos:net-lan-find', async (e) => {
+  if (!trusted(e)) return []
+  const out = []
+  for (const ip of await scanPort(LOCAL_PORT)) if (await isMainTerminal(ip)) out.push({ ip })
+  return out
+})
+
+ipcMain.handle('neopos:net-lan-on', async (e, host) => {
+  if (!trusted(e)) return { ok: false, error: 'rejected' }
+  const ip = String(host ?? '').trim()
+  if (!IP_RE.test(ip)) return { ok: false, error: 'bad_request' }
+  if (netMode().mode === 'main') return { ok: false, error: 'already_on' }
+  if (!(await isMainTerminal(ip))) return { ok: false, error: 'not_found' }
+  writeSettings({ net: { mode: 'lan', host: ip } })
+  setTimeout(() => win?.loadURL(homeUrl()), 300)
+  return { ok: true }
+})
+
+ipcMain.handle('neopos:net-off', async (e) => {
+  if (!trusted(e)) return { ok: false, error: 'rejected' }
+  const n = netMode()
+  if (n.mode === 'main') {
+    // Пока продажи не дошли до облака, главный терминал выключать нельзя: они остались бы только здесь.
+    const st = await syncStatus().catch(() => null)
+    if (!st?.online) return { ok: false, error: 'not_synced' }
+    await stopServer()
+    if (app.isPackaged) app.setLoginItemSettings({ openAtLogin: false })
+  }
+  writeSettings({ net: { mode: 'cloud' } })
+  setTimeout(() => win?.loadURL(APP_URL), 300)
+  return { ok: true }
+})
+
+app.on('before-quit', () => {
+  serverProc?.kill()
+})
 
 app.on('second-instance', () => {
   if (!win) return
@@ -262,27 +495,7 @@ ipcMain.handle('neopos:print-net', async (e, job) => {
 /** Поиск принтеров: проверяем порт 9100 у всех адресов своей локальной сети (x.x.x.1–254). */
 ipcMain.handle('neopos:scan-printers', async (e) => {
   if (!trusted(e)) return []
-  const own = Object.values(os.networkInterfaces())
-    .flat()
-    .filter((i) => i && i.family === 'IPv4' && !i.internal)
-    .map((i) => i.address)
-  const prefixes = [...new Set(own.map((a) => a.split('.').slice(0, 3).join('.')))].slice(0, 2)
-  const targets = prefixes.flatMap((p) => Array.from({ length: 254 }, (_, i) => `${p}.${i + 1}`)).filter((ip) => !own.includes(ip))
-  const found = []
-  const probe = (ip) =>
-    new Promise((resolve) => {
-      const s = net.connect({ host: ip, port: 9100 })
-      const done = (ok) => {
-        s.destroy()
-        if (ok) found.push(ip)
-        resolve()
-      }
-      s.setTimeout(400, () => done(false))
-      s.on('connect', () => done(true))
-      s.on('error', () => done(false))
-    })
-  for (let i = 0; i < targets.length; i += 64) await Promise.all(targets.slice(i, i + 64).map(probe))
-  return found.sort((a, b) => Number(a.split('.')[3]) - Number(b.split('.')[3])).map((ip) => ({ ip, network: ip.split('.').slice(0, 3).join('.') }))
+  return (await scanPort(9100)).map((ip) => ({ ip, network: ip.split('.').slice(0, 3).join('.') }))
 })
 
 ipcMain.handle('neopos:info', (e) => {
@@ -364,6 +577,39 @@ async function smoke() {
       out.netMs = Date.now() - started
     }
     out.ok = out.bridge === 'object' && !!out.title
+    // --local=<адрес облака>,<токен устройства> — поднять главный терминал во временной папке и открыть кассу с него
+    const localArg = process.argv.find((a) => a.startsWith('--local='))?.slice(8)
+    if (localArg) {
+      const [cloud, token] = localArg.split(',')
+      const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'neopos-main-'))
+      const deviceToken = await bringUpMain({ cloud, token }, dir)
+      out.sync = await syncStatus()
+      await win.loadURL(LOCAL_URL)
+      await win.webContents.executeJavaScript(`localStorage.setItem('neopos.device', ${JSON.stringify(deviceToken)})`)
+      await win.loadURL(LOCAL_URL)
+      await sleep(2500)
+      out.localTitle = await win.webContents.executeJavaScript('document.title')
+      out.localBridge = await win.webContents.executeJavaScript('typeof window.neoposDesktop.netStatus')
+      out.pinScreen = await win.webContents.executeJavaScript("!!document.querySelector('.pin-pad')")
+      out.venue = await win.webContents.executeJavaScript("document.querySelector('.pin-brand span')?.textContent ?? null")
+      // --shot=<файл.png> — открыть окно «Локальная сеть» и сохранить снимок экрана
+      const shot = process.argv.find((a) => a.startsWith('--shot='))?.slice(7)
+      if (shot) {
+        writeSettings({ net: { mode: 'main', token, cloud } })
+        win.setSize(1280, 800)
+        win.showInactive()
+        await win.webContents.executeJavaScript("document.querySelector('.pin-ico').click()")
+        await sleep(300)
+        out.menu = await win.webContents.executeJavaScript("[...document.querySelectorAll('.pin-menu-list button')].map((b) => b.textContent.trim())")
+        await win.webContents.executeJavaScript("document.querySelectorAll('.pin-menu-list button')[1].click()")
+        await sleep(6500)
+        fs.writeFileSync(shot, (await win.webContents.capturePage()).toPNG())
+        out.dialog = await win.webContents.executeJavaScript("document.querySelector('.dlg')?.innerText ?? null")
+        writeSettings({ net: { mode: 'cloud' } })
+      }
+      await stopServer()
+      out.ok = out.ok && out.sync?.mode === 'local' && out.pinScreen === true
+    }
   } catch (err) {
     out.ok = false
     out.error = String(err?.message || err)

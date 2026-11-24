@@ -3,3 +3,5 @@ dist
 server/data
 .env
 *.log
+desktop/kassa
+desktop/server
