@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from 'react'
 import { api, money, type OpenReceipt, type Receipt } from './api'
 import { useApp } from './app'
 import { Dialog } from './Dialogs'
+import { ReceiptsScreen } from './Receipts'
 
 const stickers: Partial<Record<string, string>> = { takeaway: takeawaySticker, delivery: deliverySticker }
 
@@ -52,18 +53,13 @@ export function Hall({ onOpen, onMenu }: { onOpen: (r: Receipt) => void; onMenu:
     }
   }
 
-  async function openExisting(id: string) {
-    try {
-      onOpen(await api<Receipt>(`/pos/receipts/${id}`))
-    } catch (err) {
-      fail(err)
-    }
-  }
-
   const newOrder = () => {
     if (awaySales.length > 1) setDialog('type')
     else void start(awaySales[0] ? { saleTypeId: awaySales[0].id } : {})
   }
+
+  // «Чеки» — отдельный экран на всё окно: открытые и закрытые.
+  if (dialog === 'receipts') return <ReceiptsScreen open={open} onOpen={onOpen} onBack={() => setDialog(null)} />
 
   return (
     <>
@@ -78,7 +74,7 @@ export function Hall({ onOpen, onMenu }: { onOpen: (r: Receipt) => void; onMenu:
             <path d="M14 4h4a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2h-4M9 8l-4 4 4 4M5 12h11" />
           </svg>
         </button>
-        <button className="ico" onClick={() => setDialog('receipts')} title={t('openReceipts')} aria-label={t('openReceipts')}>
+        <button className="ico" onClick={() => setDialog('receipts')} title={t('receiptsTitle')} aria-label={t('receiptsTitle')}>
           <svg viewBox="0 0 24 24">
             <path d="M6 3h12v18l-3-2-3 2-3-2-3 2zM9 8h6M9 12h6M9 16h3" />
           </svg>
@@ -138,28 +134,6 @@ export function Hall({ onOpen, onMenu }: { onOpen: (r: Receipt) => void; onMenu:
           </div>
         )}
       </div>
-
-      {dialog === 'receipts' && (
-        <Dialog title={t('openReceipts')} onClose={() => setDialog(null)}>
-          {open.length === 0 ? (
-            <div className="muted">{t('noOpenReceipts')}</div>
-          ) : (
-            <div className="list">
-              {open.map((r) => (
-                <button key={r.id} onClick={() => void openExisting(r.id)}>
-                  <span>
-                    {r.tableName ? `${t('table')} ${r.tableName}` : t('noTable')}
-                    <small>
-                      №{r.number} · {r.waiterName} · {minutes(r.openedAt)} {t('min')}
-                    </small>
-                  </span>
-                  <b className="num">{money(r.total)}</b>
-                </button>
-              ))}
-            </div>
-          )}
-        </Dialog>
-      )}
 
       {dialog === 'type' && (
         <Dialog title={t('saleType')} onClose={() => setDialog(null)}>

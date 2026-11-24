@@ -344,3 +344,25 @@ body:has([data-scene="cafe"]) { --scene: url('./assets/cafe.webp'); }
 .pin-menu { position: static; }
 .pin-menu-list { top: 66px; left: 20px; max-width: calc(100vw - 40px); }
 @media (max-width: 480px) { .pin-menu-list { left: 12px; top: 56px; } .dots-btn { width: 38px; height: 38px; } }
+
+/* Экран «Чеки»: вкладки, слева список, справа состав выбранного чека */
+.rc { flex: 1; min-height: 0; display: flex; flex-direction: column; gap: 12px; padding: 12px; }
+.rc .tabs { align-items: center; }
+.rc-sum { margin-left: auto; padding: 0 6px; font-weight: 700; font-size: 16px; white-space: nowrap; }
+.rc-body { flex: 1; min-height: 0; display: grid; grid-template-columns: minmax(0, 1.4fr) minmax(300px, 1fr); gap: 12px; }
+.rc-list { min-height: 0; overflow-y: auto; padding: 8px; display: flex; flex-direction: column; gap: 6px; }
+.rc-row { flex: none; display: flex; align-items: center; gap: 12px; min-height: 64px; padding: 10px 14px; border-radius: var(--r-sm); background: var(--panel-strong); text-align: left; font-weight: 600; font-size: 16px; }
+.rc-row.on { box-shadow: inset 0 0 0 2px var(--send); }
+.rc-row b { font-size: 17px; white-space: nowrap; }
+.rc-no { flex: none; min-width: 58px; color: var(--muted); font-size: 14px; }
+.rc-main { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.rc-main small { display: block; font-weight: 500; font-size: 12px; color: var(--muted); }
+.rc-chip { flex: none; padding: 3px 10px; border-radius: 999px; font-size: 11px; font-weight: 800; white-space: nowrap; }
+.rc-chip.bill { background: #ffe3e9; color: #e0294f; }
+.rc-chip.void { background: rgba(17, 26, 51, 0.1); color: var(--muted); }
+.rc-strike { text-decoration: line-through; color: var(--muted); }
+.rc-detail { min-height: 0; display: flex; flex-direction: column; gap: 12px; padding: 16px; }
+.rc-head { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; font-size: 18px; }
+.rc-items { flex: 1; min-height: 0; overflow-y: auto; border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); padding: 8px 0; }
+.rc-empty { margin: auto; padding: 24px; text-align: center; }
+@media (max-width: 760px) { .rc-body { grid-template-columns: 1fr; grid-template-rows: minmax(0, 1fr) minmax(0, 1fr); } }
