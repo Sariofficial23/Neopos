@@ -35,7 +35,7 @@ export function ReceiptsScreen({
   onOpen: (r: Receipt) => void
   onBack: () => void
 }) {
-  const { boot, t, lang, fail, toast } = useApp()
+  const { boot, t, lang, fail, toast, can } = useApp()
   const [tab, setTab] = useState<'open' | 'closed'>(initialTab)
   const [loadedOpen, setLoadedOpen] = useState<OpenReceipt[]>([])
   const open = openFromHall ?? loadedOpen
@@ -83,6 +83,18 @@ export function ReceiptsScreen({
   async function reprint(r: Receipt) {
     const err = await printSlips([guestReceipt(r, boot, lang, { final: true })])
     if (err) toast(`${t('printFailed')}: ${err}`)
+  }
+
+  /** Возврат закрытого чека: только с правом и после подтверждения. */
+  async function refund(r: Receipt) {
+    if (!window.confirm(`№${r.number} · ${money(r.total)}\n\n${t('refundConfirm')}`)) return
+    try {
+      setDetail(await api<Receipt>(`/pos/receipts/${r.id}/refund`, { method: 'POST' }))
+      loadClosed()
+      toast(t('refund'))
+    } catch (err) {
+      fail(err)
+    }
   }
 
   const closedSum = (closed ?? []).filter((r) => r.status === 'closed').reduce((s, r) => s + r.total, 0)
@@ -152,7 +164,8 @@ export function ReceiptsScreen({
                       </small>
                     </span>
                     {r.status === 'cancelled' && <span className="rc-chip void">{t('cancelled')}</span>}
-                    <b className={`num ${r.status === 'cancelled' ? 'rc-strike' : ''}`}>{money(r.total)}</b>
+                    {r.status === 'refunded' && <span className="rc-chip void">↩ {t('refunded')}</span>}
+                    <b className={`num ${r.status !== 'closed' ? 'rc-strike' : ''}`}>{money(r.total)}</b>
                   </button>
                 ))
               ))}
@@ -220,6 +233,12 @@ export function ReceiptsScreen({
                     🧾 {t('reprint')}
                   </button>
                 )}
+                {detail.status === 'closed' && can('receipt.refund') && (
+                  <button className="btn plain wide danger-text" onClick={() => void refund(detail)}>
+                    ↩ {t('refund')}
+                  </button>
+                )}
+                {detail.status === 'refunded' && <div className="rc-chip void rc-refunded">↩ {t('refunded')}</div>}
               </>
             )}
           </aside>

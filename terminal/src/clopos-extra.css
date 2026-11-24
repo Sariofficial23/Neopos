@@ -1,0 +1,12 @@
+/* Дополнения к теме: действия с позицией чека, перенос стола, возврат. */
+.line-price { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 8px; align-items: end; }
+.lines .comp-tag { color: #b06a00; font-weight: 600; }
+.lines .comp-sum { text-decoration: line-through; color: var(--muted); }
+.move-tabs { gap: 4px; }
+.move-tabs button { height: 38px; padding: 0 14px; border-radius: 3px; background: #fff; border: 1px solid var(--cl-line); font-size: 14px; }
+.move-tabs button.on { background: var(--cl-bar); color: #fff; border-color: transparent; }
+.move-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(96px, 1fr)); gap: 8px; max-height: 46vh; overflow-y: auto; }
+.move-grid button { height: 64px; border-radius: 2px; background: var(--cl-grey); color: #fff; font-weight: 600; font-size: 14px; }
+.move-grid button.taken { background: var(--cl-purple); opacity: 0.45; }
+.move-grid button.current { background: var(--cl-blue); }
+.rc-refunded { align-self: center; padding: 6px 14px; font-size: 13px; }

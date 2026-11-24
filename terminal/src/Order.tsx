@@ -3,6 +3,7 @@ import { api, money, qtyText, type Receipt, type ReceiptItem } from './api'
 import { useApp } from './app'
 import { Dialog, PayDialog } from './Dialogs'
 import { CategoryForm, loadMenu, ProductForm, type FullCategory, type FullProduct } from './MenuEdit'
+import { LineDialog, MoveDialog } from './OrderExtras'
 import { guestReceipt, kitchenSlips, printSlips } from './print'
 
 type Props = { queue: RefObject<Promise<unknown>>; receipt: Receipt; setReceipt: (r: Receipt) => void; onBack: () => void }
@@ -17,6 +18,7 @@ const Icon = {
     </>
   ),
   comment: <path d="M4 5h16v11H9l-5 4z" />,
+  move: <path d="M4 8h13M13 4l4 4-4 4M20 16H7M11 12l-4 4 4 4" />,
   guests: (
     <>
       <circle cx="9" cy="8" r="3.5" />
@@ -71,7 +73,7 @@ export function Order({ queue, receipt, setReceipt, onBack }: Props) {
   const fullCategory = (id: string) => menu?.categories.find((c) => c.id === id) ?? null
   const fullProduct = (id: string) => menu?.products.find((p) => p.id === id) ?? null
   const [query, setQuery] = useState<string | null>(null)
-  const [dialog, setDialog] = useState<'pay' | 'discount' | 'comment' | 'guests' | null>(null)
+  const [dialog, setDialog] = useState<'pay' | 'discount' | 'comment' | 'guests' | 'move' | null>(null)
   const [line, setLine] = useState<ReceiptItem | null>(null)
   const [busy, setBusy] = useState(false)
   const linesRef = useRef<HTMLUListElement>(null)
@@ -158,7 +160,8 @@ export function Order({ queue, receipt, setReceipt, onBack }: Props) {
 
   const tapLine = (i: ReceiptItem) => {
     if (i.voided) return
-    if (i.sent && !can('receipt.void_sent_item')) return toast(t('err.no_permission'))
+    // Отправленную позицию открываем только тем, кто может с ней что-то сделать.
+    if (i.sent && !can('receipt.void_sent_item') && !can('receipt.change_price') && !can('receipt.comp')) return toast(t('err.no_permission'))
     setLine(i)
   }
 
@@ -221,6 +224,11 @@ export function Order({ queue, receipt, setReceipt, onBack }: Props) {
             <button title={t('guests')} aria-label={t('guests')} onClick={() => setDialog('guests')}>
               <Svg>{Icon.guests}</Svg>
             </button>
+            {can('receipt.transfer') && receipt.tableId && (
+              <button title={t('moveTable')} aria-label={t('moveTable')} onClick={() => setDialog('move')}>
+                <Svg>{Icon.move}</Svg>
+              </button>
+            )}
             <button
               title={t('printBill')}
               aria-label={t('printBill')}
@@ -247,9 +255,10 @@ export function Order({ queue, receipt, setReceipt, onBack }: Props) {
                   <span className="q num">{qtyText(i.qty)}</span>
                   <span className="nm">
                     {i.name[lang]}
+                    {i.comp && <small className="comp-tag">🎁 {t('compItem')}</small>}
                     {i.comment && <small>{i.comment}</small>}
                   </span>
-                  <span className="s num">{money(i.total)}</span>
+                  <span className={`s num ${i.comp ? 'comp-sum' : ''}`}>{money(i.total)}</span>
                 </button>
               </li>
             ))}
@@ -411,38 +420,25 @@ export function Order({ queue, receipt, setReceipt, onBack }: Props) {
         />
       )}
 
-      {line && !line.sent && (
-        <QtyDialog
+      {line && (
+        <LineDialog
           item={line}
           onClose={() => setLine(null)}
-          onSave={(qty) => void call(`/items/${line.id}`, 'PATCH', { qty }, () => setLine(null))}
+          onQty={(qty) => void call(`/items/${line.id}`, 'PATCH', { qty }, () => setLine(null))}
+          onPrice={(price) => void call(`/items/${line.id}/price`, 'POST', { price }, () => setLine(null))}
+          onComp={(comp) => void call(`/items/${line.id}/comp`, 'POST', { comp }, () => setLine(null))}
+          onVoid={(reasonId) =>
+            void call(`/items/${line.id}/void`, 'POST', { reasonId }, (next) => {
+              setLine(null)
+              // Кухня должна узнать, что блюдо готовить не нужно.
+              printOut(kitchen(next, new Set([line.id]), true))
+            })
+          }
         />
       )}
 
-      {line && line.sent && (
-        <Dialog title={t('voidTitle')} onClose={() => setLine(null)}>
-          <div className="muted" style={{ marginTop: -8 }}>
-            {qtyText(line.qty)} × {line.name[lang]}
-          </div>
-          <div className="list">
-            {boot.reasons
-              .filter((r) => r.kind === 'void')
-              .map((r) => (
-                <button
-                  key={r.id}
-                  onClick={() =>
-                    void call(`/items/${line.id}/void`, 'POST', { reasonId: r.id }, (next) => {
-                      setLine(null)
-                      // Кухня должна узнать, что блюдо готовить не нужно.
-                      printOut(kitchen(next, new Set([line.id]), true))
-                    })
-                  }
-                >
-                  {r.name[lang]}
-                </button>
-              ))}
-          </div>
-        </Dialog>
+      {dialog === 'move' && (
+        <MoveDialog receipt={receipt} onClose={() => setDialog(null)} onMove={(tableId) => void call('/move', 'POST', { tableId }, () => setDialog(null))} />
       )}
 
       {dialog === 'discount' && (

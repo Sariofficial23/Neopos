@@ -4,6 +4,7 @@ import { App } from './app'
 import { installTapSound } from './tap'
 import './styles.css'
 import './clopos.css'
+import './clopos-extra.css'
 
 installTapSound()
 

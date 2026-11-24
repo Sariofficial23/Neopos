@@ -437,7 +437,7 @@ export function posRoutes(app: FastifyInstance, db: DB) {
       .from(receipts)
       .leftJoin(tables, eq(tables.id, receipts.tableId))
       .leftJoin(users, eq(users.id, receipts.waiterId))
-      .where(and(eq(receipts.shiftId, shift.id), inArray(receipts.status, ['closed', 'cancelled']), mine))
+      .where(and(eq(receipts.shiftId, shift.id), inArray(receipts.status, ['closed', 'cancelled', 'refunded']), mine))
       .orderBy(desc(receipts.closedAt))
       .limit(300)
     return { shift: { number: shift.number }, receipts: rows }
@@ -562,6 +562,7 @@ export function posRoutes(app: FastifyInstance, db: DB) {
         comment: i.comment,
         sent: i.sentAt != null,
         voided: i.voidedAt != null,
+        comp: i.comp,
       })),
     }
   }
@@ -836,6 +837,95 @@ export function posRoutes(app: FastifyInstance, db: DB) {
       await tx.update(receipts).set({ billPrinted: true }).where(eq(receipts.id, id))
       await log(tx, req, id, 'receipt.bill', { total: r.total, reprint: r.billPrinted })
       return { receipt: await fullReceipt(tx, req.auth.tenantId, id), sentIds: sent.map((s) => s.id) }
+    })
+  })
+
+  /** Перенести чек на другой стол (как «Перенос стола» в Clopos). Нужно право; стол должен быть свободен. */
+  app.post('/api/pos/receipts/:id/move', pos, async (req) => {
+    const { id } = idParam.parse(req.params)
+    const { tableId } = z.object({ tableId: z.string().uuid() }).parse(req.body)
+    need(req, 'receipt.transfer')
+    const tenantId = req.auth.tenantId
+    return db.transaction(async (tx) => {
+      const r = await loadOpen(tx, req, id)
+      if (r.tableId === tableId) return fullReceipt(tx, tenantId, id)
+      const [target] = await tx
+        .select({ id: tables.id, name: tables.name, serviceBp: tables.serviceBp })
+        .from(tables)
+        .where(and(eq(tables.id, tableId), eq(tables.tenantId, tenantId), isNull(tables.deletedAt)))
+      if (!target) throw new HttpError(400, 'bad_table')
+      const [taken] = await tx
+        .select({ id: receipts.id })
+        .from(receipts)
+        .where(and(eq(receipts.tenantId, tenantId), eq(receipts.tableId, tableId), eq(receipts.status, 'open')))
+      if (taken) throw new HttpError(409, 'table_taken')
+      const [from] = r.tableId ? await tx.select({ name: tables.name }).from(tables).where(eq(tables.id, r.tableId)) : []
+      // У стола может быть свой процент обслуживания: он переходит вместе с новым столом.
+      await tx
+        .update(receipts)
+        .set({ tableId, ...(target.serviceBp != null ? { serviceBp: target.serviceBp } : {}) })
+        .where(eq(receipts.id, id))
+      await log(tx, req, id, 'receipt.move', { from: from?.name ?? null, to: target.name })
+      await recalc(tx, id)
+      return fullReceipt(tx, tenantId, id)
+    })
+  })
+
+  /** Изменить цену позиции в чеке. Нужно право; действие попадает в подозрительные. */
+  app.post('/api/pos/receipts/:id/items/:itemId/price', pos, async (req) => {
+    const { id, itemId } = itemParam.parse(req.params)
+    const { price } = z.object({ price: z.number().int().min(0).max(1_000_000_000) }).parse(req.body)
+    need(req, 'receipt.change_price')
+    return db.transaction(async (tx) => {
+      await loadOpen(tx, req, id)
+      const [item] = await tx.select().from(receiptItems).where(and(eq(receiptItems.id, itemId), eq(receiptItems.receiptId, id)))
+      if (!item || item.voidedAt) throw new HttpError(404, 'not_found')
+      if (item.price !== price) {
+        await tx.update(receiptItems).set({ price, total: Math.round((price * item.qty) / 1000) }).where(eq(receiptItems.id, itemId))
+        await tx.update(receipts).set({ suspicious: true }).where(eq(receipts.id, id))
+        await log(tx, req, id, 'item.price', { name: item.name, from: item.price, to: price }, true)
+        await recalc(tx, id)
+      }
+      return fullReceipt(tx, req.auth.tenantId, id)
+    })
+  })
+
+  /** Угощение: позиция остаётся в чеке, но гость за неё не платит. Нужно право. */
+  app.post('/api/pos/receipts/:id/items/:itemId/comp', pos, async (req) => {
+    const { id, itemId } = itemParam.parse(req.params)
+    const { comp } = z.object({ comp: z.boolean() }).parse(req.body)
+    need(req, 'receipt.comp')
+    return db.transaction(async (tx) => {
+      await loadOpen(tx, req, id)
+      const [item] = await tx.select().from(receiptItems).where(and(eq(receiptItems.id, itemId), eq(receiptItems.receiptId, id)))
+      if (!item || item.voidedAt) throw new HttpError(404, 'not_found')
+      if (item.comp !== comp) {
+        await tx.update(receiptItems).set({ comp }).where(eq(receiptItems.id, itemId))
+        if (comp) await tx.update(receipts).set({ suspicious: true }).where(eq(receipts.id, id))
+        await log(tx, req, id, comp ? 'item.comp' : 'item.uncomp', { name: item.name, qty: item.qty, total: item.total }, comp)
+        await recalc(tx, id)
+      }
+      return fullReceipt(tx, req.auth.tenantId, id)
+    })
+  })
+
+  /**
+   * Возврат закрытого чека: деньги возвращают гостю, чек выпадает из выручки.
+   * Только в текущей смене — закрытую смену возврат не переписывает.
+   */
+  app.post('/api/pos/receipts/:id/refund', pos, async (req) => {
+    const { id } = idParam.parse(req.params)
+    need(req, 'receipt.refund')
+    const tenantId = req.auth.tenantId
+    return db.transaction(async (tx) => {
+      const [r] = await tx.select().from(receipts).where(and(eq(receipts.id, id), eq(receipts.tenantId, tenantId)))
+      if (!r) throw new HttpError(404, 'not_found')
+      if (r.status !== 'closed') throw new HttpError(409, 'receipt_not_closed')
+      const shift = await openShift(tx, tenantId)
+      if (!shift || shift.id !== r.shiftId) throw new HttpError(409, 'refund_other_shift')
+      await tx.update(receipts).set({ status: 'refunded', suspicious: true }).where(eq(receipts.id, id))
+      await log(tx, req, id, 'receipt.refund', { number: r.number, total: r.total }, true)
+      return fullReceipt(tx, tenantId, id)
     })
   })
 

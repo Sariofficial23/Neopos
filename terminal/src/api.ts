@@ -135,6 +135,7 @@ export type ReceiptItem = {
   comment: string | null
   sent: boolean
   voided: boolean
+  comp?: boolean
 }
 
 export type Receipt = {
