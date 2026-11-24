@@ -405,24 +405,33 @@ body:has([data-scene="samarkand"]) {
   .samarkand .tgrid { grid-template-columns: repeat(auto-fit,minmax(min(145px,100%),1fr)); }
 }
 
-.order-bar { background: #fff3e1ed; }
+/* The order terminal uses opaque surfaces and text-only product keys. */
+body:has(.order-bar) {
+  background: #e8ebef;
+  --text: #20252c; --muted: #56616d; --line: #cbd1d7;
+  --send: #344350; --panel: #f8f9fa; --panel-strong: #fff;
+  --panel-border: 1px solid #c9cfd5; --panel-shadow: none; --blur: none;
+  --r: 12px; --r-sm: 8px;
+}
+.order-bar { background: linear-gradient(#fafbfc, #e1e5e9); }
+.order-work .check { background: #fff; }
+.order-work .rail, .order-work .head, .order-work .foot { background: #f4f6f8; }
+.order-work .foot { align-items: center; padding-block: 8px; }
+.order-work .crumbs input { background: #fff; }
 .order-tabs { margin-bottom: 10px; padding: 2px; }
-.order-tabs button { background: #fff5e6ed; }
-.order-tabs button.on { background: #19233f; }
-.order-work .check, .order-work .glass { background-color: #fff4e4ed; }
-.order-bar, .order-work .glass, .order-work .tile {
-  backdrop-filter: none; -webkit-backdrop-filter: none; transition: none;
-}
-.order-work .tiles { grid-template-columns: repeat(auto-fill,minmax(min(156px,100%),1fr)); }
+.order-tabs button { border-radius: 8px; background: #f8f9fa; }
+.order-tabs button.on { background: #344350; }
+.order-work .tiles { grid-template-columns: repeat(auto-fill,minmax(min(150px,100%),1fr)); }
 .order-work .tile:not(.add) {
-  background: #fff5e8f5; color: #18213c; text-shadow: none; text-align: left;
-  border-top: 4px solid var(--c); padding: 12px 12px 28px;
-  display: flex; align-items: center; justify-content: flex-start; gap: 8px;
+  display: flex; flex-direction: column; align-items: flex-start; justify-content: center;
+  gap: 6px; height: 90px; padding: 10px 14px; border: 1px solid #c5ccd3;
+  border-radius: 8px; background: #fff; color: #20252c; text-align: left;
+  text-shadow: none; box-shadow: none; transition: none;
 }
-.order-work .tile .p { top: auto; bottom: 6px; right: 8px; color: #19233f; background: transparent; font-size: 14px; }
-.order-work .tile .stop { bottom: auto; top: 1px; }
-.order-work .product-thumb { width: 46px; height: 46px; object-fit: cover; border-radius: 8px; }
-.order-work .btn.send { background: #19233f; color: white; }
+.order-work .tile .p { position: static; order: 1; background: none; padding: 0; color: #52606c; font-size: 14px; }
+.order-work .tile .star { left: auto; right: 6px; top: 4px; bottom: auto; }
+.order-work .tile .stop { color: #8c2736; }
+.order-work .btn.close { background: #dce2e7; color: #20252c; box-shadow: none; }
 @media (min-width: 860px) {
   .order-work { grid-template-columns: minmax(310px, 1fr) minmax(0, 1.9fr); }
 }

@@ -175,13 +175,12 @@ export function Order({ receipt, setReceipt, onBack }: Props) {
     return boot.products.filter((p) => p.categoryId === cat)
   }, [boot.products, cat, query, editMode])
 
-  const colorOf = (categoryId: string | null) => boot.categories.find((c) => c.id === categoryId)?.color ?? '#64748b'
   const current = boot.categories.find((c) => c.id === cat)
   const title = receipt.tableName ? `${t('table')} ${receipt.tableName}` : (boot.saleTypes.find((s) => s.id === receipt.saleTypeId)?.name[lang] ?? t('noTable'))
 
   return (
     <>
-      <header className="bar order-bar" data-scene="samarkand">
+      <header className="bar order-bar">
         <div className="logo"><img src={`${import.meta.env.BASE_URL}brand/neopos.webp`} alt="NeoPos" /></div>
         <span className="lnk hide">{boot.user.name}</span>
       </header>
@@ -359,11 +358,9 @@ export function Order({ receipt, setReceipt, onBack }: Props) {
                 key={p.id}
                 className={`tile ${editMode ? 'editing' : ''}`}
                 disabled={p.stopped && !editMode}
-                style={{ ['--c' as string]: colorOf(p.categoryId) }}
                 onClick={() => (editMode ? setEditing({ kind: 'product', item: fullProduct(p.id) }) : add(p.id))}
               >
                 <span className="p num">{money(p.price)} {t('sum')}</span>
-                {p.image && !editMode && <img className="product-thumb" src={p.image} alt="" loading="lazy" decoding="async" onError={(e) => { e.currentTarget.hidden = true }} />}
                 <span>{p.name[lang]}</span>
                 {p.favorite && <span className="star">★</span>}
                 {p.stopped && <span className="stop">{t('stop')}</span>}
