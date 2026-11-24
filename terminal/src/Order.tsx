@@ -181,8 +181,17 @@ export function Order({ queue, receipt, setReceipt, onBack }: Props) {
   return (
     <>
       <header className="bar order-bar">
-        <div className="logo"><img src={`${import.meta.env.BASE_URL}brand/neopos.webp`} alt="NeoPos" /></div>
-        <span className="receipt-owner">{t('receiptOwner')}: <b>{receipt.waiterName || '—'}</b></span>
+        {/* Как в Clopos: слева стрелка «назад» и название стола, дальше — чей чек */}
+        <button className="ico" title={t('back')} aria-label={t('back')} onClick={() => void back()}>
+          <Svg>{Icon.back}</Svg>
+        </button>
+        <strong className="bar-title">{title}</strong>
+        <span className="bar-meta num">
+          №{receipt.number} · {receipt.guests} 👤
+        </span>
+        <span className="receipt-owner">
+          {t('receiptOwner')}: <b>{receipt.waiterName || '—'}</b>
+        </span>
       </header>
 
       <div className="work order-work">
@@ -268,9 +277,16 @@ export function Order({ queue, receipt, setReceipt, onBack }: Props) {
             <button className="btn send" disabled={freshCount === 0 || busy} onClick={() => void send()}>
               {t('send')} {freshCount > 0 && <i className="num">{freshCount}</i>}
             </button>
-            <button className="btn close" disabled={!hasLive} onClick={() => setDialog('pay')}>
-              {t('closeCheck')}
-            </button>
+            {/* Пустой чек не закрывают, а отменяют — как в Clopos */}
+            {hasLive ? (
+              <button className="btn close" onClick={() => setDialog('pay')}>
+                ✓ {t('closeCheck')}
+              </button>
+            ) : (
+              <button className="btn cancel-sale" onClick={() => void back()}>
+                ✕ {t('cancelSale')}
+              </button>
+            )}
           </div>
         </section>
 

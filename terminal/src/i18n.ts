@@ -9,6 +9,8 @@ const dict = {
   },
   brandField: { uz: 'Brend', ru: 'Бренд' },
   receiptsTitle: { uz: 'Cheklar', ru: 'Чеки' },
+  guestsPick: { uz: 'Mehmonlar sonini tanlang', ru: 'Выбор кол-ва гостей' },
+  cancelSale: { uz: 'Savdoni bekor qilish', ru: 'Отменить продажу' },
   rcTotal: { uz: 'Jami', ru: 'Итого' },
   rcOpen: { uz: 'Ochiq', ru: 'Открытые' },
   rcClosed: { uz: 'Yopilgan', ru: 'Закрытые' },

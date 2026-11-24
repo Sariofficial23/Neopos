@@ -1,7 +1,7 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { api, ApiError, device, session, setSessionLostHandler, type Boot, type Lang, type Receipt } from './api'
 import { Activate, Pin, ShiftGate } from './Auth'
-import { useDeviceInfo, useTerminalPing, useVenuePhoto } from './Brand'
+import { NetStatus, useDeviceInfo, useTerminalPing, useVenuePhoto } from './Brand'
 import { useAutoUpdate } from './update'
 import { ControlPanel } from './ControlPanel'
 import { Hall } from './Hall'
@@ -222,9 +222,12 @@ export function App() {
       {hasDevice && token && (
         <div className="session-bar">
           <button type="button" disabled={signingOut} onClick={() => void signOut()}>
-            {boot && <span className="session-name">{boot.user.name}</span>}
-            <strong>{t('logout')}</strong>
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M14 4h4a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2h-4M9 8l-4 4 4 4M5 12h11" />
+            </svg>
+            <span className="session-name">{boot ? boot.user.name : t('logout')}</span>
           </button>
+          <NetStatus t={t} />
         </div>
       )}
       {screen}

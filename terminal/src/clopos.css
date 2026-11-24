@@ -1,0 +1,117 @@
+/* ════════════════════════════════════════════════════════════════════════════
+   Тема кассы в раскладке Clopos: плоский дизайн, тёмно-фиолетовая верхняя панель,
+   без стекла и фоновых фото на рабочих экранах.
+   Файл подключается после styles.css и перекрывает прежние темы.
+   ════════════════════════════════════════════════════════════════════════════ */
+:root {
+  --cl-bar: #3f3767; --cl-rail: #5a4c99; --cl-page: #ededed; --cl-blue: #1890ff; --cl-green: #2bb656;
+  --cl-grey: #7d8a99; --cl-purple: #9a4cb4; --cl-line: #e3e6ec;
+  --page: var(--cl-page); --bg: none;
+  --panel: #fff; --panel-strong: #f4f6f9; --panel-border: 1px solid var(--cl-line);
+  --panel-shadow: 0 1px 3px rgba(0, 0, 0, 0.1); --blur: none;
+  --text: #1f2333; --muted: #6b7384; --line: var(--cl-line);
+  --send: var(--cl-blue); --close: var(--cl-green); --busy: var(--cl-purple);
+  --r: 4px; --r-sm: 4px;
+}
+body, body:has([data-scene]), body:has(.order-bar) { background: var(--cl-page); }
+.glass { -webkit-backdrop-filter: none; backdrop-filter: none; }
+.btn { border-radius: 3px; box-shadow: none !important; }
+.veil { background: rgba(20, 22, 35, 0.5); -webkit-backdrop-filter: none; backdrop-filter: none; }
+.dlg { background: #fff; border: 0; border-radius: 4px; box-shadow: 0 12px 40px rgba(0, 0, 0, 0.3); }
+#root:has(.session-bar) .veil { top: 0; }
+
+/* ── Верхняя панель ── */
+.bar, .bar.order-bar, .bar.hall-bar { height: 52px; padding: 0 10px 0 0; gap: 4px; background: var(--cl-bar); color: #fff; border: 0; box-shadow: none; -webkit-backdrop-filter: none; backdrop-filter: none; flex-wrap: nowrap; }
+#root:has(.session-bar) .bar { padding-right: 210px; }
+.bar .logo { color: #fff; font-size: 16px; font-weight: 600; letter-spacing: 0; }
+.bar .ico { width: 48px; height: 52px; border-radius: 0; color: #fff; background: none; display: grid; place-items: center; position: relative; flex: none; }
+.bar .ico:active, .bar .bar-btn:active { background: rgba(255, 255, 255, 0.14); }
+.bar .new { height: 36px; margin: 0 6px; padding: 0 14px; border-radius: 3px; background: var(--cl-green); color: #fff; font-size: 14px; font-weight: 600; flex: none; }
+.bar .bar-btn { height: 52px; padding: 0 12px; display: inline-flex; align-items: center; gap: 8px; color: #fff; font-size: 14px; font-weight: 600; white-space: nowrap; flex: none; }
+.bar .n { background: var(--cl-green); color: #fff; }
+.bar .bar-title { font-size: 16px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.bar .bar-meta { margin-left: 14px; font-size: 13px; color: rgba(255, 255, 255, 0.75); white-space: nowrap; }
+.bar .receipt-owner { margin-left: auto; padding: 0 10px; color: rgba(255, 255, 255, 0.85); font-size: 13px; }
+.bar-tabs { flex: 1; min-width: 0; height: 52px; gap: 0; margin-right: auto; }
+.bar .bar-tabs button, .bar .hall-tabs button { height: 52px; padding: 0 16px; border: 0; border-radius: 0; background: none; color: #fff; font-size: 14px; font-weight: 600; }
+.bar .bar-tabs button.on { background: rgba(255, 255, 255, 0.16); color: #fff; }
+
+/* Выход (значок и имя) и значок связи — справа в той же панели */
+.session-bar { position: fixed; top: 0; right: 0; z-index: 15; height: 52px; padding: 0 12px 0 0; gap: 10px; background: none; border: 0; flex: none; }
+.session-bar button { min-height: 0; height: 52px; max-width: 150px; padding: 0 12px; gap: 8px; background: none; border: 0; border-left: 1px solid rgba(255, 255, 255, 0.22); border-radius: 0; color: #fff; font-size: 14px; font-weight: 600; }
+.session-bar button:active { background: rgba(255, 255, 255, 0.14); }
+.session-bar .net { height: auto; padding: 0 0 0 10px; border-left: 1px solid rgba(255, 255, 255, 0.22); border-radius: 0; background: none; box-shadow: none; font-size: 0; gap: 0; }
+.session-bar .net.ok { color: #7be36a; }
+.session-bar .net.off { color: #ff6b6b; }
+
+/* ── Зал: плоские плитки столов ── */
+.hall, .hall.samarkand { padding: 0; gap: 0; background: var(--cl-page); }
+.tgrid, .samarkand .tgrid { grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); gap: 22px 28px; max-width: none; margin: 0; padding: 0 0 20px; }
+.table, .samarkand .table { position: relative; aspect-ratio: 5 / 4; min-height: 0; padding: 10px; gap: 5px; border: 0; border-radius: 2px; background: var(--cl-grey); color: #fff; box-shadow: 0 1px 4px rgba(0, 0, 0, 0.25); -webkit-backdrop-filter: none; backdrop-filter: none; }
+.table b, .samarkand .table b { font-size: 16px; font-weight: 700; }
+.table small, .samarkand .table small { color: #fff; font-size: 12px; font-weight: 400; }
+.table.busy, .samarkand .table.busy { background: var(--cl-purple); color: #fff; }
+.table.other, .samarkand .table.other { background: #b0782d; color: #fff; }
+.table.bill, .samarkand .table.bill { background: #d8405c; padding-bottom: 28px; }
+.table .waiter { padding: 0; background: none; border-radius: 0; font-size: 12px; font-weight: 400; }
+.table .bill-tag { bottom: 8px; border-radius: 3px; }
+@media (max-width: 520px) { .tgrid, .samarkand .tgrid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; padding: 10px; } }
+
+/* Выбор количества гостей */
+.gp-value { height: 52px; display: grid; place-items: center; border: 1px solid var(--cl-line); border-radius: 3px; background: #f4f6f9; font-size: 24px; font-weight: 700; }
+.gpad { display: grid; grid-template-columns: repeat(3, 1fr); gap: 4px; }
+.gpad button { height: 62px; border-radius: 3px; font-size: 24px; font-weight: 500; color: #3a4155; }
+.gpad button:active { background: #eef1f6; }
+
+/* ── Заказ: чек слева с фиолетовой полосой значков, меню справа ── */
+.work, .work.order-work { gap: 0; padding: 0; grid-template-columns: minmax(320px, 37fr) minmax(0, 63fr); background: var(--cl-page); }
+.check, .order-work .check { background: #fff; border: 0; border-radius: 0; box-shadow: 1px 0 4px rgba(0, 0, 0, 0.12); grid-template-columns: 44px minmax(0, 1fr); grid-template-rows: minmax(0, 1fr) auto auto; }
+.check > .rail { grid-row: 1 / -1; }
+.check > .lines { grid-column: 2; }
+.rail, .order-work .rail { background: var(--cl-rail); border: 0; color: #fff; padding: 4px 0; gap: 0; }
+.rail button { width: 44px; height: 50px; border-radius: 0; color: #fff; border-bottom: 1px solid rgba(255, 255, 255, 0.14); }
+.rail button:active { background: rgba(255, 255, 255, 0.18); color: #fff; }
+.rail button.on { color: #ffd76a; }
+.rail button.on::after { background: #ffd76a; }
+.rail .rail-print { width: 44px; height: 50px; margin-bottom: 0; background: none; color: #fff; box-shadow: none; border-top: 1px solid rgba(255, 255, 255, 0.14); border-bottom: 0; }
+.rail .rail-print.on { color: #ffd76a; }
+/* Название стола переехало в верхнюю панель */
+.check > .head, .order-work .head { display: none; }
+.lines { padding: 0 10px; }
+.lines li button { grid-template-columns: 28px minmax(0, 1fr) auto; font-size: 14px; padding: 9px 0; }
+.lines .q { height: 24px; border-radius: 2px; font-size: 12px; font-weight: 500; }
+.lines .s { font-weight: 500; }
+.sum { padding: 8px 10px; font-size: 13px; border-top: 1px dashed var(--cl-line); }
+.sum .tot { font-size: 17px; font-weight: 700; }
+.foot, .order-work .foot { gap: 5px; padding: 4px; background: #fff; }
+.foot .btn { height: 48px; border-radius: 2px; font-size: 14px; }
+.order-work .btn.close, .btn.close { background: var(--cl-green); color: #fff; }
+.btn.cancel-sale { background: #6f7783; color: #fff; }
+
+.menu { padding: 8px 8px 0; }
+.crumbs { gap: 6px; margin-bottom: 8px; }
+.crumbs button, .crumbs span, .crumbs input, .order-work .crumbs input { height: 40px; border-radius: 3px; background: #fff; border: 1px solid var(--cl-line); box-shadow: none; }
+.crumbs button { width: 40px; padding: 0; justify-content: center; color: #4a5066; }
+.crumbs button.on { background: var(--cl-blue); color: #fff; border-color: transparent; }
+.order-tabs { margin-bottom: 8px; padding: 0; gap: 4px; }
+.order-tabs button, .rc .tabs button { height: 38px; padding: 0 14px; border-radius: 3px; background: #fff; border: 1px solid var(--cl-line); color: var(--text); font-size: 14px; }
+.order-tabs button.on, .rc .tabs button.on { background: var(--cl-bar); color: #fff; border-color: transparent; }
+.tiles, .order-work .tiles { grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 6px; padding: 0 0 8px; }
+.tile, .order-work .tile:not(.add) { height: 84px; padding: 8px; border: 0; border-radius: 2px; background: var(--c, #64748b); color: #fff; box-shadow: 0 1px 3px rgba(0, 0, 0, 0.25); -webkit-backdrop-filter: none; backdrop-filter: none; text-shadow: 0 1px 2px rgba(0, 0, 0, 0.35); font-size: 15px; font-weight: 600; display: grid; place-items: center; }
+.tile .p, .order-work .tile .p { position: absolute; top: 0; right: 0; order: 0; padding: 2px 7px; background: rgba(0, 0, 0, 0.45); color: #fff; font-size: 12px; border-radius: 0 0 0 4px; text-shadow: none; }
+.order-work .tile .stop { color: #fff; }
+.tile.add { background: #fff; border: 2px dashed var(--cl-blue); box-shadow: none; }
+
+/* ── Панель управления и экран «Чеки» ── */
+.cp { background: var(--cl-page); }
+.rc { background: #fff; padding: 10px; }
+.rc-list, .rc-detail { border: 1px solid var(--cl-line); border-radius: 3px; box-shadow: none; background: #fff; }
+.rc-row { border-radius: 2px; background: #f3f6fb; }
+.rc-row b { padding: 9px 14px; border-radius: 3px; background: var(--cl-green); color: #fff; font-size: 15px; }
+.rc-row b.rc-strike { background: #b9c0cc; text-decoration: line-through; color: #fff; }
+.rc-no { color: var(--cl-blue); font-weight: 600; }
+.rc-sum { color: var(--text); }
+
+/* Синие «Отправить» и метка новой позиции, как в Clopos */
+.foot .btn.send, .order-work .foot .btn.send, .btn.send { background: var(--cl-blue); color: #fff; }
+.lines .new .q, .order-work .lines .new .q { background: var(--cl-blue); color: #fff; border-color: transparent; }

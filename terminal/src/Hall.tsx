@@ -4,17 +4,20 @@ import { useCallback, useEffect, useState } from 'react'
 import { api, money, type OpenReceipt, type Receipt } from './api'
 import { useApp } from './app'
 import { Dialog } from './Dialogs'
+import { ReceiptsScreen } from './Receipts'
 
 const stickers: Partial<Record<string, string>> = { takeaway: takeawaySticker, delivery: deliverySticker }
 
-/** Сколько минут открыт чек */
-const minutes = (iso: string) => Math.max(0, Math.round((Date.now() - new Date(iso).getTime()) / 60_000))
-
+/**
+ * Зал, как в Clopos: в верхней панели — вкладки залов, «Новый заказ», «Чеки» и меню;
+ * столы — плоские плитки: серые свободные, фиолетовые занятые (официант и сумма).
+ */
 export function Hall({ onOpen, onMenu, hallId, setHallId }: { hallId: string; setHallId: (id: string) => void; onOpen: (r: Receipt) => void; onMenu: () => void }) {
   const { boot, t, lang, fail } = useApp()
   const [open, setOpen] = useState<OpenReceipt[]>([])
   const [busyTables, setBusyTables] = useState<string[]>([])
-  const [dialog, setDialog] = useState<'type' | null>(null)
+  const [dialog, setDialog] = useState<'type' | 'receipts' | null>(null)
+  const [guestsFor, setGuestsFor] = useState<{ id: string; name: string } | null>(null)
   const [pending, setPending] = useState(false)
 
   const refresh = useCallback(async () => {
@@ -38,7 +41,7 @@ export function Hall({ onOpen, onMenu, hallId, setHallId }: { hallId: string; se
   const byTable = new Map(open.filter((r) => r.tableId).map((r) => [r.tableId!, r]))
   const awaySales = boot.saleTypes.filter((s) => s.kind !== 'hall')
 
-  async function start(body: { tableId?: string; saleTypeId?: string }) {
+  async function start(body: { tableId?: string; saleTypeId?: string; guests?: number }) {
     if (pending) return
     setPending(true)
     try {
@@ -56,17 +59,26 @@ export function Hall({ onOpen, onMenu, hallId, setHallId }: { hallId: string; se
     else void start(awaySales[0] ? { saleTypeId: awaySales[0].id } : {})
   }
 
+  // «Чеки» — отдельный экран на всё окно: открытые и закрытые.
+  if (dialog === 'receipts') return <ReceiptsScreen open={open} onOpen={onOpen} onBack={() => setDialog(null)} />
+
   return (
     <>
-      <header className="bar hall-bar" data-scene="samarkand">
-        <div className="logo"><img src={`${import.meta.env.BASE_URL}brand/neopos.webp`} alt="NeoPos" /></div>
-        <strong className="hall-title">{t('tablesTitle')}</strong>
-        <nav className="tabs hall-tabs" aria-label={t('hallsTitle')}>
+      <header className="bar">
+        <nav className="tabs bar-tabs" aria-label={t('hallsTitle')}>
           {boot.halls.map((h) => (
-            <button key={h.id} className={h.id === hall?.id ? 'on' : ''} aria-pressed={h.id === hall?.id} onClick={() => setHallId(h.id)}>{h.name}</button>
+            <button key={h.id} className={h.id === hall?.id ? 'on' : ''} aria-pressed={h.id === hall?.id} onClick={() => setHallId(h.id)}>
+              {h.name}
+            </button>
           ))}
         </nav>
-        <button className="new" onClick={newOrder}>+ {t('newOrder')}</button>
+        <button className="new" onClick={newOrder}>
+          + {t('newOrder')}
+        </button>
+        <button className="bar-btn" onClick={() => setDialog('receipts')}>
+          {t('receiptsTitle')}
+          {open.length > 0 && <span className="n num">{open.length}</span>}
+        </button>
         <button className="ico" onClick={onMenu} title={t('controlPanel')} aria-label={t('controlPanel')}>
           <svg viewBox="0 0 24 24">
             <path d="M4 6h16M4 12h16M4 18h16" />
@@ -74,7 +86,7 @@ export function Hall({ onOpen, onMenu, hallId, setHallId }: { hallId: string; se
         </button>
       </header>
 
-      <div className="hall samarkand">
+      <div className="hall">
         {!hall || hall.tables.length === 0 ? (
           <div className="empty-note">{t('noTables')}</div>
         ) : (
@@ -86,33 +98,41 @@ export function Hall({ onOpen, onMenu, hallId, setHallId }: { hallId: string; se
               return (
                 <button
                   key={tb.id}
-                  className={`table glass ${r ? (r.billPrinted ? 'busy bill' : 'busy') : foreign ? 'other' : ''}`}
-                  onClick={() => void start({ tableId: tb.id })}
+                  className={`table ${r ? (r.billPrinted ? 'busy bill' : 'busy') : foreign ? 'other' : ''}`}
+                  // Свободный стол сначала спрашивает число гостей, занятый открывается сразу.
+                  onClick={() => (r || foreign ? void start({ tableId: tb.id }) : setGuestsFor({ id: tb.id, name: tb.name }))}
                 >
-                  <b>{tb.name}</b>
-                  {r ? (
+                  <b>
+                    {t('table')} {tb.name}
+                  </b>
+                  {r && (
                     <>
-                      <span className="occupation">{t('occupied')}</span>
-                      <strong className="num">{money(r.total)} {t('sum')}</strong>
-                      <span className="waiter">{t('servedBy')}: {r.waiterName || '—'}</span>
+                      <span className="waiter">({r.waiterName || '—'})</span>
                       <small className="num">
-                        {minutes(r.openedAt)} {t('min')}
+                        {money(r.total)} {t('sum')}
                       </small>
-                      {r.billPrinted && (
-                        <span className="bill-tag" title={t('billPrintedTag')}>
-                          ✓ {t('billPrintedTag')}
-                        </span>
-                      )}
+                      {r.billPrinted && <span className="bill-tag">✓ {t('billPrintedTag')}</span>}
                     </>
-                  ) : (
-                    <small>{foreign ? t('occupied') : t('free')}</small>
                   )}
+                  {foreign && <small>{t('occupied')}</small>}
                 </button>
               )
             })}
           </div>
         )}
       </div>
+
+      {guestsFor && (
+        <GuestsDialog
+          title={`${t('guestsPick')} · ${t('table')} ${guestsFor.name}`}
+          onClose={() => setGuestsFor(null)}
+          onSave={(guests) => {
+            const tableId = guestsFor.id
+            setGuestsFor(null)
+            void start({ tableId, guests })
+          }}
+        />
+      )}
 
       {dialog === 'type' && (
         <Dialog title={t('saleType')} onClose={() => setDialog(null)}>
@@ -128,8 +148,46 @@ export function Hall({ onOpen, onMenu, hallId, setHallId }: { hallId: string; se
           </div>
         </Dialog>
       )}
-
-
     </>
+  )
+}
+
+/** «Выбор кол-ва гостей»: цифровая клавиатура и зелёная кнопка «Сохранить», как в Clopos. */
+function GuestsDialog({ title, onClose, onSave }: { title: string; onClose: () => void; onSave: (guests: number) => void }) {
+  const { t } = useApp()
+  const [value, setValue] = useState('')
+  const guests = Math.min(99, Math.max(1, Number(value) || 1))
+
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (/^[0-9]$/.test(e.key)) setValue((v) => (v + e.key).slice(0, 2))
+      else if (e.key === 'Backspace') setValue((v) => v.slice(0, -1))
+      else if (e.key === 'Enter') onSave(guests)
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [guests, onSave])
+
+  return (
+    <Dialog title={title} onClose={onClose}>
+      <div className="gp-value num" aria-live="polite">
+        {value || '1'}
+      </div>
+      <div className="gpad">
+        {['1', '2', '3', '4', '5', '6', '7', '8', '9'].map((d) => (
+          <button key={d} onClick={() => setValue((v) => (v + d).slice(0, 2))}>
+            {d}
+          </button>
+        ))}
+        <span />
+        <button onClick={() => setValue((v) => (v + '0').slice(0, 2))}>0</button>
+        <button aria-label="Backspace" onClick={() => setValue((v) => v.slice(0, -1))}>
+          ⌫
+        </button>
+      </div>
+      <button className="btn close wide" onClick={() => onSave(guests)}>
+        ✓ {t('save')}
+      </button>
+    </Dialog>
   )
 }

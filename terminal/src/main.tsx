@@ -3,6 +3,7 @@ import { createRoot } from 'react-dom/client'
 import { App } from './app'
 import { installTapSound } from './tap'
 import './styles.css'
+import './clopos.css'
 
 installTapSound()
 
