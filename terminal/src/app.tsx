@@ -46,6 +46,7 @@ export function App() {
   const [bootError, setBootError] = useState<string | null>(null)
   const [uiLang, setUiLang] = useState<Lang>(savedLang)
   const [receipt, setReceipt] = useState<Receipt | null>(null)
+  const [hallId, setHallId] = useState('')
   const [menu, setMenu] = useState(false)
   const [toastText, setToastText] = useState<string | null>(null)
   const toastTimer = useRef<number | undefined>(undefined)
@@ -194,7 +195,7 @@ export function App() {
             }}
           />
         ) : (
-          <Hall onOpen={setReceipt} onMenu={() => setMenu(true)} />
+          <Hall hallId={hallId} setHallId={setHallId} onOpen={setReceipt} onMenu={() => setMenu(true)} />
         )}
       </Ctx.Provider>
     )

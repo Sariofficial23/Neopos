@@ -4,19 +4,17 @@ import { useCallback, useEffect, useState } from 'react'
 import { api, money, type OpenReceipt, type Receipt } from './api'
 import { useApp } from './app'
 import { Dialog } from './Dialogs'
-import { ReceiptsScreen } from './Receipts'
 
 const stickers: Partial<Record<string, string>> = { takeaway: takeawaySticker, delivery: deliverySticker }
 
 /** Сколько минут открыт чек */
 const minutes = (iso: string) => Math.max(0, Math.round((Date.now() - new Date(iso).getTime()) / 60_000))
 
-export function Hall({ onOpen, onMenu }: { onOpen: (r: Receipt) => void; onMenu: () => void }) {
-  const { boot, t, lang, fail, logout } = useApp()
-  const [hallId, setHallId] = useState(boot.halls[0]?.id ?? '')
+export function Hall({ onOpen, onMenu, hallId, setHallId }: { hallId: string; setHallId: (id: string) => void; onOpen: (r: Receipt) => void; onMenu: () => void }) {
+  const { boot, t, lang, fail } = useApp()
   const [open, setOpen] = useState<OpenReceipt[]>([])
   const [busyTables, setBusyTables] = useState<string[]>([])
-  const [dialog, setDialog] = useState<'receipts' | 'type' | null>(null)
+  const [dialog, setDialog] = useState<'type' | null>(null)
   const [pending, setPending] = useState(false)
 
   const refresh = useCallback(async () => {
@@ -58,28 +56,17 @@ export function Hall({ onOpen, onMenu }: { onOpen: (r: Receipt) => void; onMenu:
     else void start(awaySales[0] ? { saleTypeId: awaySales[0].id } : {})
   }
 
-  // «Чеки» — отдельный экран на всё окно: открытые и закрытые.
-  if (dialog === 'receipts') return <ReceiptsScreen open={open} onOpen={onOpen} onBack={() => setDialog(null)} />
-
   return (
     <>
-      <header className="bar" data-scene={/ter{1,2}as|тер{1,2}ас|ayvon|айвон/i.test(hall?.name ?? '') ? 'ocean' : 'hall'}>
-        <div className="logo"><img src={`${import.meta.env.BASE_URL}brand/neopos.webp`} alt="NeoPos" /><span className="who">· {boot.user.name}</span></div>
-        <button className="new" onClick={newOrder}>
-          + {t('newOrder')}
-        </button>
-        {/* Справа три значка, как привыкли кассиры: выход, чеки, меню */}
-        <button className="ico" onClick={logout} title={t('logout')} aria-label={t('logout')}>
-          <svg viewBox="0 0 24 24">
-            <path d="M14 4h4a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2h-4M9 8l-4 4 4 4M5 12h11" />
-          </svg>
-        </button>
-        <button className="ico" onClick={() => setDialog('receipts')} title={t('receiptsTitle')} aria-label={t('receiptsTitle')}>
-          <svg viewBox="0 0 24 24">
-            <path d="M6 3h12v18l-3-2-3 2-3-2-3 2zM9 8h6M9 12h6M9 16h3" />
-          </svg>
-          {open.length > 0 && <span className="badge num">{open.length}</span>}
-        </button>
+      <header className="bar hall-bar" data-scene="samarkand">
+        <div className="logo"><img src={`${import.meta.env.BASE_URL}brand/neopos.webp`} alt="NeoPos" /></div>
+        <strong className="hall-title">{t('tablesTitle')}</strong>
+        <nav className="tabs hall-tabs" aria-label={t('hallsTitle')}>
+          {boot.halls.map((h) => (
+            <button key={h.id} className={h.id === hall?.id ? 'on' : ''} aria-pressed={h.id === hall?.id} onClick={() => setHallId(h.id)}>{h.name}</button>
+          ))}
+        </nav>
+        <button className="new" onClick={newOrder}>+ {t('newOrder')}</button>
         <button className="ico" onClick={onMenu} title={t('controlPanel')} aria-label={t('controlPanel')}>
           <svg viewBox="0 0 24 24">
             <path d="M4 6h16M4 12h16M4 18h16" />
@@ -87,16 +74,7 @@ export function Hall({ onOpen, onMenu }: { onOpen: (r: Receipt) => void; onMenu:
         </button>
       </header>
 
-      <div className="hall">
-        {boot.halls.length > 1 && (
-          <div className="tabs">
-            {boot.halls.map((h) => (
-              <button key={h.id} className={h.id === hall?.id ? 'on' : ''} onClick={() => setHallId(h.id)}>
-                {h.name}
-              </button>
-            ))}
-          </div>
-        )}
+      <div className="hall samarkand">
         {!hall || hall.tables.length === 0 ? (
           <div className="empty-note">{t('noTables')}</div>
         ) : (
@@ -114,10 +92,11 @@ export function Hall({ onOpen, onMenu }: { onOpen: (r: Receipt) => void; onMenu:
                   <b>{tb.name}</b>
                   {r ? (
                     <>
-                      {/* Кто обслуживает стол — сразу видно в зале */}
-                      <span className="waiter">👤 {r.waiterName}</span>
+                      <span className="occupation">{t('occupied')}</span>
+                      <strong className="num">{money(r.total)} {t('sum')}</strong>
+                      <span className="waiter">{t('servedBy')}: {r.waiterName || '—'}</span>
                       <small className="num">
-                        {money(r.total)} · {minutes(r.openedAt)} {t('min')}
+                        {minutes(r.openedAt)} {t('min')}
                       </small>
                       {r.billPrinted && (
                         <span className="bill-tag" title={t('billPrintedTag')}>
@@ -126,7 +105,7 @@ export function Hall({ onOpen, onMenu }: { onOpen: (r: Receipt) => void; onMenu:
                       )}
                     </>
                   ) : (
-                    <small>{foreign ? '•••' : t('free')}</small>
+                    <small>{foreign ? t('occupied') : t('free')}</small>
                   )}
                 </button>
               )

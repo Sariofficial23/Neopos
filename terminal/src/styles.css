@@ -366,3 +366,41 @@ body:has([data-scene="cafe"]) { --scene: url('./assets/cafe.webp'); }
 .rc-items { flex: 1; min-height: 0; overflow-y: auto; border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); padding: 8px 0; }
 .rc-empty { margin: auto; padding: 24px; text-align: center; }
 @media (max-width: 760px) { .rc-body { grid-template-columns: 1fr; grid-template-rows: minmax(0, 1fr) minmax(0, 1fr); } }
+
+/* Samarkand table service */
+body:has([data-scene="samarkand"]) {
+  --scene: url('./assets/samarkand.webp');
+  background: linear-gradient(#33240f21, #4a2d1012), var(--scene) center / cover no-repeat fixed, #dac6a2;
+}
+.hall-bar {
+  margin: 10px 12px 0;
+  border-radius: 16px;
+  border: 1px solid #ffffffad;
+  background: #fff1d9e8;
+  color: #17203b;
+}
+.hall-bar .logo { margin-right: 0; padding-right: 10px; border-right: 1px solid #48392740; }
+.hall-tabs { flex: 1; min-width: 0; }
+.hall-tabs button { border-radius: 12px; background: #fff8e9cf; color: #17203b; }
+.hall-tabs button.on, .hall-bar .new { background: #19233f; color: white; }
+.hall-title { padding: 0 8px; }
+.samarkand .tgrid { grid-template-columns: repeat(5, minmax(0,1fr)); gap: 12px; max-width: 1400px; width: 100%; margin-inline: auto; }
+.samarkand .table {
+  aspect-ratio: auto; min-height: 142px; padding: 12px 8px;
+  background: #fff2d8dd; color: #17203b; border: 1px solid #fff9ed;
+  grid-template-columns: minmax(0,1fr); align-content: center;
+}
+.samarkand .table b { font-size: clamp(24px, 2.5vw, 40px); }
+.samarkand .table small { color: inherit; }
+.samarkand .table.busy, .samarkand .table.other { background: #a4431aef; color: #fff; }
+.samarkand .table.bill { padding-bottom: 30px; }
+.samarkand .occupation { font-size: 13px; font-weight: 700; }
+.hall-menu-list { display: grid; gap: 8px; overflow-y: auto; max-height: 65vh; }
+.hall-menu-list > div { display: flex; justify-content: space-between; gap: 1em; }
+.hall-menu-list b { white-space: nowrap; }
+@media (max-width: 860px) {
+  .hall-bar { height: auto; flex-wrap: wrap; padding: 6px 10px; }
+  .hall-bar .new { margin-left: auto; }
+  .hall-tabs { order: 1; flex: 1 0 100%; }
+  .samarkand .tgrid { grid-template-columns: repeat(auto-fit,minmax(min(145px,100%),1fr)); }
+}

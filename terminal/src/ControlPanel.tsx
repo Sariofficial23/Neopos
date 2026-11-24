@@ -12,6 +12,8 @@ import { desktop, guestReceipt, printSlips } from './print'
 const icons: Record<string, ReactNode> = {
   report: <path d="M4 20V4M4 20h16M8 16v-5M12 16V8M16 16v-3M17 3v6M14 6h6" />,
   cash: <path d="M3 7h18v12H3zM3 11h18M7 15h3M16 3v4M12 3v4" />,
+  menu: <path d="M4 4h7v16H4zM11 4h9v16h-9M14 9h3M14 13h3" />,
+  logout: <path d="M14 4h6v16h-6M9 8l-4 4 4 4M5 12h11" />,
   archive: <path d="M6 3h12v18l-3-2-3 2-3-2-3 2zM9 8h6M9 12h6M15 19a3 3 0 1 0 0-.01" />,
   staff: (
     <>
@@ -35,11 +37,11 @@ function Tile({ icon, label, onClick, tone }: { icon: string; label: string; onC
   )
 }
 
-type Panel = 'report' | 'cash' | 'archive' | 'staff' | 'devices' | null
+type Panel = 'receipts' | 'menu' | 'report' | 'cash' | 'archive' | 'staff' | 'devices' | null
 
 /** «Панель управления» кассы: открывается кнопкой ☰ в правом верхнем углу. */
 export function ControlPanel({ onBack, onOpenReceipt }: { onBack: () => void; onOpenReceipt: (r: Receipt) => void }) {
-  const { t, can, toast } = useApp()
+  const { boot, lang, t, can, toast, logout } = useApp()
   const [panel, setPanel] = useState<Panel>(null)
 
   async function refresh() {
@@ -63,6 +65,8 @@ export function ControlPanel({ onBack, onOpenReceipt }: { onBack: () => void; on
   // «Архив чеков» — тот же большой экран «Чеки», сразу на закрытых.
   if (panel === 'archive') return <ReceiptsScreen initialTab="closed" onOpen={onOpenReceipt} onBack={() => setPanel(null)} />
 
+  if (panel === 'receipts') return <ReceiptsScreen onOpen={onOpenReceipt} onBack={() => setPanel(null)} />
+
   return (
     <>
       <header className="bar">
@@ -72,12 +76,14 @@ export function ControlPanel({ onBack, onOpenReceipt }: { onBack: () => void; on
           </svg>
         </button>
         <div className="logo" style={{ marginLeft: 6 }}>
-          {t('controlPanel')}
+          {t('controlPanel')} · {boot.user.name}
         </div>
       </header>
 
       <div className="cp">
         <div className="cp-grid">
+          <Tile icon="menu" tone="#925d30" label={t('dishMenu')} onClick={() => setPanel('menu')} />
+          <Tile icon="archive" tone="#4d6691" label={t('receiptsTitle')} onClick={() => setPanel('receipts')} />
           <Tile icon="report" tone="#0a84ff" label={t('cpReport')} onClick={() => setPanel('report')} />
           {can('shift.cash_movement') && <Tile icon="cash" tone="#22b866" label={t('cpCash')} onClick={() => setPanel('cash')} />}
           <Tile icon="archive" tone="#ff9f0a" label={t('cpArchive')} onClick={() => setPanel('archive')} />
@@ -86,10 +92,21 @@ export function ControlPanel({ onBack, onOpenReceipt }: { onBack: () => void; on
         </div>
         <div className="cp-grid cp-bottom">
           <Tile icon="refresh" tone="#0a84ff" label={t('cpRefresh')} onClick={() => void refresh()} />
+          <Tile icon="logout" tone="#64748b" label={t('logout')} onClick={logout} />
           <Tile icon="fullscreen" tone="#64748b" label={t('cpFullscreen')} onClick={fullscreen} />
         </div>
       </div>
 
+      {panel === 'menu' && (
+        <Dialog title={t('dishMenu')} onClose={() => setPanel(null)}>
+          <div className="hall-menu-list">
+            {boot.products.length === 0 && <p>{t('nothingFound')}</p>}
+            {boot.products.map((product) => (
+              <div key={product.id}><span>{product.name[lang]}</span><b>{money(product.price)} {t('sum')}</b></div>
+            ))}
+          </div>
+        </Dialog>
+      )}
       {panel === 'report' && <ReportDialog onClose={() => setPanel(null)} />}
       {panel === 'cash' && <CashDialog onClose={() => setPanel(null)} />}
 
