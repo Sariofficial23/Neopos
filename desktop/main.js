@@ -57,7 +57,7 @@ function createWindow({ show = true } = {}) {
     minHeight: 600,
     show: false,
     title: 'NeoPos Kassa',
-    backgroundColor: '#dfe7fb',
+    backgroundColor: '#ebe8fb',
     icon: path.join(__dirname, 'build', 'icon.png'),
     autoHideMenuBar: true,
     webPreferences: {

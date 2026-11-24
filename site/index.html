@@ -9,21 +9,21 @@
 <style>
   * { box-sizing: border-box; margin: 0; }
   :root {
-    --page: #dfe7fb;
+    --page: #ebe8fb;
     --text: #111a33; --muted: #4d5878; --line: rgba(17, 26, 51, 0.1);
     --glass: rgba(255, 255, 255, 0.5); --glass-strong: rgba(255, 255, 255, 0.78);
     --border: 1px solid rgba(255, 255, 255, 0.8);
     --shadow: 0 12px 40px rgba(40, 50, 120, 0.16), inset 0 1px 0 rgba(255, 255, 255, 0.9);
     --blur: blur(26px) saturate(180%);
-    --brand: #4f4cf0; --brand-dark: #3d39b8; --green: #22b866;
+    --brand: #5b45e0; --brand-dark: #3e2bb8; --green: #22b866;
     --r: 24px;
   }
   html { scroll-behavior: smooth; }
   body {
     font-family: 'Segoe UI', system-ui, -apple-system, Roboto, sans-serif; color: var(--text); line-height: 1.5;
     background:
-      radial-gradient(55% 45% at 10% 5%, #ffc9e3 0%, transparent 70%),
-      radial-gradient(50% 50% at 92% 12%, #a9d2ff 0%, transparent 70%),
+      radial-gradient(55% 45% at 10% 5%, #e3ddfc 0%, transparent 70%),
+      radial-gradient(50% 50% at 92% 12%, #cfc8f8 0%, transparent 70%),
       radial-gradient(60% 60% at 75% 70%, #c9b8ff 0%, transparent 70%),
       radial-gradient(50% 50% at 10% 85%, #b5f0e3 0%, transparent 70%) fixed, var(--page);
     -webkit-font-smoothing: antialiased;
@@ -50,7 +50,7 @@
   /* Кнопки */
   .btn { display: inline-flex; align-items: center; justify-content: center; gap: 10px; height: 56px; padding: 0 26px; border-radius: 16px; font-weight: 700; font-size: 16px; text-decoration: none; transition: transform 0.12s, box-shadow 0.15s; white-space: nowrap; }
   .btn:active { transform: scale(0.97); }
-  .btn-main { background: linear-gradient(135deg, #6d6af6, var(--brand-dark)); color: #fff; box-shadow: 0 12px 28px rgba(79, 76, 240, 0.35), inset 0 1px 0 rgba(255, 255, 255, 0.35); }
+  .btn-main { background: linear-gradient(135deg, #7b63f2, var(--brand-dark)); color: #fff; box-shadow: 0 12px 28px rgba(91, 69, 224, 0.35), inset 0 1px 0 rgba(255, 255, 255, 0.35); }
   .btn-main:hover { box-shadow: 0 16px 34px rgba(79, 76, 240, 0.45), inset 0 1px 0 rgba(255, 255, 255, 0.35); }
   .btn-ghost { background: var(--glass-strong); border: var(--border); color: var(--text); }
   .btn svg { width: 22px; height: 22px; flex: none; }
@@ -61,7 +61,7 @@
   .pill { display: inline-flex; align-items: center; gap: 8px; padding: 6px 14px; border-radius: 999px; background: var(--glass-strong); border: var(--border); font-size: 13px; font-weight: 600; color: var(--muted); }
   .pill i { width: 8px; height: 8px; border-radius: 50%; background: var(--green); }
   h1 { font-size: clamp(34px, 4.6vw, 56px); line-height: 1.06; letter-spacing: -0.035em; margin: 18px 0 16px; }
-  h1 span { background: linear-gradient(135deg, #6d6af6, #b04ae0); -webkit-background-clip: text; background-clip: text; color: transparent; }
+  h1 span { background: linear-gradient(100deg, #5b45e0 20%, #e8735a); -webkit-background-clip: text; background-clip: text; color: transparent; }
   .lead { font-size: 18px; color: var(--muted); max-width: 30em; }
   .cta { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 28px; }
   .note { margin-top: 14px; font-size: 13px; color: var(--muted); }
