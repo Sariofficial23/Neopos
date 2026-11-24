@@ -4,6 +4,7 @@ import { useApp } from './app'
 import type { Key } from './i18n'
 import { DevicesDialog } from './Devices'
 import { Dialog } from './Dialogs'
+import { ReceiptsScreen } from './Receipts'
 import { ReportDialog } from './Report'
 import { desktop, guestReceipt, printSlips } from './print'
 
@@ -37,7 +38,7 @@ function Tile({ icon, label, onClick, tone }: { icon: string; label: string; onC
 type Panel = 'report' | 'cash' | 'archive' | 'staff' | 'devices' | null
 
 /** «Панель управления» кассы: открывается кнопкой ☰ в правом верхнем углу. */
-export function ControlPanel({ onBack }: { onBack: () => void }) {
+export function ControlPanel({ onBack, onOpenReceipt }: { onBack: () => void; onOpenReceipt: (r: Receipt) => void }) {
   const { t, can, toast } = useApp()
   const [panel, setPanel] = useState<Panel>(null)
 
@@ -58,6 +59,9 @@ export function ControlPanel({ onBack }: { onBack: () => void }) {
     if (document.fullscreenElement) void document.exitFullscreen()
     else void document.documentElement.requestFullscreen?.()
   }
+
+  // «Архив чеков» — тот же большой экран «Чеки», сразу на закрытых.
+  if (panel === 'archive') return <ReceiptsScreen initialTab="closed" onOpen={onOpenReceipt} onBack={() => setPanel(null)} />
 
   return (
     <>
@@ -88,7 +92,7 @@ export function ControlPanel({ onBack }: { onBack: () => void }) {
 
       {panel === 'report' && <ReportDialog onClose={() => setPanel(null)} />}
       {panel === 'cash' && <CashDialog onClose={() => setPanel(null)} />}
-      {panel === 'archive' && <ArchiveDialog onClose={() => setPanel(null)} />}
+
       {panel === 'staff' && <StaffDialog onClose={() => setPanel(null)} />}
       {panel === 'devices' && <DevicesDialog onClose={() => setPanel(null)} />}
     </>
@@ -200,113 +204,6 @@ function CashDialog({ onClose }: { onClose: () => void }) {
           + {t('addOp')}
         </button>
       </form>
-    </Dialog>
-  )
-}
-
-// ───────────── Архив чеков текущей смены ─────────────
-
-type ArchiveRow = {
-  id: string
-  number: number
-  status: string
-  tableName: string | null
-  saleTypeId: string | null
-  waiterName: string | null
-  total: number
-  closedAt: string | null
-}
-
-const time = (iso: string | null) =>
-  iso ? new Date(iso).toLocaleTimeString('ru-RU', { timeZone: 'Asia/Tashkent', hour: '2-digit', minute: '2-digit' }) : ''
-
-function ArchiveDialog({ onClose }: { onClose: () => void }) {
-  const { t, lang, boot, fail, toast } = useApp()
-  const [rows, setRows] = useState<ArchiveRow[] | null>(null)
-  const [open, setOpen] = useState<Receipt | null>(null)
-
-  useEffect(() => {
-    api<{ receipts: ArchiveRow[] }>('/pos/archive')
-      .then((r) => setRows(r.receipts))
-      .catch(fail)
-  }, [fail])
-
-  const place = (r: { tableName: string | null; saleTypeId: string | null }) =>
-    r.tableName ? `${t('table')} ${r.tableName}` : (boot.saleTypes.find((s) => s.id === r.saleTypeId)?.name[lang] ?? t('noTable'))
-
-  async function show(id: string) {
-    try {
-      setOpen(await api<Receipt>(`/pos/receipts/${id}`))
-    } catch (err) {
-      fail(err)
-    }
-  }
-
-  async function reprint(r: Receipt) {
-    const err = await printSlips([guestReceipt(r, boot, lang, { final: true })])
-    if (err) toast(`${t('printFailed')}: ${err}`)
-  }
-
-  if (open) {
-    const live = open.items.filter((i) => !i.voided)
-    return (
-      <Dialog title={`№${open.number} · ${place(open)}`} onClose={() => setOpen(null)}>
-        <div className="list" style={{ gap: 4 }}>
-          {live.map((i) => (
-            <div key={i.id} className="kv">
-              <span>
-                {i.qty / 1000} × {i.name[lang]}
-              </span>
-              <b className="num">{money(i.total)}</b>
-            </div>
-          ))}
-        </div>
-        <div className="kv total">
-          <span>{t('toPay')}</span>
-          <b className="num">{money(open.total)}</b>
-        </div>
-        {open.payments.map((p, idx) => (
-          <div key={idx} className="kv">
-            <span>{(p.name as L10n)[lang]}</span>
-            <span className="num">{money(p.amount)}</span>
-          </div>
-        ))}
-        <div className="row">
-          <button className="btn plain" onClick={() => setOpen(null)}>
-            {t('back')}
-          </button>
-          {open.status === 'closed' && (
-            <button className="btn send" onClick={() => void reprint(open)}>
-              {t('reprint')}
-            </button>
-          )}
-        </div>
-      </Dialog>
-    )
-  }
-
-  return (
-    <Dialog title={t('cpArchive')} onClose={onClose}>
-      {!rows ? (
-        <div className="muted">{t('loading')}</div>
-      ) : rows.length === 0 ? (
-        <div className="muted">{t('archiveEmpty')}</div>
-      ) : (
-        <div className="list">
-          {rows.map((r) => (
-            <button key={r.id} onClick={() => void show(r.id)}>
-              <span>
-                №{r.number} · {place(r)}
-                <small>
-                  {time(r.closedAt)} · {r.waiterName}
-                  {r.status === 'cancelled' ? ` · ${t('cancelled')}` : ''}
-                </small>
-              </span>
-              <b className="num">{money(r.total)}</b>
-            </button>
-          ))}
-        </div>
-      )}
     </Dialog>
   )
 }

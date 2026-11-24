@@ -23,9 +23,22 @@ const minutes = (iso: string) => Math.max(0, Math.round((Date.now() - new Date(i
  * Слева список, справа состав выбранного чека. Открытый чек можно открыть для работы,
  * закрытый — посмотреть и напечатать снова.
  */
-export function ReceiptsScreen({ open, onOpen, onBack }: { open: OpenReceipt[]; onOpen: (r: Receipt) => void; onBack: () => void }) {
+export function ReceiptsScreen({
+  open: openFromHall,
+  initialTab = 'open',
+  onOpen,
+  onBack,
+}: {
+  /** Открытые чеки из зала; если экран открыт из «Панели управления», он загружает их сам. */
+  open?: OpenReceipt[]
+  initialTab?: 'open' | 'closed'
+  onOpen: (r: Receipt) => void
+  onBack: () => void
+}) {
   const { boot, t, lang, fail, toast } = useApp()
-  const [tab, setTab] = useState<'open' | 'closed'>('open')
+  const [tab, setTab] = useState<'open' | 'closed'>(initialTab)
+  const [loadedOpen, setLoadedOpen] = useState<OpenReceipt[]>([])
+  const open = openFromHall ?? loadedOpen
   const [closed, setClosed] = useState<ClosedRow[] | null>(null)
   const [detail, setDetail] = useState<Receipt | null>(null)
   const [selected, setSelected] = useState<string | null>(null)
@@ -39,6 +52,13 @@ export function ReceiptsScreen({ open, onOpen, onBack }: { open: OpenReceipt[]; 
   useEffect(() => {
     if (tab === 'closed') loadClosed()
   }, [tab, loadClosed])
+
+  useEffect(() => {
+    if (openFromHall) return
+    api<{ receipts: OpenReceipt[] }>('/pos/receipts')
+      .then((res) => setLoadedOpen(res.receipts))
+      .catch(fail)
+  }, [openFromHall, fail])
 
   const place = (r: { tableName: string | null; saleTypeId: string | null }) =>
     r.tableName ? `${t('table')} ${r.tableName}` : (boot.saleTypes.find((s) => s.id === r.saleTypeId)?.name[lang] ?? t('noTable'))

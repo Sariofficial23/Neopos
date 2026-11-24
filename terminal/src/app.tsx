@@ -186,7 +186,13 @@ export function App() {
         ) : receipt ? (
           <Order receipt={receipt} setReceipt={setReceipt} onBack={() => setReceipt(null)} />
         ) : menu ? (
-          <ControlPanel onBack={() => setMenu(false)} />
+          <ControlPanel
+            onBack={() => setMenu(false)}
+            onOpenReceipt={(r) => {
+              setMenu(false)
+              setReceipt(r)
+            }}
+          />
         ) : (
           <Hall onOpen={setReceipt} onMenu={() => setMenu(true)} />
         )}
