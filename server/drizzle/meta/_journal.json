@@ -57,6 +57,13 @@
       "when": 1795286679135,
       "tag": "0007_only-cash-and-card",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1795519340306,
+      "tag": "0008_dear_magma",
+      "breakpoints": true
     }
   ]
 }

@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState, type FormEvent } from 'react
 import { API_BASE, money } from '../api'
 import { LangSwitch, useI18n, type Lang } from '../i18n'
 import { Badge, ErrorNote, Field, Modal, Switch, Toggle } from '../ui'
+import { BillingModal } from './Billing'
 import { TelegramCard } from './TelegramCard'
 
 /** Сайт для клиентов — там кнопка «Скачать кассу». */
@@ -273,13 +274,14 @@ function AdminLogin({ onToken }: { onToken: (token: string) => Promise<void> }) 
 type Creds = { venue: string; login: string; password: string }
 
 function AdminHome({ me, setMe, onSignOut }: { me: Me; setMe: (m: Me) => void; onSignOut: () => void }) {
-  const { t, tErr } = useT()
+  const { t, tErr, lang } = useT()
   const [brands, setBrands] = useState<Brand[] | null>(null)
   const [query, setQuery] = useState('')
   const [error, setError] = useState<string | null>(null)
   const [creating, setCreating] = useState(false)
   const [editing, setEditing] = useState<Brand | null>(null)
   const [resetting, setResetting] = useState<Brand | null>(null)
+  const [billing, setBilling] = useState<Brand | null>(null)
   const [creds, setCreds] = useState<Creds | null>(null)
 
   const errText = useCallback((err: unknown) => tErr(err instanceof AdminError ? err.code : 'internal'), [tErr])
@@ -432,6 +434,9 @@ function AdminHome({ me, setMe, onSignOut }: { me: Me; setMe: (m: Me) => void; o
                         <button className="cursor-pointer text-sm font-medium text-brand-600 hover:underline" onClick={() => setResetting(b)}>
                           {t('resetPassword')}
                         </button>
+                        <button className="cursor-pointer text-sm font-medium text-brand-600 hover:underline" onClick={() => setBilling(b)}>
+                          {lang === 'ru' ? 'Абон. плата' : 'Abonent to‘lovi'}
+                        </button>
                       </div>
                     </td>
                   </tr>
@@ -480,6 +485,7 @@ function AdminHome({ me, setMe, onSignOut }: { me: Me; setMe: (m: Me) => void; o
           }}
         />
       )}
+      {billing && <BillingModal brandId={billing.id} brandName={billing.name} onClose={() => setBilling(null)} />}
       {creds && <Credentials creds={creds} onClose={() => setCreds(null)} />}
     </div>
   )

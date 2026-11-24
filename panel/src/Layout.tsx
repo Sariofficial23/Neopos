@@ -30,7 +30,9 @@ const NAV: NavItem[] = [
   { to: '/customers', label: 'navCustomers', perm: 'customers.view', icon: <I><circle cx="12" cy="8" r="4" /><path d="M4 21c0-4 4-6 8-6s8 2 8 6" /></I> },
   { to: '/staff', label: 'navStaff', perm: 'staff.view', icon: <I><circle cx="9" cy="8" r="3.5" /><path d="M2 20c0-3.5 3-5.5 7-5.5s7 2 7 5.5M16 4.5a3.5 3.5 0 0 1 0 7M18.5 14.8c2 .7 3.5 2.3 3.5 5.2" /></I> },
   { to: '/roles', label: 'navRoles', perm: 'staff.view', icon: <I><path d="M12 3 4 6v6c0 4.5 3.2 8 8 9 4.8-1 8-4.5 8-9V6zM9 12l2 2 4-4" /></I> },
+  { to: '/terminals', label: 'navTerminals', perm: 'settings.edit', icon: <I><path d="M3 5h18v11H3zM8 20h8M12 16v4" /></I> },
   { to: '/settings', label: 'navSettings', perm: 'settings.edit', icon: <I><path d="M4 7h10M18 7h2M4 17h2M10 17h10" /><circle cx="16" cy="7" r="2" /><circle cx="8" cy="17" r="2" /></I> },
+  { to: '/subscription', label: 'navSubscription', perm: 'settings.edit', icon: <I><path d="M3 6h18v12H3zM3 10h18M7 15h4" /></I> },
 ]
 
 const KEY = 'neopos.nav.open'

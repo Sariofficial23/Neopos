@@ -39,6 +39,10 @@ export const tenants = pgTable('tenants', {
   blockedAt: timestamp('blocked_at', { withTimezone: true }),
   /** Заметка администратора: телефон, договор, тариф */
   note: text('note'),
+  /** Абонентская плата: тариф, сумма в месяц (сум) и дата следующего платежа */
+  tariff: text('tariff').notNull().default('Standard'),
+  monthlyFee: bigint('monthly_fee', { mode: 'number' }).notNull().default(0),
+  nextPaymentAt: timestamp('next_payment_at', { withTimezone: true }),
   createdAt: createdAt(),
 })
 
@@ -480,11 +484,31 @@ export const terminals = pgTable(
     name: text('name').notNull(),
     /** Код, которым устройство привязывается к заведению */
     code: text('code').notNull(),
+    /** Пароль терминала: его задают в панели и вводят на кассе вместе с брендом. Виден владельцу в списке. */
+    password: text('password'),
     active: boolean('active').notNull().default(true),
     lastSeenAt: timestamp('last_seen_at', { withTimezone: true }),
     createdAt: createdAt(),
   },
-  (t) => [uniqueIndex('terminals_code_uq').on(t.code)],
+  (t) => [uniqueIndex('terminals_code_uq').on(t.code), uniqueIndex('terminals_password_uq').on(t.tenantId, t.password)],
+)
+
+// ───────────── Абонентская плата ─────────────
+
+/** Платежи заведения за NeoPos: их вносит администратор платформы, владелец видит историю в панели. */
+export const subscriptionPayments = pgTable(
+  'subscription_payments',
+  {
+    id: id(),
+    tenantId: tenantRef(),
+    /** Сумма в сумах */
+    amount: bigint('amount', { mode: 'number' }).notNull(),
+    /** Способ оплаты: наличные, карта, перечисление… — свободный текст */
+    method: text('method').notNull().default(''),
+    note: text('note'),
+    createdAt: createdAt(),
+  },
+  (t) => [index('subscription_payments_tenant_idx').on(t.tenantId, t.createdAt)],
 )
 
 export const telegramLinks = pgTable(

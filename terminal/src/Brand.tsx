@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { api, API_BASE, type Lang } from './api'
+import { api, API_BASE, ApiError, type Lang } from './api'
 import type { Key } from './i18n'
 
 /** Что показывает экран ПИН-кода до входа: название, логотип и фото заведения, язык владельца. */
@@ -103,4 +103,21 @@ export function NetStatus({ t }: { t: (k: Key) => string }) {
       {online ? t('netOnline') : t('netOffline')}
     </span>
   )
+}
+
+/**
+ * Касса раз в минуту сообщает серверу, что она на связи: в панели у терминала горит «Онлайн».
+ * Если терминал в панели удалили или выключили, касса возвращается на экран подключения.
+ */
+export function useTerminalPing(hasDevice: boolean, onLost: () => void) {
+  useEffect(() => {
+    if (!hasDevice) return
+    const ping = () =>
+      api('/pos/ping', { method: 'POST', as: 'device' }).catch((err) => {
+        if (err instanceof ApiError && err.code === 'device_not_activated') onLost()
+      })
+    void ping()
+    const timer = window.setInterval(ping, 60_000)
+    return () => window.clearInterval(timer)
+  }, [hasDevice, onLost])
 }

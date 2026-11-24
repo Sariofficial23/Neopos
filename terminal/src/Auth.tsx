@@ -21,9 +21,9 @@ function LangPick({ lang, setLang }: Pick<Base, 'lang' | 'setLang'>) {
   )
 }
 
-/** Первый запуск на устройстве: один раз вводится логин и пароль от панели. */
+/** Первый запуск на устройстве: вводят бренд и пароль терминала из панели (раздел «Терминалы»). */
 export function Activate({ t, tErr, lang, setLang, onDone }: Base & { onDone: () => void }) {
-  const [form, setForm] = useState({ login: '', password: '', name: 'Kassa 1' })
+  const [form, setForm] = useState({ brand: '', password: '' })
   const [error, setError] = useState('')
   const [busy, setBusy] = useState(false)
 
@@ -48,30 +48,30 @@ export function Activate({ t, tErr, lang, setLang, onDone }: Base & { onDone: ()
         <div className="brand"><img src={`${import.meta.env.BASE_URL}brand/neopos.webp`} alt="NeoPos" /></div>
         <div className="sub">{t('activateHint')}</div>
         <label className="field">
-          <span>{t('login')}</span>
+          <span>{t('brandField')}</span>
           <input
             className="input"
             required
+            autoFocus
             autoCapitalize="none"
-            autoComplete="username"
-            value={form.login}
-            onChange={(e) => setForm({ ...form, login: e.target.value })}
+            autoCorrect="off"
+            autoComplete="off"
+            spellCheck={false}
+            value={form.brand}
+            onChange={(e) => setForm({ ...form, brand: e.target.value })}
           />
         </label>
         <label className="field">
-          <span>{t('password')}</span>
+          <span>{t('terminalPassword')}</span>
           <input
-            className="input"
-            type="password"
+            className="input num"
             required
-            autoComplete="current-password"
+            inputMode="numeric"
+            autoComplete="off"
+            maxLength={16}
             value={form.password}
-            onChange={(e) => setForm({ ...form, password: e.target.value })}
+            onChange={(e) => setForm({ ...form, password: e.target.value.replace(/[^0-9A-Za-z]/g, '') })}
           />
-        </label>
-        <label className="field">
-          <span>{t('deviceName')}</span>
-          <input className="input" required maxLength={60} value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} />
         </label>
         <div className="err" role="alert">
           {error}

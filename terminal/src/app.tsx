@@ -1,7 +1,7 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { api, ApiError, device, session, setSessionLostHandler, type Boot, type Lang, type Receipt } from './api'
 import { Activate, Pin, ShiftGate } from './Auth'
-import { useDeviceInfo, useVenuePhoto } from './Brand'
+import { useDeviceInfo, useTerminalPing, useVenuePhoto } from './Brand'
 import { useAutoUpdate } from './update'
 import { ControlPanel } from './ControlPanel'
 import { Hall } from './Hall'
@@ -76,6 +76,14 @@ export function App() {
     setReceipt(null)
     setMenu(false)
   }, [])
+
+  // Терминал удалили или выключили в панели — касса возвращается на экран подключения.
+  const deviceLost = useCallback(() => {
+    logout()
+    device.set(null)
+    setHasDevice(false)
+  }, [logout])
+  useTerminalPing(hasDevice, deviceLost)
 
   const toast = useCallback((text: string) => {
     setToastText(text)

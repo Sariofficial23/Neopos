@@ -41,6 +41,8 @@ const dict = {
   navStaff: { uz: 'Xodimlar', ru: 'Сотрудники' },
   navRoles: { uz: 'Lavozimlar', ru: 'Должности' },
   navSettings: { uz: 'Sozlamalar', ru: 'Настройки' },
+  navTerminals: { uz: 'Terminallar', ru: 'Терминалы' },
+  navSubscription: { uz: 'Abonent to‘lovi', ru: 'Абонентская плата' },
   downloadApp: { uz: 'Windows uchun kassani yuklab olish', ru: 'Скачать кассу для Windows' },
   navExpand: { uz: 'Menyuni to‘liq ochish', ru: 'Раскрыть меню полностью' },
   navCollapse: { uz: 'Menyuni yig‘ish', ru: 'Свернуть меню' },

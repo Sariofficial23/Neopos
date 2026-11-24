@@ -89,6 +89,43 @@ export function posRoutes(app: FastifyInstance, db: DB) {
    * спрашивать ПИН-код.
    */
   app.post('/api/pos/activate', async (req) => {
+    // Основной способ: бренд (логин владельца) и пароль терминала, заданный в панели в разделе «Терминалы».
+    const byTerminal = z
+      .object({ brand: z.string().trim().toLowerCase().min(1).max(64), password: z.string().trim().min(1).max(32) })
+      .safeParse(req.body)
+    if (byTerminal.success) {
+      const { brand, password } = byTerminal.data
+      const key = `term:${req.ip}:${brand}`
+      checkThrottle(key)
+      const [owner] = await db
+        .select({ tenantId: users.tenantId })
+        .from(users)
+        .innerJoin(roles, eq(roles.id, users.roleId))
+        .where(and(eq(users.login, brand), eq(roles.isOwner, true)))
+      const [terminal] = owner
+        ? await db
+            .select()
+            .from(terminals)
+            .where(and(eq(terminals.tenantId, owner.tenantId), eq(terminals.password, password)))
+        : []
+      // Один ответ и на неверный бренд, и на неверный пароль: не подсказываем, что из двух не так.
+      if (!owner || !terminal) {
+        noteFailure(key)
+        throw new HttpError(401, 'bad_terminal')
+      }
+      clearThrottle(key)
+      if (!terminal.active) throw new HttpError(403, 'terminal_disabled')
+      const [tenant] = await db.select({ name: tenants.name, blocked: tenants.blocked }).from(tenants).where(eq(tenants.id, owner.tenantId))
+      if (!tenant || tenant.blocked) throw new HttpError(403, 'venue_blocked')
+      await db.update(terminals).set({ lastSeenAt: new Date() }).where(eq(terminals.id, terminal.id))
+      return {
+        deviceToken: app.jwt.sign({ kind: 'device', tid: owner.tenantId, did: terminal.id }, { expiresIn: '3650d' }),
+        venue: tenant.name,
+        terminal: terminal.name,
+      }
+    }
+
+    // Прежний способ (логин и пароль от панели) оставлен для уже выпущенных версий кассы.
     const body = z
       .object({
         login: z.string().trim().toLowerCase().max(64),
