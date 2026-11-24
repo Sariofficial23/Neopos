@@ -331,3 +331,16 @@ body:has([data-scene="cafe"]) { --scene: url('./assets/cafe.webp'); }
 .table .waiter { max-width: 100%; padding: 2px 8px; border-radius: 999px; background: rgba(255, 255, 255, 0.24); font-size: 12px; font-weight: 700; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .table.bill { padding-bottom: 26px; }
 .table .bill-tag { position: absolute; left: 50%; bottom: 7px; transform: translateX(-50%); display: inline-flex; align-items: center; gap: 3px; padding: 2px 9px; border-radius: 999px; background: #fff; color: #e0294f; font-size: 11px; font-weight: 800; white-space: nowrap; box-shadow: 0 2px 6px rgba(0, 0, 0, 0.18); }
+
+/* Экран ПИН-кода: меню «⋮» рядом с брендом — «Обновить» и «Выйти» */
+.pin-left { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.pin-menu { position: relative; flex: none; }
+.dots-btn { width: 44px; height: 44px; border-radius: 50%; background: rgba(255, 255, 255, 0.72); -webkit-backdrop-filter: var(--blur); backdrop-filter: var(--blur); box-shadow: 0 4px 14px rgba(40, 50, 120, 0.14); font-size: 22px; font-weight: 700; line-height: 1; }
+.pin-menu-veil { position: fixed; inset: 0; z-index: 20; }
+.pin-menu-list { position: absolute; top: 52px; left: 0; z-index: 21; min-width: 200px; padding: 6px; display: grid; gap: 2px; background: rgba(255, 255, 255, 0.92); border-radius: var(--r-sm); }
+.pin-menu-list button { height: 48px; padding: 0 14px; border-radius: 10px; text-align: left; font-weight: 600; font-size: 15px; }
+.pin-menu-list button:active { background: var(--panel-strong); }
+/* Список меню привязан к шапке, а не к кнопке: на узком экране он не вылезает за край */
+.pin-menu { position: static; }
+.pin-menu-list { top: 66px; left: 20px; max-width: calc(100vw - 40px); }
+@media (max-width: 480px) { .pin-menu-list { left: 12px; top: 56px; } .dots-btn { width: 38px; height: 38px; } }

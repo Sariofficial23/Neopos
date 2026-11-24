@@ -104,11 +104,28 @@ export function Pin({
   const [error, setError] = useState('')
   const [busy, setBusy] = useState(false)
   const [shake, setShake] = useState(false)
+  // Меню «⋮» рядом с брендом: «Обновить» и «Выйти». Выход из бренда — только по ПИН-коду администратора.
+  const [menuOpen, setMenuOpen] = useState(false)
+  const [exiting, setExiting] = useState(false)
+
+  async function refresh() {
+    setMenuOpen(false)
+    // В приложении для Windows сначала проверяем новую версию программы, затем заново загружаем кассу.
+    if (desktop?.checkUpdate) {
+      const res = await desktop.checkUpdate().catch(() => null)
+      if (res?.status === 'installing') return
+    }
+    window.location.reload()
+  }
 
   const submit = useCallback(
     async (value: string) => {
       setBusy(true)
       try {
+        if (exiting) {
+          await api('/pos/disconnect', { method: 'POST', body: { pin: value }, as: 'device' })
+          return onDeviceLost()
+        }
         const res = await api<{ token: string }>('/pos/pin', { method: 'POST', body: { pin: value }, as: 'device' })
         onToken(res.token)
       } catch (err) {
@@ -122,7 +139,7 @@ export function Pin({
         setBusy(false)
       }
     },
-    [onToken, onDeviceLost, tErr],
+    [onToken, onDeviceLost, tErr, exiting],
   )
 
   const press = useCallback(
@@ -153,15 +170,57 @@ export function Pin({
     <div className="center pin-screen" data-scene="ocean">
       {/* Слева — бренд заведения, справа — есть ли интернет */}
       <header className="pin-top">
-        <div className="venue">
-          {info?.logo && <img src={mediaUrl(info.logo)} alt="" />}
-          <span>{info?.venue}</span>
+        <div className="pin-left">
+          <div className="venue">
+            {info?.logo && <img src={mediaUrl(info.logo)} alt="" />}
+            <span>{info?.venue}</span>
+          </div>
+          <div className="pin-menu">
+            <button className="dots-btn" aria-label={t('more')} title={t('more')} aria-expanded={menuOpen} onClick={() => setMenuOpen((v) => !v)}>
+              ⋮
+            </button>
+            {menuOpen && (
+              <>
+                <div className="pin-menu-veil" onPointerDown={() => setMenuOpen(false)} />
+                <div className="pin-menu-list glass" role="menu">
+                  <button role="menuitem" onClick={() => void refresh()}>
+                    ↻ {t('cpRefresh')}
+                  </button>
+                  <button
+                    role="menuitem"
+                    className="danger-text"
+                    onClick={() => {
+                      setMenuOpen(false)
+                      setPin('')
+                      setError('')
+                      setExiting(true)
+                    }}
+                  >
+                    ⎋ {t('exitBrand')}
+                  </button>
+                </div>
+              </>
+            )}
+          </div>
         </div>
         <NetStatus t={t} />
       </header>
       <div className="card glass">
         <div className="brand"><img src={`${import.meta.env.BASE_URL}brand/neopos.webp`} alt="NeoPos" /></div>
-        <div className="sub">{t('enterPin')}</div>
+        <div className="sub">{exiting ? t('exitPinHint') : t('enterPin')}</div>
+        {exiting && (
+          <button
+            className="btn plain"
+            style={{ justifySelf: 'center', height: 36, padding: '0 16px', fontSize: 13 }}
+            onClick={() => {
+              setExiting(false)
+              setPin('')
+              setError('')
+            }}
+          >
+            ← {t('cancelExit')}
+          </button>
+        )}
         <div className={`dots ${shake ? 'shake' : ''}`} aria-label={`${pin.length}/${PIN_LEN}`}>
           {Array.from({ length: Math.max(PIN_LEN, pin.length) }, (_, i) => (
             <i key={i} className={i < pin.length ? 'on' : ''} />

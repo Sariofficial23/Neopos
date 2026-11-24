@@ -210,6 +210,36 @@ export function posRoutes(app: FastifyInstance, db: DB) {
     }
   })
 
+  /**
+   * Выход кассы из бренда (кнопка «⋮ → Выйти» на экране ПИН-кода). Нужен ПИН-код владельца
+   * или администратора: официант отвязать кассу не может.
+   */
+  app.post('/api/pos/disconnect', async (req) => {
+    const { pin } = z.object({ pin: z.string().regex(/^[0-9]{4,6}$/) }).parse(req.body)
+    let device: { kind?: string; tid: string; did?: string }
+    try {
+      device = app.jwt.verify(String(req.headers.authorization ?? '').replace(/^Bearer /, ''))
+    } catch {
+      // Токен устройства уже недействителен — держать кассу привязанной незачем.
+      return { ok: true }
+    }
+    if (device.kind !== 'device' || !device.did) return { ok: true }
+    const key = 'pin:' + device.did
+    checkThrottle(key)
+    const [row] = await db
+      .select({ role: roles })
+      .from(users)
+      .innerJoin(roles, eq(roles.id, users.roleId))
+      .where(and(eq(users.tenantId, device.tid), eq(users.pinHash, hashPin(device.tid, pin)), eq(users.active, true), isNull(users.deletedAt)))
+    if (!row) {
+      noteFailure(key)
+      throw new HttpError(401, 'bad_pin')
+    }
+    clearThrottle(key)
+    if (!row.role.isOwner && !row.role.panelAccess) throw new HttpError(403, 'no_permission')
+    return { ok: true }
+  })
+
   // ───────────── Справочники для кассы ─────────────
 
   async function openShift(conn: Conn, tenantId: string) {
