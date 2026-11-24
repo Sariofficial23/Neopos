@@ -84,14 +84,14 @@ export function ControlPanel({ onBack, onOpenReceipt }: { onBack: () => void; on
         <div className="cp-grid">
           <Tile icon="menu" tone="#925d30" label={t('dishMenu')} onClick={() => setPanel('menu')} />
           <Tile icon="archive" tone="#4d6691" label={t('receiptsTitle')} onClick={() => setPanel('receipts')} />
-          <Tile icon="report" tone="#0a84ff" label={t('cpReport')} onClick={() => setPanel('report')} />
+          <Tile icon="report" tone="#5b45e0" label={t('cpReport')} onClick={() => setPanel('report')} />
           {can('shift.cash_movement') && <Tile icon="cash" tone="#22b866" label={t('cpCash')} onClick={() => setPanel('cash')} />}
           <Tile icon="archive" tone="#ff9f0a" label={t('cpArchive')} onClick={() => setPanel('archive')} />
           {can('staff.edit') && <Tile icon="staff" tone="#bf5af2" label={t('cpStaff')} onClick={() => setPanel('staff')} />}
           <Tile icon="devices" tone="#5e5ce6" label={t('cpDevices')} onClick={() => setPanel('devices')} />
         </div>
         <div className="cp-grid cp-bottom">
-          <Tile icon="refresh" tone="#0a84ff" label={t('cpRefresh')} onClick={() => void refresh()} />
+          <Tile icon="refresh" tone="#5b45e0" label={t('cpRefresh')} onClick={() => void refresh()} />
           <Tile icon="logout" tone="#64748b" label={t('logout')} onClick={logout} />
           <Tile icon="fullscreen" tone="#64748b" label={t('cpFullscreen')} onClick={fullscreen} />
         </div>

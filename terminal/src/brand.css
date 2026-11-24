@@ -1,0 +1,52 @@
+/* ════════════════════════════════════════════════════════════════════════════
+   Фирменный цвет NeoPos — индиго. Раскладка экранов остаётся прежней, меняются
+   только цвета: вместо синего и сливового — индиго, акцент — коралл.
+   Файл подключается последним.
+   ════════════════════════════════════════════════════════════════════════════ */
+:root {
+  --np: #5b45e0; /* основной */
+  --np-deep: #3e2bb8; /* тёмный: полоса значков, нажатие */
+  --np-ink: #1b1433; /* верхняя панель */
+  --np-soft: #8e7bf5; /* чужой стол, второстепенное */
+  --np-tint: #edeafe; /* светлая подложка */
+  --np-coral: #e8735a; /* акцент: новый заказ, просрочено */
+  --cl-bar: var(--np-ink); --cl-rail: var(--np-deep); --cl-blue: var(--np); --cl-purple: var(--np-soft);
+  --cl-page: #f1effa; --cl-line: #e2def5;
+  --send: var(--np); --busy: var(--np-soft);
+  --text: #1b1433; --muted: #6b6585;
+}
+
+.input:focus { border-color: var(--np); box-shadow: 0 0 0 3px rgba(91, 69, 224, 0.2); }
+.btn.send:active, .pin-pad button:active { background: var(--np-deep); }
+
+/* Экран ПИН-кода */
+.pin-dots i.on { background: var(--np); border-color: var(--np); }
+.pin-pad button { background: var(--np); }
+.pin-pad button.grey { background: var(--np-tint); color: var(--np-deep); }
+.pin-bar .net.ok { color: var(--np); }
+
+/* Верхняя панель: «Новый заказ» — коралл, счётчик чеков — индиго */
+.bar .new { background: var(--np-coral); }
+.bar .n { background: var(--np); }
+.bar .bar-tabs button.on, .bar .hall-tabs button.on { background: var(--np); }
+
+/* Столы: свободный — белый, мой — индиго, чужой — светлый индиго, просрочено — коралл */
+.table, .samarkand .table { background: #fff; color: var(--np-deep); box-shadow: 0 0 0 1px #d6d0f5, 0 1px 3px rgba(27, 20, 51, 0.08); }
+.table small, .samarkand .table small { color: var(--muted); }
+.table.busy, .samarkand .table.busy, .table.bill, .samarkand .table.bill { background: var(--np-soft); color: #fff; box-shadow: 0 1px 4px rgba(27, 20, 51, 0.25); }
+.table.busy small, .table.bill small, .samarkand .table.busy small, .samarkand .table.bill small { color: #fff; }
+.table.busy.mine, .samarkand .table.busy.mine, .table.bill.mine, .samarkand .table.bill.mine { background: var(--np); }
+.table.busy.late, .samarkand .table.busy.late, .table.bill.late, .samarkand .table.bill.late { background: var(--np-coral); }
+.move-grid button { background: #fff; color: var(--np-deep); box-shadow: inset 0 0 0 1px #d6d0f5; }
+.move-grid button.taken { background: var(--np-soft); color: #fff; box-shadow: none; }
+.move-grid button.current { background: var(--np); color: #fff; box-shadow: none; }
+
+/* Заказ и оплата */
+.rail button.on, .rail .rail-print.on { color: #ffd24d; }
+.rail button.on::after { background: #ffd24d; }
+.pay-total b { color: var(--np); }
+.pay-switch .switch:checked { background: #cfc8f8; }
+.pay-switch .switch:checked::after { background: var(--np); }
+.switch:checked { background: var(--np); }
+.rc-row { background: #f6f4ff; }
+.gp-value, .rc-history div { background: #f6f4ff; }

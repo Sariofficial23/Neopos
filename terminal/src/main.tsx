@@ -6,6 +6,7 @@ import './styles.css'
 import './clopos.css'
 import './clopos-extra.css'
 import './clopos-pay.css'
+import './brand.css'
 
 installTapSound()
 
