@@ -449,3 +449,40 @@ body:has(.order-bar) {
 .receipt-owner { min-width: 0; font-size: 14px; }
 #root:has(.session-bar) .veil { top: 46px; }
 #root:has(.session-bar button:disabled) > :not(.session-bar) { pointer-events: none; }
+
+/* ── Экран ПИН-кода как в Clopos: слева фото, справа белая панель с синей клавиатурой ── */
+.pin-split { flex: 1; min-height: 0; display: grid; grid-template-columns: 1fr 1fr; background: #fff; }
+.pin-photo { position: relative; min-width: 0; background: var(--scene) center / cover no-repeat, #dfe5ee; }
+.pin-brand { position: absolute; top: 20px; left: 24px; display: inline-flex; align-items: center; gap: 8px; max-width: calc(100% - 48px); height: 40px; padding: 0 18px; border-radius: 999px; background: #fff; box-shadow: 0 2px 10px rgba(0, 0, 0, 0.18); font-weight: 600; font-size: 16px; }
+.pin-brand:has(img) { padding-left: 5px; }
+.pin-brand img { width: 30px; height: 30px; border-radius: 50%; object-fit: contain; }
+.pin-brand span { overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+.pin-panel { min-width: 0; min-height: 0; display: flex; flex-direction: column; background: #fff; }
+.pin-bar { flex: none; display: flex; align-items: center; justify-content: flex-end; gap: 12px; height: 72px; padding: 0 20px; }
+.pin-bar .pin-menu { position: relative; }
+.pin-ico { width: 44px; height: 44px; border-radius: 8px; display: grid; place-items: center; color: #1f2a44; }
+.pin-ico svg { width: 24px; height: 24px; fill: none; stroke: currentColor; stroke-width: 2.2; stroke-linecap: round; }
+.pin-ico:active { background: #eef1f6; }
+.pin-sep { width: 1px; height: 28px; background: #d9dee8; }
+.pin-bar .pin-menu-list { top: 50px; left: auto; right: 0; background: #fff; border: 1px solid #e3e7ef; border-radius: 10px; box-shadow: 0 10px 30px rgba(20, 30, 60, 0.18); }
+/* Значок связи: без плашки, зелёный или красный, как в Clopos */
+.pin-bar .net { height: auto; padding: 0; background: none; box-shadow: none; font-size: 13px; }
+.pin-bar .net.ok { color: #52c41a; }
+.pin-bar .net.off { color: #e03131; }
+.pin-bar .net svg { width: 24px; height: 24px; }
+.pin-body { flex: 1; min-height: 0; overflow-y: auto; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 14px; padding: 8px 20px 28px; }
+.pin-logo { height: 76px; width: auto; max-width: 80%; border-radius: 10px; margin-bottom: clamp(12px, 9vh, 96px); }
+.pin-hint { font-size: 13px; letter-spacing: 0.06em; text-transform: uppercase; color: #5b6478; text-align: center; }
+.pin-dots { display: flex; gap: 22px; }
+.pin-dots i { width: 16px; height: 16px; border-radius: 50%; border: 1.5px solid #c3cad8; background: #fff; }
+.pin-dots i.on { background: #1890ff; border-color: #1890ff; }
+.pin-dots.shake { animation: shake 0.35s; }
+.pin-body .err { min-height: 18px; }
+.pin-pad { display: grid; grid-template-columns: repeat(3, minmax(0, 100px)); gap: 10px; }
+.pin-pad button { height: 78px; border-radius: 8px; background: #1890ff; color: #fff; font-size: 30px; font-weight: 700; transition: transform 0.08s, background 0.1s; }
+.pin-pad button:active { transform: scale(0.96); background: #0f78dc; }
+.pin-pad button.grey { background: #7d8a99; font-size: 24px; }
+.pin-pad button.grey:active { background: #68747f; }
+@media (max-height: 640px) { .pin-pad button { height: 60px; font-size: 24px; } .pin-logo { height: 56px; margin-bottom: 12px; } .pin-bar { height: 56px; } }
+/* Узкий экран (телефон): фото убираем, остаётся панель */
+@media (max-width: 760px) { .pin-split { grid-template-columns: 1fr; } .pin-photo { display: none; } }

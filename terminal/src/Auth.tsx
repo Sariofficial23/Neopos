@@ -167,22 +167,29 @@ export function Pin({
   }, [press])
 
   return (
-    <div className="center pin-screen" data-scene="ocean">
-      {/* Слева — бренд заведения, справа — есть ли интернет */}
-      <header className="pin-top">
-        <div className="pin-left">
-          <div className="venue">
-            {info?.logo && <img src={mediaUrl(info.logo)} alt="" />}
-            <span>{info?.venue}</span>
+    <div className="pin-split" data-scene="ocean">
+      {/* Как в Clopos: слева фото заведения с названием бренда, справа белая панель с клавиатурой. */}
+      <div className="pin-photo">
+        {info?.venue && (
+          <div className="pin-brand">
+            {info.logo && <img src={mediaUrl(info.logo)} alt="" />}
+            <span>{info.venue}</span>
           </div>
+        )}
+      </div>
+
+      <div className="pin-panel">
+        <header className="pin-bar">
           <div className="pin-menu">
-            <button className="dots-btn" aria-label={t('more')} title={t('more')} aria-expanded={menuOpen} onClick={() => setMenuOpen((v) => !v)}>
-              ⋮
+            <button className="pin-ico" aria-label={t('more')} title={t('more')} aria-expanded={menuOpen} onClick={() => setMenuOpen((v) => !v)}>
+              <svg viewBox="0 0 24 24" aria-hidden="true">
+                <path d="M4 7h16M4 12h16M4 17h16" />
+              </svg>
             </button>
             {menuOpen && (
               <>
                 <div className="pin-menu-veil" onPointerDown={() => setMenuOpen(false)} />
-                <div className="pin-menu-list glass" role="menu">
+                <div className="pin-menu-list" role="menu">
                   <button role="menuitem" onClick={() => void refresh()}>
                     ↻ {t('cpRefresh')}
                   </button>
@@ -202,44 +209,44 @@ export function Pin({
               </>
             )}
           </div>
-        </div>
-        <NetStatus t={t} />
-      </header>
-      <div className="card glass">
-        <div className="brand"><img src={`${import.meta.env.BASE_URL}brand/neopos.webp`} alt="NeoPos" /></div>
-        <div className="sub">{exiting ? t('exitPinHint') : t('enterPin')}</div>
-        {exiting && (
-          <button
-            className="btn plain"
-            style={{ justifySelf: 'center', height: 36, padding: '0 16px', fontSize: 13 }}
-            onClick={() => {
-              setExiting(false)
-              setPin('')
-              setError('')
-            }}
-          >
-            ← {t('cancelExit')}
-          </button>
-        )}
-        <div className={`dots ${shake ? 'shake' : ''}`} aria-label={`${pin.length}/${PIN_LEN}`}>
-          {Array.from({ length: Math.max(PIN_LEN, pin.length) }, (_, i) => (
-            <i key={i} className={i < pin.length ? 'on' : ''} />
-          ))}
-        </div>
-        <div className="err" role="alert">
-          {error}
-        </div>
-        <div className="pad">
-          {['1', '2', '3', '4', '5', '6', '7', '8', '9'].map((d) => (
-            <button key={d} onClick={() => press(d)}>
-              {d}
+          <span className="pin-sep" />
+          <NetStatus t={t} />
+        </header>
+
+        <div className="pin-body">
+          <img className="pin-logo" src={`${import.meta.env.BASE_URL}brand/neopos.webp`} alt="NeoPos" />
+          <div className="pin-hint">{exiting ? t('exitPinHint') : t('enterPin')}</div>
+          <div className={`pin-dots ${shake ? 'shake' : ''}`} aria-label={`${pin.length}/${PIN_LEN}`}>
+            {Array.from({ length: Math.max(PIN_LEN, pin.length) }, (_, i) => (
+              <i key={i} className={i < pin.length ? 'on' : ''} />
+            ))}
+          </div>
+          <div className="err" role="alert">
+            {error}
+          </div>
+          <div className="pin-pad">
+            {['1', '2', '3', '4', '5', '6', '7', '8', '9'].map((d) => (
+              <button key={d} onClick={() => press(d)}>
+                {d}
+              </button>
+            ))}
+            <button className="grey" aria-label="Backspace" onClick={() => setPin((v) => v.slice(0, -1))}>
+              ⌫
             </button>
-          ))}
-          <span />
-          <button onClick={() => press('0')}>0</button>
-          <button className="ghost" aria-label="Backspace" onClick={() => setPin((p) => p.slice(0, -1))}>
-            ⌫
-          </button>
+            <button onClick={() => press('0')}>0</button>
+            {/* «×» стирает всё; в режиме выхода из бренда — отменяет выход */}
+            <button
+              className="grey"
+              aria-label={exiting ? t('cancelExit') : 'Clear'}
+              onClick={() => {
+                setPin('')
+                setError('')
+                setExiting(false)
+              }}
+            >
+              ✕
+            </button>
+          </div>
         </div>
       </div>
     </div>
