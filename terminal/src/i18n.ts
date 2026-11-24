@@ -9,6 +9,8 @@ const dict = {
   },
   brandField: { uz: 'Brend', ru: 'Бренд' },
   receiptsTitle: { uz: 'Cheklar', ru: 'Чеки' },
+  changeCalc: { uz: 'Qaytim hisobi', ru: 'Расчёт сдачи' },
+  closeShort: { uz: 'Yopish', ru: 'Закрыть' },
   receiptHistory: { uz: 'Chek tarixi', ru: 'История чека' },
   reopenReceipt: { uz: 'Chekni qayta ochish', ru: 'Открыть чек ещё раз' },
   reopenConfirm: { uz: 'Chek qayta ochilsinmi? To‘lov bekor qilinadi.', ru: 'Открыть чек ещё раз? Оплата будет снята.' },

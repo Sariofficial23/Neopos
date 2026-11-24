@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useRef, useState, type FormEvent, type RefObject } from 'react'
 import { api, money, qtyText, type Receipt, type ReceiptItem } from './api'
 import { useApp } from './app'
-import { Dialog, PayDialog } from './Dialogs'
+import { Dialog } from './Dialogs'
+import { PayScreen } from './Pay'
 import { CategoryForm, loadMenu, ProductForm, type FullCategory, type FullProduct } from './MenuEdit'
 import { LineDialog, MoveDialog } from './OrderExtras'
 import { guestReceipt, kitchenSlips, printSlips } from './print'
@@ -171,15 +172,30 @@ export function Order({ queue, receipt, setReceipt, onBack }: Props) {
       if (!q && editMode) return []
       if (q) return boot.products.filter((p) => p.name.uz.toLowerCase().includes(q) || p.name.ru.toLowerCase().includes(q))
     }
-    if (!editMode && cat === null) {
-      const favorites = boot.products.filter((p) => p.favorite && !p.stopped)
-      return favorites.length ? favorites : boot.products
-    }
+    // На главном экране меню стоят плитки категорий; блюда — после выбора категории.
+    // Блюда без категории стоят там же, после плиток категорий.
+    if (cat === null) return boot.products.filter((p) => p.categoryId === null)
     return boot.products.filter((p) => p.categoryId === cat)
   }, [boot.products, cat, query, editMode])
 
   const current = boot.categories.find((c) => c.id === cat)
   const title = receipt.tableName ? `${t('table')} ${receipt.tableName}` : (boot.saleTypes.find((s) => s.id === receipt.saleTypeId)?.name[lang] ?? t('noTable'))
+
+  // Закрытие счёта — отдельный экран на всё окно, как в Clopos.
+  if (dialog === 'pay')
+    return (
+      <PayScreen
+        receipt={receipt}
+        onBack={() => setDialog(null)}
+        onPaid={(change, closed, printReceipt) => {
+          toast(change > 0 ? `${t('paid')} · ${t('change')}: ${money(change)}` : t('paid'))
+          // Оплата сама отправляет на кухню то, что не успели отправить, — печатаем и это.
+          const late = new Set(fresh.map((i) => i.id))
+          printOut([...kitchen(closed, late), ...(printReceipt ? [guestReceipt(closed, boot, lang, { final: true, change })] : [])])
+          onBack()
+        }}
+      />
+    )
 
   return (
     <>
@@ -323,10 +339,10 @@ export function Order({ queue, receipt, setReceipt, onBack }: Props) {
                 <Svg>{Icon.gear}</Svg>
               </button>
             )}
-            {(!editMode || query !== null) ? (
+            {query !== null ? (
               <input
                 className="glass"
-                autoFocus={editMode}
+                autoFocus
                 type="search"
                 placeholder={t('search')}
                 aria-label={t('search')}
@@ -343,25 +359,14 @@ export function Order({ queue, receipt, setReceipt, onBack }: Props) {
             )}
           </div>
 
-          {!editMode && (
-            <nav className="tabs order-tabs" aria-label={t('allCategories')}>
-              <button aria-pressed={cat === null} className={cat === null ? 'on' : ''} onClick={() => { setCat(null); setQuery(null) }}>
-                {t('quickMenu')}
-              </button>
-              {boot.categories.map((c) => (
-                <button key={c.id} aria-pressed={cat === c.id} className={cat === c.id ? 'on' : ''} onClick={() => { setCat(c.id); setQuery(null) }}>
-                  {c.name[lang]}
-                </button>
-              ))}
-            </nav>
-          )}
           {editMode && <div className="edit-hint">⚙ {t('menuEditOn')}</div>}
 
+          {/* Как в Clopos: сначала плитки категорий, после выбора — блюда этой категории. «Домик» возвращает к категориям. */}
           <div className="tiles">
-            {editMode && query === null &&
+            {query === null &&
               cat === null &&
               boot.categories.map((c) => (
-                <button key={c.id} className={`tile ${editMode ? 'editing' : ''}`} style={{ ['--c' as string]: c.color ?? '#64748b' }} onClick={() => setCat(c.id)}>
+                <button key={c.id} className={`tile cat ${editMode ? 'editing' : ''}`} style={{ ['--c' as string]: c.color ?? '#64748b' }} onClick={() => setCat(c.id)}>
                   {editMode && (
                     <span
                       className="pen"
@@ -469,22 +474,6 @@ export function Order({ queue, receipt, setReceipt, onBack }: Props) {
         />
       )}
 
-      {dialog === 'pay' && (
-        <PayDialog
-          receipt={receipt}
-          onClose={() => setDialog(null)}
-          onPaid={(change, closed, printReceipt) => {
-            toast(change > 0 ? `${t('paid')} · ${t('change')}: ${money(change)}` : t('paid'))
-            // Оплата сама отправляет на кухню то, что не успели отправить, — печатаем и это.
-            const late = new Set(fresh.map((i) => i.id))
-            printOut([
-              ...kitchen(closed, late),
-              ...(printReceipt ? [guestReceipt(closed, boot, lang, { final: true, change })] : []),
-            ])
-            onBack()
-          }}
-        />
-      )}
     </>
   )
 }
