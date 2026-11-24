@@ -10,6 +10,7 @@ import { Login } from './pages/Login'
 import { MenuPage } from './pages/Menu'
 import { SettingsPage } from './pages/Settings'
 import { SubscriptionPage } from './pages/Subscription'
+import { SuppliesPage } from './pages/Supplies'
 import { TerminalsPage } from './pages/Terminals'
 import { ReceiptsPage } from './pages/Receipts'
 import { ReportsPage, TodayTiles } from './pages/Reports'
@@ -57,6 +58,7 @@ function App() {
         <Route path="customers" element={<Soon title="navCustomers" />} />
         <Route path="staff" element={<StaffPage />} />
         <Route path="roles" element={<RolesPage />} />
+        <Route path="supplies" element={<SuppliesPage />} />
         <Route path="terminals" element={<TerminalsPage />} />
         <Route path="settings" element={<SettingsPage />} />
         <Route path="subscription" element={<SubscriptionPage />} />

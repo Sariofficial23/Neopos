@@ -7,6 +7,7 @@ import type { DB } from './db/index.js'
 import { adminRoutes } from './routes/admin.js'
 import { authRoutes } from './routes/auth.js'
 import { brandRoutes } from './routes/brand.js'
+import { supplyRoutes } from './routes/supplies.js'
 import { terminalRoutes } from './routes/terminals.js'
 import { subscriptionRoutes } from './routes/subscription.js'
 import { telegramRoutes } from './routes/telegram.js'
@@ -61,6 +62,7 @@ export async function buildApp(db: DB) {
   adminRoutes(app, db)
   financeRoutes(app, db)
   brandRoutes(app, db)
+  supplyRoutes(app, db)
   terminalRoutes(app, db)
   subscriptionRoutes(app, db)
   telegramRoutes(app)

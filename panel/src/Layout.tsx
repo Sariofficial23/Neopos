@@ -25,6 +25,7 @@ const NAV: NavItem[] = [
   { to: '/reports', label: 'navReports', perm: 'reports.view', icon: <I><path d="M4 20V4M4 20h16M8 16v-5M12 16V8M16 16v-3" /></I> },
   { to: '/', label: 'navDashboard', icon: <I><path d="M4 13h6V4H4zM14 20h6v-9h-6zM4 20h6v-3H4zM14 7h6V4h-6z" /></I> },
   { to: '/menu', label: 'navMenu', perm: 'menu.view', icon: <I><path d="M7 3v8M4 3v5a3 3 0 0 0 6 0V3M7 11v10M17 3c-2 2-3 4-3 7h3zM17 10v11" /></I> },
+  { to: '/supplies', label: 'navSupplies', perm: 'menu.view', icon: <I><path d="M3 8l9-5 9 5v8l-9 5-9-5zM3 8l9 5 9-5M12 13v8" /></I> },
   { to: '/halls', label: 'navHalls', perm: 'halls.edit', icon: <I><path d="M3 9h18M5 9v10M19 9v10M8 9V5h8v4M8 14h8" /></I> },
   { to: '/receipts', label: 'navReceipts', perm: 'sales.view', icon: <I><path d="M6 3h12v18l-3-2-3 2-3-2-3 2zM9 8h6M9 12h6" /></I> },
   { to: '/customers', label: 'navCustomers', perm: 'customers.view', icon: <I><circle cx="12" cy="8" r="4" /><path d="M4 21c0-4 4-6 8-6s8 2 8 6" /></I> },

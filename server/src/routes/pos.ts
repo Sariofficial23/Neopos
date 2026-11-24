@@ -12,6 +12,7 @@ import {
 } from '../auth.js'
 import { schema, type DB } from '../db/index.js'
 import { brandImages } from './brand.js'
+import { adjustStockForReceipt } from './supplies.js'
 import { listPrinters } from './finance.js'
 
 const idParam = z.object({ id: z.string().uuid() })
@@ -881,6 +882,7 @@ export function posRoutes(app: FastifyInstance, db: DB) {
       }
       await tx.delete(payments).where(eq(payments.receiptId, id))
       await tx.update(receipts).set({ status: 'open', closedAt: null, billPrinted: false, suspicious: true }).where(eq(receipts.id, id))
+      await adjustStockForReceipt(tx, id, 1)
       await log(tx, req, id, 'receipt.reopen', { number: r.number, total: r.total }, true)
       return fullReceipt(tx, tenantId, id)
     })
@@ -970,6 +972,7 @@ export function posRoutes(app: FastifyInstance, db: DB) {
       const shift = await openShift(tx, tenantId)
       if (!shift || shift.id !== r.shiftId) throw new HttpError(409, 'refund_other_shift')
       await tx.update(receipts).set({ status: 'refunded', suspicious: true }).where(eq(receipts.id, id))
+      await adjustStockForReceipt(tx, id, 1)
       await log(tx, req, id, 'receipt.refund', { number: r.number, total: r.total }, true)
       return fullReceipt(tx, tenantId, id)
     })
@@ -1046,6 +1049,8 @@ export function posRoutes(app: FastifyInstance, db: DB) {
         .filter((p) => p.amount > 0)
       if (rows.length) await tx.insert(payments).values(rows)
       await tx.update(receipts).set({ status: 'closed', closedAt: new Date() }).where(eq(receipts.id, id))
+      // Товары с учётом остатка списываются в момент оплаты.
+      await adjustStockForReceipt(tx, id, -1)
       await log(tx, req, id, 'receipt.pay', { total: r.total, paid, change, number: r0.number })
       return { receipt: await fullReceipt(tx, tenantId, id), change }
     })

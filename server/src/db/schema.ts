@@ -143,6 +143,9 @@ export const products = pgTable(
     /** pcs | kg | l */
     unit: text('unit').notNull().default('pcs'),
     byWeight: boolean('by_weight').notNull().default(false),
+    /** Учёт остатка: включается первым приходом. Остаток в тысячных (1000 = 1 шт), может уйти в минус. */
+    trackStock: boolean('track_stock').notNull().default(false),
+    stock: integer('stock').notNull().default(0),
     favorite: boolean('favorite').notNull().default(false),
     /** Стоп-лист: временно снят с продажи */
     stopped: boolean('stopped').notNull().default(false),
@@ -568,4 +571,49 @@ export const brandMedia = pgTable(
     updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
   },
   (t) => [uniqueIndex('brand_media_kind_uq').on(t.tenantId, t.kind)],
+)
+
+// ───────────── Приход товаров (штучные товары) ─────────────
+
+/**
+ * Приход: накладная от поставщика. Увеличивает остаток товара и пересчитывает его себестоимость
+ * как среднюю взвешенную. Это не полный склад: без тех. карт, перемещений и инвентаризации.
+ */
+export const supplies = pgTable(
+  'supplies',
+  {
+    id: id(),
+    tenantId: tenantRef(),
+    /** Порядковый номер прихода внутри заведения */
+    number: integer('number').notNull(),
+    supplier: text('supplier').notNull().default(''),
+    note: text('note'),
+    /** Сумма накладной в сумах */
+    total: bigint('total', { mode: 'number' }).notNull().default(0),
+    createdBy: uuid('created_by').references(() => users.id),
+    /** Дата прихода (может быть прошлой) */
+    date: timestamp('date', { withTimezone: true }).notNull().defaultNow(),
+    createdAt: createdAt(),
+  },
+  (t) => [index('supplies_tenant_idx').on(t.tenantId, t.date)],
+)
+
+export const supplyItems = pgTable(
+  'supply_items',
+  {
+    id: id(),
+    tenantId: tenantRef(),
+    supplyId: uuid('supply_id')
+      .notNull()
+      .references(() => supplies.id, { onDelete: 'cascade' }),
+    productId: uuid('product_id')
+      .notNull()
+      .references(() => products.id),
+    /** Количество в тысячных: 1000 = 1 шт */
+    qty: integer('qty').notNull(),
+    /** Цена закупки за единицу, сум */
+    cost: bigint('cost', { mode: 'number' }).notNull(),
+    total: bigint('total', { mode: 'number' }).notNull(),
+  },
+  (t) => [index('supply_items_supply_idx').on(t.supplyId), index('supply_items_product_idx').on(t.productId)],
 )

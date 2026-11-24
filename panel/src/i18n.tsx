@@ -42,6 +42,7 @@ const dict = {
   navRoles: { uz: 'Lavozimlar', ru: 'Должности' },
   navSettings: { uz: 'Sozlamalar', ru: 'Настройки' },
   navTerminals: { uz: 'Terminallar', ru: 'Терминалы' },
+  navSupplies: { uz: 'Tovar kirimi', ru: 'Приход товаров' },
   setTerminal: { uz: 'Terminal', ru: 'Терминал' },
   tableRedMinutes: { uz: 'Stol rangini o‘zgartirish, daqiqa', ru: 'Изменение цвета стола, минут' },
   tableRedHint: {
