@@ -1,6 +1,7 @@
 import { buildApp } from './app.js'
 import { openDb } from './db/index.js'
 import { ensurePlatformAdmin } from './routes/admin.js'
+import { startLocalSync } from './routes/sync.js'
 import { startTelegramBot } from './routes/telegram.js'
 
 const db = await openDb()
@@ -23,3 +24,6 @@ if (selfUrl) {
     })
   }, 10 * 60_000).unref()
 }
+
+// Главный терминал заведения: фоновый обмен с облаком (docs/LOCAL-NETWORK.md).
+void startLocalSync(db, { info: (m) => app.log.info(m), warn: (m) => app.log.warn(m) })

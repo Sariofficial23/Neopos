@@ -5,6 +5,7 @@ import {
   checkThrottle,
   clearThrottle,
   hashPin,
+  legacyHashPin,
   HttpError,
   makeAuthGuards,
   noteFailure,
@@ -13,6 +14,7 @@ import {
 import { schema, type DB } from '../db/index.js'
 import { brandImages } from './brand.js'
 import { adjustStockForReceipt } from './supplies.js'
+import { numberBase } from './sync.js'
 import { listPrinters } from './finance.js'
 
 const idParam = z.object({ id: z.string().uuid() })
@@ -195,7 +197,7 @@ export function posRoutes(app: FastifyInstance, db: DB) {
       .where(
         and(
           eq(users.tenantId, device.tid),
-          eq(users.pinHash, hashPin(device.tid, pin)),
+          inArray(users.pinHash, [hashPin(device.tid, pin), legacyHashPin(device.tid, pin)]),
           eq(users.active, true),
           isNull(users.deletedAt),
         ),
@@ -205,6 +207,10 @@ export function posRoutes(app: FastifyInstance, db: DB) {
       throw new HttpError(401, 'bad_pin')
     }
     clearThrottle(key)
+    // ПИН-код, сохранённый по-старому, при входе переводим на ключ заведения: так он заработает и без интернета.
+    if (row.user.pinHash !== hashPin(device.tid, pin)) {
+      await db.update(users).set({ pinHash: hashPin(device.tid, pin) }).where(eq(users.id, row.user.id))
+    }
     await db.update(terminals).set({ lastSeenAt: new Date() }).where(eq(terminals.id, terminal.id))
     return {
       token: app.jwt.sign({ sub: row.user.id, tid: device.tid, did: terminal.id }, { expiresIn: '16h' }),
@@ -231,7 +237,7 @@ export function posRoutes(app: FastifyInstance, db: DB) {
       .select({ role: roles })
       .from(users)
       .innerJoin(roles, eq(roles.id, users.roleId))
-      .where(and(eq(users.tenantId, device.tid), eq(users.pinHash, hashPin(device.tid, pin)), eq(users.active, true), isNull(users.deletedAt)))
+      .where(and(eq(users.tenantId, device.tid), inArray(users.pinHash, [hashPin(device.tid, pin), legacyHashPin(device.tid, pin)]), eq(users.active, true), isNull(users.deletedAt)))
     if (!row) {
       noteFailure(key)
       throw new HttpError(401, 'bad_pin')
@@ -465,7 +471,7 @@ export function posRoutes(app: FastifyInstance, db: DB) {
     return db.transaction(async (tx) => {
       if (await openShift(tx, tenantId)) throw new HttpError(409, 'shift_already_open')
       const [{ max }] = await tx
-        .select({ max: sql<number>`coalesce(max(${shifts.number}), 0)::int`.mapWith(Number) })
+        .select({ max: sql<number>`greatest(coalesce(max(${shifts.number}), 0), ${numberBase('shift', tenantId)})::int`.mapWith(Number) })
         .from(shifts)
         .where(eq(shifts.tenantId, tenantId))
       const [shift] = await tx
@@ -655,7 +661,7 @@ export function posRoutes(app: FastifyInstance, db: DB) {
       if (!type) throw new HttpError(400, 'bad_sale_type')
 
       const [{ max }] = await tx
-        .select({ max: sql<number>`coalesce(max(${receipts.number}), 0)::int`.mapWith(Number) })
+        .select({ max: sql<number>`greatest(coalesce(max(${receipts.number}), 0), ${numberBase('receipt', tenantId)})::int`.mapWith(Number) })
         .from(receipts)
         .where(eq(receipts.tenantId, tenantId))
       const [r] = await tx

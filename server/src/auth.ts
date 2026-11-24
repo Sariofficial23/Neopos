@@ -39,8 +39,26 @@ export async function verifyPassword(password: string, stored: string | null): P
   return timingSafeEqual(actual, expected)
 }
 
+/**
+ * Ключ ПИН-кодов заведения. Он свой у каждого заведения и выводится из секрета сервера,
+ * поэтому его можно передать главному терминалу этого заведения (работа без интернета),
+ * не раскрывая общий секрет. Локальный сервер получает ключ при обмене с облаком.
+ */
+const pinKeys = new Map<string, string>()
+export function setPinKey(tenantId: string, key: string) {
+  pinKeys.set(tenantId, key)
+}
+export function pinKey(tenantId: string): string {
+  return pinKeys.get(tenantId) ?? createHmac('sha256', getSecret()).update(`pin-key:${tenantId}`).digest('hex')
+}
+
 /** Детерминированный хеш ПИН-кода внутри заведения: по нему ищем сотрудника на терминале. */
 export function hashPin(tenantId: string, pin: string): string {
+  return createHmac('sha256', pinKey(tenantId)).update(`${tenantId}:${pin}`).digest('hex')
+}
+
+/** Прежний способ (общий секрет сервера): нужен, чтобы старые ПИН-коды продолжали работать и обновлялись при входе. */
+export function legacyHashPin(tenantId: string, pin: string): string {
   return createHmac('sha256', getSecret()).update(`${tenantId}:${pin}`).digest('hex')
 }
 

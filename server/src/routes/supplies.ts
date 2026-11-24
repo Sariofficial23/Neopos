@@ -158,7 +158,9 @@ export function supplyRoutes(app: FastifyInstance, db: DB) {
  * Изменяет остаток товаров чека: при оплате списывает (sign = -1), при возврате и повторном открытии возвращает (+1).
  * Затрагивает только товары с включённым учётом; угощение тоже списывается — его съели.
  */
-export async function adjustStockForReceipt(tx: Parameters<Parameters<DB['transaction']>[0]>[0], receiptId: string, sign: 1 | -1) {
+export async function adjustStockForReceipt(tx: Parameters<Parameters<DB['transaction']>[0]>[0], receiptId: string, sign: 1 | -1, fromSync = false) {
+  // На главном терминале остаток не трогаем: его считает облако по присланным чекам и возвращает при обмене.
+  if (process.env.NEOPOS_LOCAL === '1' && !fromSync) return
   const { receiptItems } = schema
   const items = await tx
     .select({ productId: receiptItems.productId, qty: sql<number>`sum(${receiptItems.qty})::int`.mapWith(Number) })
