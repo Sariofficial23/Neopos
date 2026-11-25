@@ -4,6 +4,7 @@ import type { FastifyInstance } from 'fastify'
 import { z } from 'zod'
 import { HttpError, makeAuthGuards } from '../auth.js'
 import { schema, type DB } from '../db/index.js'
+import { aiConfigured, writeSummary } from '../ai.js'
 import { dayStartOf } from './settings.js'
 
 const { receipts, receiptItems, payments, paymentMethods, saleTypes, users, tables, products, categories, reasons, auditLog, shifts } =
@@ -411,9 +412,7 @@ export function reportRoutes(app: FastifyInstance, db: DB) {
    * открытие чеков, снижение цены, большие скидки, угощения, расхождение кассы. Каждому случаю — вес,
    * по сумме весов сотрудник получает уровень риска; тот, кто заметно выбивается из остальных, помечается.
    */
-  app.get('/api/reports/suspicious', { preHandler: requirePerm('reports.view') }, async (req) => {
-    const { start, end } = range(req.query, await dayStart(req.auth.tenantId))
-    const tenantId = req.auth.tenantId
+  async function suspiciousFor(tenantId: string, start: Date, end: Date) {
     const rows = await db
       .select({
         id: auditLog.id,
@@ -525,6 +524,86 @@ export function reportRoutes(app: FastifyInstance, db: DB) {
         high: byUser.filter((u) => u.level === 'high').length,
       },
     }
+  }
+
+  app.get('/api/reports/suspicious', { preHandler: requirePerm('reports.view') }, async (req) => {
+    const { start, end } = range(req.query, await dayStart(req.auth.tenantId))
+    return suspiciousFor(req.auth.tenantId, start, end)
+  })
+
+  // ───────────── ИИ-сводка ─────────────
+
+  /** Цифры для сводки: всё считает программа, модель получает только этот набор. */
+  async function summaryFacts(tenantId: string, q: unknown) {
+    const { start, end, dayStartHour } = range(q, await dayStart(tenantId))
+    const { from, to } = rangeQuery.parse(q)
+    const length = end.getTime() - start.getTime()
+    const [cur, prev, sus, tenantRow] = await Promise.all([
+      buildSummary(db, tenantId, { start, end, dayStartHour }),
+      buildSummary(db, tenantId, { start: new Date(start.getTime() - length), end: start, dayStartHour }),
+      suspiciousFor(tenantId, start, end),
+      db.select({ name: schema.tenants.name }).from(schema.tenants).where(eq(schema.tenants.id, tenantId)),
+    ])
+    const qty = (v: number) => Math.round(v) / 1000
+    return {
+      venue: tenantRow[0]?.name ?? '',
+      period: { from, to, days: Math.round(length / 86_400_000) },
+      totals: cur.totals,
+      previousPeriodTotals: prev.totals.receipts > 0 ? prev.totals : null,
+      byDay: cur.byDay,
+      paymentMethods: cur.byMethod.map((m) => ({ name: m.name.ru, amount: m.amount })),
+      saleTypes: cur.bySaleType.map((s) => ({ name: s.name.ru, receipts: s.receipts, revenue: s.revenue })),
+      waiters: cur.byWaiter.map((w) => ({ name: w.name, receipts: w.receipts, revenue: w.revenue })),
+      topProducts: cur.byProduct.slice(0, 12).map((p) => ({ name: p.name.ru, qty: qty(p.qty), amount: p.amount, cost: p.cost, profit: p.amount - p.cost })),
+      categories: cur.byCategory.slice(0, 10).map((c) => ({ name: c.name?.ru ?? 'без категории', amount: c.amount })),
+      voidedItems: cur.voids,
+      cashOperations: { expense: cur.cash.expense, income: cur.cash.income, collection: cur.cash.collection },
+      suspicious: {
+        totals: sus.totals,
+        employees: sus.byUser.slice(0, 8).map((u) => ({
+          name: u.name,
+          closedReceipts: u.receipts,
+          riskLevel: u.level,
+          standsOut: u.outlier,
+          counts: Object.fromEntries(Object.entries(u.counts).filter(([, v]) => v > 0)),
+          amounts: Object.fromEntries(Object.entries(u.amounts).filter(([, v]) => v > 0)),
+        })),
+        notableCases: sus.cases.slice(0, 12).map((c) => ({ what: c.kind, employee: c.userName, receipt: c.receiptNumber, table: c.tableName, amount: Math.abs(c.amount) })),
+      },
+    }
+  }
+
+  // Сводка стоит денег за каждый запрос к модели: одну и ту же не заказываем дважды и ограничиваем число в сутки.
+  const aiCache = new Map<string, { at: number; value: { text: string; generatedAt: string; model: string } }>()
+  const aiCount = new Map<string, { day: string; n: number }>()
+  const AI_PER_DAY = 30
+
+  /** Доступна ли ИИ-сводка на этом сервере (задан ли ключ) — чтобы панель показала подсказку, а не ошибку. */
+  app.get('/api/reports/ai-summary/status', { preHandler: requirePerm('reports.view') }, async () => ({ configured: aiConfigured() }))
+
+  /**
+   * ИИ-сводка за период. ?dry=1 — вернуть только набор цифр, без обращения к модели (для проверки и отладки).
+   * Тот же период и язык в течение 15 минут отдаются из памяти без нового запроса.
+   */
+  app.post('/api/reports/ai-summary', { preHandler: requirePerm('reports.view') }, async (req) => {
+    const tenantId = req.auth.tenantId
+    const body = z.object({ from: day, to: day, lang: z.enum(['uz', 'ru']).default('ru'), dry: z.boolean().default(false), fresh: z.boolean().default(false) }).parse(req.body)
+    const facts = await summaryFacts(tenantId, body)
+    if (body.dry) return { facts }
+    if (!aiConfigured()) throw new HttpError(503, 'ai_not_configured')
+    const key = `${tenantId}:${body.from}:${body.to}:${body.lang}`
+    const hit = aiCache.get(key)
+    if (hit && !body.fresh && Date.now() - hit.at < 15 * 60_000) return { ...hit.value, cached: true }
+    const today = new Date().toISOString().slice(0, 10)
+    const used = aiCount.get(tenantId)
+    const n = used?.day === today ? used.n : 0
+    if (n >= AI_PER_DAY) throw new HttpError(429, 'ai_limit')
+    aiCount.set(tenantId, { day: today, n: n + 1 })
+    const res = await writeSummary(facts, body.lang)
+    req.log.info({ tenantId, inputTokens: res.inputTokens, outputTokens: res.outputTokens, model: res.model }, 'ai summary')
+    const value = { text: res.text, generatedAt: new Date().toISOString(), model: res.model }
+    aiCache.set(key, { at: Date.now(), value })
+    return { ...value, cached: false }
   })
 
   /** Отчёт «История»: журнал действий сотрудников за период — кто, когда и что сделал. */

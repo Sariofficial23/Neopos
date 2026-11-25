@@ -5,6 +5,7 @@ import { useI18n } from '../i18n'
 import { dateTime, PeriodPicker, todayPeriod, type Period } from '../period'
 import { ErrorNote, Segmented } from '../ui'
 import { HistoryReport, ProductsReport, SalaryReport } from './ReportTabs'
+import { AiSummary } from './AiSummary'
 import { SuspiciousReport } from './Suspicious'
 
 type Summary = {
@@ -223,7 +224,7 @@ export function TodayTiles() {
 export function ReportsPage() {
   const { t, tErr, lang } = useI18n()
   const [period, setPeriod] = useState<Period>(todayPeriod)
-  const [tab, setTab] = useState<'sales' | 'products' | 'salary' | 'shifts' | 'history' | 'suspicious'>('sales')
+  const [tab, setTab] = useState<'sales' | 'products' | 'salary' | 'shifts' | 'history' | 'suspicious' | 'ai'>('sales')
   const { data, error } = useSummary(period)
   const [shifts, setShifts] = useState<ShiftRow[] | null>(null)
   const [shiftError, setShiftError] = useState<string | null>(null)
@@ -287,6 +288,7 @@ export function ReportsPage() {
             { value: 'shifts', label: t('rShifts') },
             { value: 'history', label: t('rHistory') },
             { value: 'suspicious', label: t('rSuspicious') },
+            { value: 'ai', label: t('rAi') },
           ]}
         />
       </div>
@@ -384,6 +386,7 @@ export function ReportsPage() {
       {tab === 'history' && <HistoryReport period={period} />}
       {tab === 'salary' && <SalaryReport period={period} />}
       {tab === 'suspicious' && <SuspiciousReport period={period} />}
+      {tab === 'ai' && <AiSummary period={period} />}
 
       {tab === 'shifts' && (
         <>
