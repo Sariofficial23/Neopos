@@ -405,6 +405,128 @@ export function reportRoutes(app: FastifyInstance, db: DB) {
     return { rows, days: Math.round((end.getTime() - start.getTime()) / 86_400_000) }
   })
 
+  /**
+   * Отчёт «Подозрительные действия»: не отдельные записи журнала, а поведение сотрудников за период.
+   * Считается обычными правилами по журналу действий: удаления после выданного счёта, возвраты, повторное
+   * открытие чеков, снижение цены, большие скидки, угощения, расхождение кассы. Каждому случаю — вес,
+   * по сумме весов сотрудник получает уровень риска; тот, кто заметно выбивается из остальных, помечается.
+   */
+  app.get('/api/reports/suspicious', { preHandler: requirePerm('reports.view') }, async (req) => {
+    const { start, end } = range(req.query, await dayStart(req.auth.tenantId))
+    const tenantId = req.auth.tenantId
+    const rows = await db
+      .select({
+        id: auditLog.id,
+        action: auditLog.action,
+        data: auditLog.data,
+        createdAt: auditLog.createdAt,
+        userId: auditLog.userId,
+        userName: users.name,
+        receiptId: auditLog.receiptId,
+        receiptNumber: receipts.number,
+        tableName: tables.name,
+      })
+      .from(auditLog)
+      .leftJoin(users, eq(users.id, auditLog.userId))
+      .leftJoin(receipts, eq(receipts.id, auditLog.receiptId))
+      .leftJoin(tables, eq(tables.id, receipts.tableId))
+      .where(and(eq(auditLog.tenantId, tenantId), gte(auditLog.createdAt, start), lt(auditLog.createdAt, end)))
+      .orderBy(asc(auditLog.createdAt))
+      .limit(50_000)
+    const closedBy = await db
+      .select({ waiterId: receipts.waiterId, n: num(sql`count(*)`), revenue: num(sql`sum(${receipts.total})`) })
+      .from(receipts)
+      .where(and(eq(receipts.tenantId, tenantId), eq(receipts.status, 'closed'), gte(receipts.closedAt, start), lt(receipts.closedAt, end)))
+      .groupBy(receipts.waiterId)
+
+    type Kind = 'void_after_bill' | 'void' | 'refund' | 'reopen' | 'price_down' | 'discount' | 'comp' | 'unlock' | 'cash_diff' | 'cancel'
+    /** Вес случая: чем опаснее действие, тем больше. */
+    const WEIGHT: Record<Kind, number> = { void_after_bill: 5, cash_diff: 5, refund: 4, reopen: 4, price_down: 3, discount: 3, comp: 2, unlock: 2, void: 1, cancel: 0 }
+    const n = (v: unknown) => (typeof v === 'number' && Number.isFinite(v) ? v : 0)
+    const cases: { id: string; kind: Kind; at: Date; userId: string | null; userName: string | null; receiptId: string | null; receiptNumber: number | null; tableName: string | null; amount: number; data: Record<string, unknown> }[] = []
+    /** Когда по чеку впервые напечатали счёт гостю: удаление после этого — самый частый способ «уменьшить» чек. */
+    const billedAt = new Map<string, Date>()
+    for (const a of rows) {
+      const d = (a.data ?? {}) as Record<string, unknown>
+      const add = (kind: Kind, amount = 0) =>
+        cases.push({ id: a.id, kind, at: a.createdAt, userId: a.userId, userName: a.userName, receiptId: a.receiptId, receiptNumber: a.receiptNumber, tableName: a.tableName, amount, data: d })
+      switch (a.action) {
+        case 'receipt.bill':
+          if (a.receiptId && !billedAt.has(a.receiptId)) billedAt.set(a.receiptId, a.createdAt)
+          break
+        case 'item.void':
+          add(a.receiptId && billedAt.has(a.receiptId) ? 'void_after_bill' : 'void', n(d.total))
+          break
+        case 'receipt.refund':
+          add('refund', n(d.total))
+          break
+        case 'receipt.reopen':
+          add('reopen', n(d.total))
+          break
+        case 'item.price':
+          if (n(d.to) < n(d.from)) add('price_down', n(d.from) - n(d.to))
+          break
+        case 'receipt.discount':
+          // Скидка на чек: считаем подозрительной от 20% и любую скидку суммой.
+          if ((d.kind === 'percent' && n(d.value) >= 20) || d.kind === 'amount') add('discount', d.kind === 'amount' ? n(d.value) : 0)
+          break
+        case 'item.discount':
+          if (n(d.amount) > 0 && ((d.kind === 'percent' && n(d.value) >= 20) || d.kind === 'amount')) add('discount', n(d.amount))
+          break
+        case 'item.comp':
+          add('comp', n(d.total))
+          break
+        case 'receipt.unlock':
+          add('unlock')
+          break
+        case 'receipt.cancel':
+          add('cancel')
+          break
+        case 'shift.close':
+          if (n(d.countedCash) !== n(d.expectedCash)) add('cash_diff', n(d.countedCash) - n(d.expectedCash))
+          break
+      }
+    }
+
+    const receiptsBy = new Map(closedBy.map((c) => [c.waiterId, c]))
+    type Stat = { userId: string | null; name: string; receipts: number; revenue: number; counts: Record<Kind, number>; amounts: Record<Kind, number>; score: number }
+    const zero = (): Record<Kind, number> => ({ void_after_bill: 0, void: 0, refund: 0, reopen: 0, price_down: 0, discount: 0, comp: 0, unlock: 0, cash_diff: 0, cancel: 0 })
+    const stats = new Map<string, Stat>()
+    for (const c of cases) {
+      const key = c.userId ?? ''
+      const st = stats.get(key) ?? { userId: c.userId, name: c.userName ?? '—', receipts: receiptsBy.get(c.userId)?.n ?? 0, revenue: receiptsBy.get(c.userId)?.revenue ?? 0, counts: zero(), amounts: zero(), score: 0 }
+      st.counts[c.kind]++
+      st.amounts[c.kind] += Math.abs(c.amount)
+      st.score += WEIGHT[c.kind]
+      stats.set(key, st)
+    }
+    const list = [...stats.values()].filter((s) => s.score > 0)
+    // Кто выбивается: балл вдвое выше среднего остальных и не случайная единичная операция.
+    const byUser = list
+      .map((s) => {
+        const others = list.filter((o) => o !== s)
+        const avg = others.length ? others.reduce((a, o) => a + o.score, 0) / others.length : 0
+        const outlier = s.score >= 8 && others.length > 0 && s.score >= avg * 2
+        const level = s.score >= 15 || (outlier && s.score >= 10) ? 'high' : s.score >= 6 ? 'medium' : 'low'
+        return { ...s, outlier, level }
+      })
+      .sort((a, b) => b.score - a.score)
+
+    const shown = cases.filter((c) => WEIGHT[c.kind] > 0).sort((a, b) => WEIGHT[b.kind] - WEIGHT[a.kind] || b.at.getTime() - a.at.getTime())
+    return {
+      byUser,
+      cases: shown.slice(0, 1000).map((c) => ({ ...c, weight: WEIGHT[c.kind] })),
+      totalCases: shown.length,
+      // Сколько денег затронуто самыми опасными действиями — одной строкой для сводки.
+      totals: {
+        voidAfterBill: shown.filter((c) => c.kind === 'void_after_bill').reduce((a, c) => a + c.amount, 0),
+        refunds: shown.filter((c) => c.kind === 'refund').reduce((a, c) => a + c.amount, 0),
+        comps: shown.filter((c) => c.kind === 'comp').reduce((a, c) => a + c.amount, 0),
+        high: byUser.filter((u) => u.level === 'high').length,
+      },
+    }
+  })
+
   /** Отчёт «История»: журнал действий сотрудников за период — кто, когда и что сделал. */
   app.get('/api/reports/history', { preHandler: requirePerm('reports.view') }, async (req) => {
     const { start, end } = range(req.query, await dayStart(req.auth.tenantId))
