@@ -87,3 +87,13 @@
 .rail, .order-work .rail { overflow-y: auto; scrollbar-width: none; }
 .rail::-webkit-scrollbar { display: none; }
 .rail button { flex: none; }
+
+/* Список касс в окне «Локальная сеть» */
+.lan-kassas { display: grid; gap: 4px; max-height: 34vh; overflow-y: auto; }
+.lan-kassa { display: flex; align-items: center; gap: 10px; padding: 8px 10px; border-radius: 4px; background: #f6f4ff; font-size: 14px; }
+.lan-kassa i { flex: none; width: 10px; height: 10px; border-radius: 50%; background: #e03131; }
+.lan-kassa.on i { background: #2bb656; }
+.lan-kassa-name { min-width: 0; flex: 1; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.lan-kassa-name em { margin-left: 6px; padding: 1px 7px; border-radius: 999px; background: var(--np-tint); color: var(--np-deep); font-style: normal; font-size: 11px; font-weight: 600; }
+.lan-kassa b { flex: none; font-size: 13px; font-weight: 600; color: #e03131; }
+.lan-kassa.on b { color: #2bb656; }

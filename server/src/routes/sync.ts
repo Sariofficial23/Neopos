@@ -70,11 +70,12 @@ function reviveRows(table: AnyTable, rows: Row[]): Row[] {
 }
 
 /** Вставка или обновление по id. Строки с пустым parentId идут первыми (ссылки внутри таблицы). */
-async function upsert(conn: Pick<DB, 'insert'>, table: AnyTable, rows: Row[]) {
+async function upsert(conn: Pick<DB, 'insert'>, table: AnyTable, rows: Row[], keep: string[] = []) {
   if (!rows.length) return
   const cols = getTableColumns(table) as Record<string, { name: string }>
   const set: Record<string, unknown> = {}
-  for (const [key, col] of Object.entries(cols)) if (key !== 'id') set[key] = sql.raw(`excluded."${col.name}"`)
+  // keep — поля, которые при обновлении остаются местными (например, когда касса была на связи).
+  for (const [key, col] of Object.entries(cols)) if (key !== 'id' && !keep.includes(key)) set[key] = sql.raw(`excluded."${col.name}"`)
   const ordered = [...reviveRows(table, rows)].sort((a, b) => Number(a.parentId != null) - Number(b.parentId != null))
   for (let i = 0; i < ordered.length; i += 200) {
     await conn
@@ -98,6 +99,8 @@ const pushBody = z.object({
   payments: z.array(z.record(z.string(), z.unknown())).max(20_000).default([]),
   cashMovements: z.array(z.record(z.string(), z.unknown())).max(5000).default([]),
   auditLog: z.array(z.record(z.string(), z.unknown())).max(100_000).default([]),
+  /** Когда кассы заведения были на связи с главным терминалом — чтобы в панели горело «Онлайн» */
+  terminalsSeen: z.array(z.object({ id: z.string().uuid(), lastSeenAt: z.string().datetime({ offset: true }) })).max(500).default([]),
 })
 
 export function syncRoutes(app: FastifyInstance, db: DB) {
@@ -198,7 +201,15 @@ export function syncRoutes(app: FastifyInstance, db: DB) {
 
   app.post('/api/sync/push', { bodyLimit: 30_000_000 }, async (req) => {
     const tenantId = await deviceTenant(req)
-    const body = pushBody.parse(req.body) as Record<string, Row[]>
+    const parsed = pushBody.parse(req.body)
+    const body = parsed as unknown as Record<string, Row[]>
+    for (const t of parsed.terminalsSeen) {
+      const seen = new Date(t.lastSeenAt)
+      await db
+        .update(s.terminals)
+        .set({ lastSeenAt: seen })
+        .where(and(eq(s.terminals.id, t.id), eq(s.terminals.tenantId, tenantId), or(isNull(s.terminals.lastSeenAt), sql`${s.terminals.lastSeenAt} < ${seen.toISOString()}`)))
+    }
     // Главный терминал вправе прислать данные только своего заведения.
     for (const [name] of SALES) if (body[name].some((r) => r.tenantId !== tenantId)) throw new HttpError(403, 'forbidden')
 
@@ -301,7 +312,8 @@ export async function pullFromCloud(db: DB) {
   const tenantId = data.tenant.id
   await db.transaction(async (tx) => {
     await upsert(tx, s.tenants as unknown as AnyTable, [data.tenant])
-    for (const [name, table] of CONFIG) await upsert(tx, table, data.tables[name] ?? [])
+    // Кто из касс на связи, знает главный терминал (кассы отмечаются у него), а не облако.
+    for (const [name, table] of CONFIG) await upsert(tx, table, data.tables[name] ?? [], name === 'terminals' ? ['lastSeenAt', 'syncAt'] : [])
     // Открытую смену из облака берём только на пустой базе: дальше продажами владеет главный терминал.
     const [{ n }] = await tx.select({ n: sql<number>`count(*)::int`.mapWith(Number) }).from(s.shifts).where(eq(s.shifts.tenantId, tenantId))
     if (n === 0) for (const [name, table] of SALES) if (name !== 'auditLog') await upsert(tx, table, data.seed[name] ?? [])
@@ -347,7 +359,9 @@ export async function pushToCloud(db: DB, tenantId: string, since: Date | null) 
   const cashMovements = await db.select().from(s.cashMovements).where(inArray(s.cashMovements.shiftId, shiftIds))
   const oldest = shifts.reduce((a, x) => (x.openedAt < a ? x.openedAt : a), shifts[0].openedAt)
   const auditLog = await db.select().from(s.auditLog).where(and(eq(s.auditLog.tenantId, tenantId), gte(s.auditLog.createdAt, oldest)))
-  await cloudCall('/sync/push', { method: 'POST', body: { shifts, receipts, receiptItems, payments, cashMovements, auditLog } })
+  const seen = await db.select({ id: s.terminals.id, lastSeenAt: s.terminals.lastSeenAt }).from(s.terminals).where(eq(s.terminals.tenantId, tenantId))
+  const terminalsSeen = seen.filter((t) => t.lastSeenAt).map((t) => ({ id: t.id, lastSeenAt: t.lastSeenAt!.toISOString() }))
+  await cloudCall('/sync/push', { method: 'POST', body: { shifts, receipts, receiptItems, payments, cashMovements, auditLog, terminalsSeen } })
   return receipts.length
 }
 

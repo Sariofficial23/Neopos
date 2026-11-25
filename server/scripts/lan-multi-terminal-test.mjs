@@ -126,6 +126,23 @@ try {
   }
   ok('4 kassas activated and logged in over the network', kassas.every((k) => k.device && k.token))
   const [k1, k2, k3, k4] = kassas
+
+  // ── Список касс в окне «Локальная сеть»: кто подключён ──
+  // Касса самого главного терминала получает свой токен у локального сервера (как это делает приложение).
+  const adopt = await (await fetch(`http://127.0.0.1:${PORT}/api/sync/adopt`, { method: 'POST', headers: { Authorization: 'Bearer ' + act.deviceToken } })).json()
+  await lan('POST', '/pos/ping', null, adopt.deviceToken)
+  for (const k of [k1, k2, k3]) await lan('POST', '/pos/ping', null, k.device)
+  // Несколько кругов обмена с облаком не должны стереть отметки «на связи».
+  await wait(3500)
+  const seenList = (await lan('GET', '/pos/terminals', null, k1.device)).list
+  const names = (f) => seenList.filter(f).map((t) => t.name)
+  ok('kassa list: main terminal is marked and online', seenList.some((t) => t.main && t.online), JSON.stringify(seenList.map((t) => [t.name, t.online, t.main])).slice(0, 200))
+  // Вход по ПИН-коду тоже отмечает кассу на связи, поэтому подключены все четыре.
+  ok('kassa list: all 4 kassas are shown as connected', ['LAN kassa 1', 'LAN kassa 2', 'LAN kassa 3', 'LAN kassa 4'].every((n) => names((t) => t.online).includes(n)), names((t) => t.online).join(', '))
+  ok('kassa list: this kassa is marked', seenList.filter((t) => t.me).length === 1 && seenList.find((t) => t.me).name === 'LAN kassa 1')
+  ok('kassa list needs a device token', (await lan('GET', '/pos/terminals')).s === 401)
+  const cloudMain = (await cloud('GET', '/terminals', null, panel)).terminals.find((t) => t.name === 'Main terminal (LAN test)' && t.online)
+  ok('panel in the cloud sees the main terminal kassa as online', !!cloudMain)
   const boot = await lan('GET', '/pos/bootstrap', null, k1.token)
   const cash = boot.paymentMethods.find((m) => m.kind === 'cash').id
   const dishes = boot.products.filter((p) => p.price > 0 && !p.byWeight)

@@ -25,7 +25,34 @@ export function useNetState() {
   return state
 }
 
-const time = (iso: string | null | undefined) => (iso ? new Date(iso).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '—')
+type Kassa = { id: string; name: string; lastSeenAt: string | null; online: boolean; me: boolean; main: boolean }
+
+/** Кассы заведения и их связь: с главного терминала (локальная сеть) или из облака. Обновляется раз в 5 секунд. */
+function useKassas() {
+  const [list, setList] = useState<Kassa[] | null>(null)
+  useEffect(() => {
+    let alive = true
+    const load = () =>
+      api<Kassa[]>('/pos/terminals', { as: 'device' })
+        .then((v) => alive && setList(v))
+        .catch(() => {})
+    void load()
+    const timer = window.setInterval(load, 5000)
+    return () => {
+      alive = false
+      window.clearInterval(timer)
+    }
+  }, [])
+  return list
+}
+
+/** Время; если это было не сегодня — с датой. */
+const time = (iso: string | null | undefined) => {
+  if (!iso) return '—'
+  const d = new Date(iso)
+  const hm = d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+  return d.toDateString() === new Date().toDateString() ? hm : `${d.toLocaleDateString('ru-RU', { day: '2-digit', month: '2-digit' })} ${hm}`
+}
 
 /**
  * Окно «Локальная сеть» (экран ПИН-кода → ☰): сделать этот компьютер главным терминалом или
@@ -33,6 +60,7 @@ const time = (iso: string | null | undefined) => (iso ? new Date(iso).toLocaleTi
  */
 export function LocalNetDialog({ t, tErr, onClose }: { t: T; tErr: (c: string) => string; onClose: () => void }) {
   const state = useNetState()
+  const kassas = useKassas()
   /** Что будет выполнено после ввода ПИН-кода администратора */
   const [pending, setPending] = useState<null | { kind: 'main' } | { kind: 'lan'; host: string } | { kind: 'off' }>(null)
   const [pin, setPin] = useState('')
@@ -176,6 +204,27 @@ export function LocalNetDialog({ t, tErr, onClose }: { t: T; tErr: (c: string) =
           <button className="btn plain wide" onClick={() => ask({ kind: 'off' })}>
             {t('lanLeave')}
           </button>
+        </>
+      )}
+
+      {kassas && kassas.length > 0 && (
+        <>
+          <h3 className="lan-h">
+            {t('lanKassas')} · {kassas.filter((k) => k.online).length}/{kassas.length}
+          </h3>
+          <div className="lan-kassas">
+            {kassas.map((k) => (
+              <div key={k.id} className={`lan-kassa ${k.online ? 'on' : ''}`}>
+                <i aria-hidden="true" />
+                <span className="lan-kassa-name">
+                  {k.name}
+                  {k.main && <em>{t('lanTagMain')}</em>}
+                  {k.me && <em>{t('lanTagMe')}</em>}
+                </span>
+                <b>{k.online ? t('lanConnected') : `${t('lanNotConnected')}${k.lastSeenAt ? ` · ${time(k.lastSeenAt)}` : ''}`}</b>
+              </div>
+            ))}
+          </div>
         </>
       )}
 

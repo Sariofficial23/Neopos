@@ -157,7 +157,8 @@ export function useTerminalPing(hasDevice: boolean, onLost: () => void) {
         if (err instanceof ApiError && err.code === 'device_not_activated') onLost()
       })
     void ping()
-    const timer = window.setInterval(ping, 60_000)
+    // Раз в 30 секунд: так в окне «Локальная сеть» быстро видно, что касса пропала из сети.
+    const timer = window.setInterval(ping, 30_000)
     return () => window.clearInterval(timer)
   }, [hasDevice, onLost])
 }

@@ -100,6 +100,45 @@ export function terminalRoutes(app: FastifyInstance, db: DB) {
     return { ok: true }
   })
 
+  /**
+   * Кассы заведения и их связь — для окна «Локальная сеть» на самой кассе: видно, какие кассы подключены.
+   * Нужен только токен устройства (окно открывается и с экрана ПИН-кода). Показываем кассы, бывшие на связи за неделю.
+   */
+  app.get('/api/pos/terminals', async (req) => {
+    let device: { kind?: string; tid: string; did?: string }
+    try {
+      device = app.jwt.verify(String(req.headers.authorization ?? '').replace(/^Bearer /, ''))
+    } catch {
+      throw new HttpError(401, 'device_not_activated')
+    }
+    if (device.kind !== 'device' || !device.did) throw new HttpError(401, 'device_not_activated')
+    const rows = await db
+      .select({ id: terminals.id, name: terminals.name, lastSeenAt: terminals.lastSeenAt, syncAt: terminals.syncAt })
+      .from(terminals)
+      .where(and(eq(terminals.tenantId, device.tid), eq(terminals.active, true)))
+    const now = Date.now()
+    // На главном терминале «главный» — тот, чьим токеном идёт обмен с облаком; в облаке — тот, кто недавно обменивался.
+    let mainId: string | null = null
+    if (process.env.NEOPOS_LOCAL === '1') {
+      try {
+        mainId = JSON.parse(Buffer.from(String(process.env.SYNC_TOKEN).split('.')[1], 'base64url').toString()).did ?? null
+      } catch {
+        mainId = null
+      }
+    }
+    return rows
+      .filter((t) => t.id === device.did || t.id === mainId || (t.lastSeenAt && now - t.lastSeenAt.getTime() < 7 * 86_400_000))
+      .map((t) => ({
+        id: t.id,
+        name: t.name,
+        lastSeenAt: t.lastSeenAt,
+        online: !!t.lastSeenAt && now - t.lastSeenAt.getTime() < ONLINE_MS,
+        me: t.id === device.did,
+        main: mainId ? t.id === mainId : !!t.syncAt && now - t.syncAt.getTime() < 3 * 60_000,
+      }))
+      .sort((a, b) => Number(b.main) - Number(a.main) || Number(b.online) - Number(a.online) || a.name.localeCompare(b.name))
+  })
+
   /** Касса раз в минуту сообщает, что она на связи: по этому в панели горит «Онлайн». Нужен токен устройства. */
   app.post('/api/pos/ping', async (req) => {
     let device: { kind?: string; tid: string; did?: string }

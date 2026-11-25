@@ -117,6 +117,11 @@ const dict = {
   netLocalWait: { uz: 'Internet yo‘q · kutmoqda:', ru: 'Нет интернета · ждут отправки:' },
   netNoMain: { uz: 'Bosh terminal bilan aloqa yo‘q', ru: 'Нет связи с главным терминалом' },
   lanTitle: { uz: 'Lokal tarmoq', ru: 'Локальная сеть' },
+  lanKassas: { uz: 'Kassalar', ru: 'Кассы' },
+  lanTagMain: { uz: 'bosh', ru: 'главный' },
+  lanTagMe: { uz: 'shu kassa', ru: 'эта касса' },
+  lanConnected: { uz: 'ulangan', ru: 'подключена' },
+  lanNotConnected: { uz: 'aloqa yo‘q', ru: 'нет связи' },
   lanNeedUpdate: {
     uz: 'Ilova eskirgan. «Yangilash» tugmasini bosing — yangi versiya o‘rnatiladi, keyin bu bo‘lim ishlaydi.',
     ru: 'Приложение устарело. Нажмите «Обновить» — установится новая версия, после этого раздел заработает.',

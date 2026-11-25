@@ -11,6 +11,8 @@ const os = require('node:os')
 const APP_URL = process.env.NEOPOS_URL || 'https://neopos-terminal.vercel.app'
 const ORIGIN = new URL(APP_URL).origin
 const SMOKE = process.argv.includes('--smoke')
+// Проверочный запуск не должен трогать настройки и базу настоящей кассы на этом компьютере.
+if (SMOKE) app.setPath('userData', fs.mkdtempSync(path.join(os.tmpdir(), 'neopos-smoke-')))
 
 // ───────────── Sozlamalar (printer, to'liq ekran) ─────────────
 
@@ -121,7 +123,8 @@ function createWindow({ show = true } = {}) {
 // Главный терминал запускает на этом компьютере свой сервер NeoPos с базой на диске: касса работает
 // без интернета, а сервер сам обменивается с облаком. Остальные кассы открывают кассу с его адреса.
 
-const LOCAL_PORT = 4455
+// У проверочного запуска свой порт: на 4455 может работать настоящий главный терминал.
+const LOCAL_PORT = SMOKE ? 4465 : 4455
 const LOCAL_URL = `http://127.0.0.1:${LOCAL_PORT}`
 const DEV_CLOUD_RE = /^http:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/
 const CLOUD_RE = /^https:\/\/[a-z0-9.-]+(:\d+)?$/i
