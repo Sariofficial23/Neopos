@@ -4,6 +4,7 @@ import type { FastifyInstance } from 'fastify'
 import { z } from 'zod'
 import { HttpError, makeAuthGuards } from '../auth.js'
 import { schema, type DB } from '../db/index.js'
+import { dayStartOf } from './settings.js'
 
 const { receipts, receiptItems, payments, paymentMethods, saleTypes, users, tables, products, categories, reasons, auditLog, shifts } =
   schema
@@ -17,14 +18,18 @@ const TZ_HOURS = 5
 const day = z.string().regex(/^\d{4}-\d{2}-\d{2}$/)
 const rangeQuery = z.object({ from: day, to: day })
 
-/** Границы периода: с начала дня `from` до конца дня `to` по времени заведения. */
-function range(q: unknown) {
+/**
+ * Границы периода: с начала рабочего дня `from` до конца рабочего дня `to` по времени заведения.
+ * Рабочий день начинается в dayStartHour (настройка заведения): ночные продажи относятся к прошлому дню.
+ */
+function range(q: unknown, dayStartHour = 0) {
   const { from, to } = rangeQuery.parse(q)
   const offset = `${TZ_HOURS >= 0 ? '+' : '-'}${String(Math.abs(TZ_HOURS)).padStart(2, '0')}:00`
-  const start = new Date(`${from}T00:00:00${offset}`)
-  const end = new Date(new Date(`${to}T00:00:00${offset}`).getTime() + 86_400_000)
+  const shift = dayStartHour * 3_600_000
+  const start = new Date(new Date(`${from}T00:00:00${offset}`).getTime() + shift)
+  const end = new Date(new Date(`${to}T00:00:00${offset}`).getTime() + 86_400_000 + shift)
   if (!(start < end) || end.getTime() - start.getTime() > 400 * 86_400_000) throw new HttpError(400, 'bad_range')
-  return { start, end }
+  return { start, end, dayStartHour }
 }
 
 /** Момент закрытия чека в местном времени заведения. */
@@ -32,7 +37,7 @@ const localClosed = sql`(${receipts.closedAt} at time zone 'UTC' + make_interval
 const num = (expr: SQL) => sql<number>`coalesce(${expr}, 0)::bigint`.mapWith(Number)
 
 /** Период отчёта: точные моменты «с — до» или одна смена целиком. */
-export type ReportFilter = { start: Date; end: Date } | { shiftId: string }
+export type ReportFilter = { start: Date; end: Date; dayStartHour?: number } | { shiftId: string }
 
 /**
  * Сводный отчёт: выручка, оплаты, типы продаж, сотрудники, товары, категории, отделы и операции с наличными.
@@ -62,7 +67,8 @@ export async function buildSummary(db: DB, tenantId: string, f: ReportFilter) {
         .where(closed),
       db
         .select({
-          day: sql<string>`to_char(${localClosed}, 'YYYY-MM-DD')`,
+          // День — рабочий: продажа в 02:00 при начале дня в 06:00 относится ко вчера.
+          day: sql<string>`to_char(${localClosed} - make_interval(hours => ${'dayStartHour' in f ? (f.dayStartHour ?? 0) : 0}), 'YYYY-MM-DD')`,
           receipts: num(sql`count(*)`),
           revenue: num(sql`sum(${receipts.total})`),
         })
@@ -227,10 +233,15 @@ export async function buildSummary(db: DB, tenantId: string, f: ReportFilter) {
 
 export function reportRoutes(app: FastifyInstance, db: DB) {
   const { requirePerm, requirePos } = makeAuthGuards(db)
+  /** Час начала рабочего дня заведения — от него считаются все отчёты панели. */
+  const dayStart = async (tenantId: string) => {
+    const [t] = await db.select({ settings: schema.tenants.settings }).from(schema.tenants).where(eq(schema.tenants.id, tenantId))
+    return dayStartOf(t?.settings)
+  }
 
   // ───────────── Отчёты ─────────────
 
-  app.get('/api/reports/summary', { preHandler: requirePerm('reports.view') }, async (req) => buildSummary(db, req.auth.tenantId, range(req.query)))
+  app.get('/api/reports/summary', { preHandler: requirePerm('reports.view') }, async (req) => buildSummary(db, req.auth.tenantId, range(req.query, await dayStart(req.auth.tenantId))))
 
   // ───────────── Отчёт на кассе: с даты-времени по дату-время или по смене ─────────────
 
@@ -272,7 +283,7 @@ export function reportRoutes(app: FastifyInstance, db: DB) {
   })
 
   app.get('/api/reports/shifts', { preHandler: requirePerm('reports.view') }, async (req) => {
-    const { start, end } = range(req.query)
+    const { start, end } = range(req.query, await dayStart(req.auth.tenantId))
     const tenantId = req.auth.tenantId
     const opener = alias(users, 'opener')
     const closer = alias(users, 'closer')
@@ -308,7 +319,7 @@ export function reportRoutes(app: FastifyInstance, db: DB) {
    * себестоимость и прибыль. Угощение считается отдельно: его съели, но денег за него нет.
    */
   app.get('/api/reports/products', { preHandler: requirePerm('reports.view') }, async (req) => {
-    const { start, end } = range(req.query)
+    const { start, end } = range(req.query, await dayStart(req.auth.tenantId))
     const tenantId = req.auth.tenantId
     const closed = and(eq(receipts.tenantId, tenantId), eq(receipts.status, 'closed'), gte(receipts.closedAt, start), lt(receipts.closedAt, end))
     const paid = sql`${receiptItems.comp} = false`
@@ -347,7 +358,7 @@ export function reportRoutes(app: FastifyInstance, db: DB) {
    * Продажи считаются без обслуживания, по закрытым чекам сотрудника.
    */
   app.get('/api/reports/salary', { preHandler: requirePerm('reports.view') }, async (req) => {
-    const { start, end } = range(req.query)
+    const { start, end } = range(req.query, await dayStart(req.auth.tenantId))
     const { from, to } = rangeQuery.parse(req.query)
     const tenantId = req.auth.tenantId
     const staff = await db
@@ -396,7 +407,7 @@ export function reportRoutes(app: FastifyInstance, db: DB) {
 
   /** Отчёт «История»: журнал действий сотрудников за период — кто, когда и что сделал. */
   app.get('/api/reports/history', { preHandler: requirePerm('reports.view') }, async (req) => {
-    const { start, end } = range(req.query)
+    const { start, end } = range(req.query, await dayStart(req.auth.tenantId))
     const q = z.object({ suspicious: z.enum(['0', '1']).default('0') }).parse(req.query)
     const tenantId = req.auth.tenantId
     const where = and(
@@ -432,7 +443,7 @@ export function reportRoutes(app: FastifyInstance, db: DB) {
   // ───────────── Чеки ─────────────
 
   app.get('/api/receipts', { preHandler: requirePerm('sales.view') }, async (req) => {
-    const { start, end } = range(req.query)
+    const { start, end } = range(req.query, await dayStart(req.auth.tenantId))
     const q = z
       .object({
         status: z.enum(['all', 'open', 'closed', 'cancelled', 'refunded']).default('all'),

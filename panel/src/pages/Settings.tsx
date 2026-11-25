@@ -1,10 +1,12 @@
 import { useCallback, useEffect, useState, type FormEvent } from 'react'
 import { api, ApiError } from '../api'
 import { useI18n } from '../i18n'
+import { setDayStartHour } from '../period'
 import { ErrorNote, Field, Toggle } from '../ui'
 import { BrandCard } from './Brand'
 import { FinanceCategoriesCard } from './FinanceCategories'
 import { PaymentMethodsCard } from './PaymentMethods'
+import { ReasonsCard } from './Reasons'
 
 type Settings = {
   name: string
@@ -18,6 +20,8 @@ type Settings = {
   printKitchen: boolean
   printReceipt: boolean
   tableRedMinutes: number
+  dayStartHour: number
+  autoLogoutMinutes: number
 }
 
 export function SettingsPage() {
@@ -42,7 +46,9 @@ export function SettingsPage() {
     setError(null)
     setSaved(false)
     try {
-      setForm(await api<Settings>('/settings', { method: 'PATCH', body: form }))
+      const next = await api<Settings>('/settings', { method: 'PATCH', body: form })
+      setForm(next)
+      setDayStartHour(next.dayStartHour)
       setSaved(true)
     } catch (err) {
       setError(errText(err))
@@ -88,6 +94,19 @@ export function SettingsPage() {
             </section>
 
             <section className="card space-y-4 p-5">
+              <h2 className="font-semibold">{t('setGeneral')}</h2>
+              <Field label={t('dayStart')} hint={t('dayStartHint')}>
+                <select className="input max-w-40" value={form.dayStartHour} onChange={(e) => up('dayStartHour', Number(e.target.value))}>
+                  {Array.from({ length: 13 }, (_, h) => (
+                    <option key={h} value={h}>
+                      {String(h).padStart(2, '0')}:00
+                    </option>
+                  ))}
+                </select>
+              </Field>
+            </section>
+
+            <section className="card space-y-4 p-5">
               <h2 className="font-semibold">{t('setReceiptText')}</h2>
               <Field label={t('receiptHeader')} hint={t('receiptHeaderHint')}>
                 <input className="input" maxLength={120} value={form.receiptHeader} onChange={(e) => up('receiptHeader', e.target.value)} />
@@ -120,6 +139,15 @@ export function SettingsPage() {
                   value={form.tableRedMinutes ? String(form.tableRedMinutes) : ''}
                   placeholder="0"
                   onChange={(e) => up('tableRedMinutes', Math.min(1000, Number(e.target.value.replace(/[^0-9]/g, '')) || 0))}
+                />
+              </Field>
+              <Field label={t('autoLogout')} hint={t('autoLogoutHint')}>
+                <input
+                  className="input max-w-40"
+                  inputMode="numeric"
+                  value={form.autoLogoutMinutes ? String(form.autoLogoutMinutes) : ''}
+                  placeholder="0"
+                  onChange={(e) => up('autoLogoutMinutes', Math.min(240, Number(e.target.value.replace(/[^0-9]/g, '')) || 0))}
                 />
               </Field>
             </section>
@@ -166,6 +194,7 @@ export function SettingsPage() {
       )}
       <div className="mt-5 space-y-5 min-[700px]:mr-[292px]">
         <PaymentMethodsCard />
+        <ReasonsCard />
         <BrandCard />
         <FinanceCategoriesCard />
       </div>

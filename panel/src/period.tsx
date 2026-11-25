@@ -4,8 +4,14 @@ import { useI18n, type Key } from './i18n'
 const TZ = 'Asia/Tashkent'
 const TZ_MS = 5 * 3600_000
 
-/** Дата «сегодня минус N дней» по времени заведения, в виде ГГГГ-ММ-ДД. */
-export const dayAgo = (n: number) => new Date(Date.now() + TZ_MS - n * 86_400_000).toISOString().slice(0, 10)
+/** Час начала рабочего дня заведения: до него ещё идёт вчерашний день. Приходит с сервера при входе. */
+let dayStartHour = 6
+export const setDayStartHour = (h: number | undefined) => {
+  if (typeof h === 'number' && h >= 0 && h <= 12) dayStartHour = h
+}
+
+/** Дата «сегодня минус N дней» по времени и рабочему дню заведения, в виде ГГГГ-ММ-ДД. */
+export const dayAgo = (n: number) => new Date(Date.now() + TZ_MS - dayStartHour * 3_600_000 - n * 86_400_000).toISOString().slice(0, 10)
 
 export type Period = { from: string; to: string }
 export const todayPeriod = (): Period => ({ from: dayAgo(0), to: dayAgo(0) })
@@ -18,7 +24,7 @@ export const timeOnly = (iso: string) => new Date(iso).toLocaleTimeString('ru-RU
 
 /** Быстрые периоды, как в Clopos: границы считаются на момент показа (месяц меняется сам). */
 function presets(): { key: Key; from: number; to: number }[] {
-  const now = new Date(Date.now() + TZ_MS)
+  const now = new Date(Date.now() + TZ_MS - dayStartHour * 3_600_000)
   const dayOfMonth = now.getUTCDate()
   const prevMonthDays = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 0)).getUTCDate()
   return [

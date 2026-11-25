@@ -94,7 +94,7 @@ export type Me = {
     lang: 'uz' | 'ru'
     role: Role
   }
-  tenant: { id: string; name: string; currency: string }
+  tenant: { id: string; name: string; currency: string; dayStartHour?: number }
 }
 
 export type PermissionList = { panel: string[]; terminal: string[] }

@@ -13,6 +13,7 @@ import { schema, type DB } from '../db/index.js'
 import { PERMISSIONS } from '../permissions.js'
 import { createTenant } from '../tenant.js'
 import { registrationOpen } from './admin.js'
+import { dayStartOf } from './settings.js'
 
 const loginRe = /^[a-z0-9._-]{3,32}$/
 
@@ -71,10 +72,12 @@ export function authRoutes(app: FastifyInstance, db: DB) {
 
   app.get('/api/auth/me', { preHandler: requireAuth }, async (req) => {
     const [tenant] = await db
-      .select({ id: schema.tenants.id, name: schema.tenants.name, currency: schema.tenants.currency })
+      .select({ id: schema.tenants.id, name: schema.tenants.name, currency: schema.tenants.currency, settings: schema.tenants.settings })
       .from(schema.tenants)
       .where(eq(schema.tenants.id, req.auth.tenantId))
-    return { user: req.auth, tenant }
+    const { settings, ...rest } = tenant
+    // Панели нужен час начала рабочего дня, чтобы «Сегодня» совпадало с кассой.
+    return { user: req.auth, tenant: { ...rest, dayStartHour: dayStartOf(settings) } }
   })
 
   app.get('/api/meta/permissions', { preHandler: requireAuth }, async () => PERMISSIONS)

@@ -16,7 +16,8 @@ const ok = (name, cond, extra = '') => {
   if (!cond) failed++
   console.log((cond ? 'PASS' : 'FAIL') + '  ' + name + (extra ? '  ' + extra : ''))
 }
-const today = new Date(Date.now() + 5 * 3600_000).toISOString().slice(0, 10)
+// Рабочий день заведения начинается в 06:00 (настройка по умолчанию)
+const today = new Date(Date.now() + 5 * 3600_000 - 6 * 3600_000).toISOString().slice(0, 10)
 const range = `from=${today}&to=${today}`
 
 const { token: panel } = await j('POST', '/auth/login', { login, password })

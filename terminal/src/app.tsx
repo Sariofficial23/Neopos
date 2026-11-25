@@ -134,10 +134,13 @@ export function App() {
   // Автоматический выход при бездействии: касса не должна оставаться открытой под чужим именем.
   useEffect(() => {
     if (!token) return
-    let timer = window.setTimeout(logout, IDLE_MINUTES * 60_000)
+    // Время задаётся в панели («Настройки → Терминал»); 0 — не выходить никогда.
+    const minutes = boot?.autoLogoutMinutes ?? IDLE_MINUTES
+    if (!minutes) return
+    let timer = window.setTimeout(logout, minutes * 60_000)
     const reset = () => {
       window.clearTimeout(timer)
-      timer = window.setTimeout(logout, IDLE_MINUTES * 60_000)
+      timer = window.setTimeout(logout, minutes * 60_000)
     }
     const events = ['pointerdown', 'keydown'] as const
     events.forEach((e) => window.addEventListener(e, reset))

@@ -44,6 +44,25 @@ const dict = {
   navTerminals: { uz: 'Terminallar', ru: 'Терминалы' },
   navSupplies: { uz: 'Tovar kirimi', ru: 'Приход товаров' },
   setTerminal: { uz: 'Terminal', ru: 'Терминал' },
+  setGeneral: { uz: 'Umumiy', ru: 'Общие' },
+  dayStart: { uz: 'Ish kuni boshlanish vaqti', ru: 'Время начала рабочего дня' },
+  dayStartHint: {
+    uz: 'Shu vaqtgacha bo‘lgan tungi savdo kechagi kunga qo‘shiladi. Hisobotlar va kassa shu vaqtdan hisoblaydi.',
+    ru: 'Ночные продажи до этого часа относятся к прошлому дню. От него считают отчёты панели и кассы.',
+  },
+  autoLogout: { uz: 'Kassadan avtomatik chiqish, daqiqa', ru: 'Автовыход с кассы, минут' },
+  autoLogoutHint: {
+    uz: 'Shuncha daqiqa harakatsizlikdan keyin kassa PIN-kod ekraniga qaytadi. 0 — chiqmaydi.',
+    ru: 'Через столько минут без нажатий касса вернётся на экран ПИН-кода. 0 — не выходить.',
+  },
+  reasonsTitle: { uz: 'Taomni o‘chirish sabablari', ru: 'Причины удаления позиции' },
+  reasonsHint: {
+    uz: 'Kassir yuborilgan taomni chekdan o‘chirayotganda shulardan birini tanlaydi.',
+    ru: 'Кассир выбирает одну из них, когда удаляет из чека уже отправленную позицию.',
+  },
+  reasonNew: { uz: 'Yangi sabab', ru: 'Новая причина' },
+  reasonAdd: { uz: 'Qo‘shish', ru: 'Добавить' },
+  'err.last_reason': { uz: 'Kamida bitta sabab yoqilgan bo‘lishi kerak', ru: 'Должна остаться хотя бы одна включённая причина' },
   tableRedMinutes: { uz: 'Stol rangini o‘zgartirish, daqiqa', ru: 'Изменение цвета стола, минут' },
   tableRedHint: {
     uz: 'Shuncha daqiqa chekka hech narsa qo‘shilmasa, stol kassada qizil bo‘ladi. 0 — o‘chirilgan. Tavsiya: 10–1000.',

@@ -1,5 +1,6 @@
 import { createContext, useCallback, useContext, useEffect, useState, type ReactNode } from 'react'
 import { api, getToken, setToken, setUnauthorizedHandler, type Me } from './api'
+import { setDayStartHour } from './period'
 
 type Session = {
   me: Me | null
@@ -22,7 +23,9 @@ export function SessionProvider({ children }: { children: ReactNode }) {
 
   const load = useCallback(async () => {
     try {
-      setMe(await api<Me>('/auth/me'))
+      const next = await api<Me>('/auth/me')
+      setDayStartHour(next.tenant?.dayStartHour)
+      setMe(next)
     } catch {
       setMe(null)
     } finally {

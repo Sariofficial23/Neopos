@@ -14,6 +14,7 @@ import {
 import { schema, type DB } from '../db/index.js'
 import { brandImages } from './brand.js'
 import { adjustStockForReceipt } from './supplies.js'
+import { autoLogoutOf, dayStartOf } from './settings.js'
 import { numberBase } from './sync.js'
 import { listPrinters } from './finance.js'
 
@@ -289,6 +290,8 @@ export function posRoutes(app: FastifyInstance, db: DB) {
       printers: await listPrinters(db, tenantId),
       brand: await brandImages(db, tenantId),
       tableRedMinutes: Number((tenant.settings as Record<string, unknown>).tableRedMinutes ?? 0) || 0,
+      dayStartHour: dayStartOf(tenant.settings),
+      autoLogoutMinutes: autoLogoutOf(tenant.settings),
       departments: deps,
       user: req.auth,
       shift: await openShift(db, tenantId),

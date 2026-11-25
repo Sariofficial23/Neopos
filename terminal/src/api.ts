@@ -92,6 +92,9 @@ export type Boot = {
   brand?: { logo: string | null; photo: string | null }
   /** Через сколько минут простоя стол краснеет; 0 — выключено */
   tableRedMinutes?: number
+  /** Час начала рабочего дня и автовыход при бездействии (минуты, 0 — никогда) */
+  dayStartHour?: number
+  autoLogoutMinutes?: number
   user: { userId: string; name: string; lang: Lang; role: { name: string; permissions: string[] } }
   shift: Shift | null
   categories: { id: string; name: L10n; color: string | null; image?: string | null }[]

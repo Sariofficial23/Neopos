@@ -12,8 +12,6 @@ const tashkentDay = (days = 0, from = new Date()) =>
 /** Местное время заведения → момент времени для сервера. */
 const toIso = (day: string, hhmm: string) => new Date(`${day}T${hhmm}:00+05:00`).toISOString()
 const HOURS = Array.from({ length: 48 }, (_, i) => `${String(Math.floor(i / 2)).padStart(2, '0')}:${i % 2 ? '30' : '00'}`)
-/** Рабочий день начинается в 06:00: ночные продажи после полуночи относятся к прошлому дню. */
-const DAY_START = '06:00'
 
 /**
  * «Создать отчёт», как в Clopos: период «С этой даты — до этой даты» со временем или одна смена,
@@ -21,9 +19,11 @@ const DAY_START = '06:00'
  */
 export function ReportDialog({ onClose }: { onClose: () => void }) {
   const { t, lang, boot, can, fail } = useApp()
-  // До 06:00 по Ташкенту ещё идёт вчерашний рабочий день.
+  // Рабочий день начинается в час из настроек заведения (по умолчанию 06:00): до него ещё идёт вчерашний день.
+  const dayStartHour = boot.dayStartHour ?? 6
+  const DAY_START = `${String(dayStartHour).padStart(2, '0')}:00`
   const nowHour = new Date(Date.now() + 5 * 3_600_000).getUTCHours()
-  const startDay = tashkentDay(nowHour < 6 ? -1 : 0)
+  const startDay = tashkentDay(nowHour < dayStartHour ? -1 : 0)
   const [mode, setMode] = useState<'period' | 'shift'>('period')
   const [fromDay, setFromDay] = useState(startDay)
   const [fromTime, setFromTime] = useState(DAY_START)
