@@ -297,7 +297,15 @@ const dict = {
   rHistory: { uz: 'Tarix', ru: 'История' },
   rSalary: { uz: 'Ish haqi', ru: 'Зарплата' },
   rSuspicious: { uz: 'Shubhali', ru: 'Подозрительные' },
-  rAi: { uz: 'AI xulosa', ru: 'ИИ-сводка' },
+  rAi: { uz: 'Xulosa', ru: 'Сводка' },
+  dgTitle: { uz: 'Egasi uchun xulosa', ru: 'Сводка для владельца' },
+  dgHint: {
+    uz: 'Tanlangan davr bo‘yicha qisqa matn: tushum, eng yaxshi sotilgan taomlar, xodimlar, shubhali amallar va bugun nimaga e’tibor berish kerak. Dastur o‘zi tuzadi — bepul.',
+    ru: 'Короткий текст за выбранный период: выручка, что продаётся лучше, сотрудники, подозрительные действия и на что посмотреть сегодня. Составляет сама программа — бесплатно.',
+  },
+  dgCopy: { uz: 'Nusxa olish', ru: 'Скопировать' },
+  dgCopied: { uz: 'Nusxa olindi', ru: 'Скопировано' },
+  aiExtra: { uz: 'Sun’iy intellekt versiyasi (pullik)', ru: 'Версия от искусственного интеллекта (платно)' },
   aiTitle: { uz: 'Egasi uchun AI xulosa', ru: 'ИИ-сводка для владельца' },
   aiHint: {
     uz: 'Sun’iy intellekt tanlangan davr raqamlari bo‘yicha qisqa matn yozadi: tushum, eng yaxshi sotilgan taomlar, shubhali amallar va bugun nimaga e’tibor berish kerak.',

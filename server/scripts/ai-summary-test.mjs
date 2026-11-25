@@ -40,6 +40,23 @@ const text = JSON.stringify(f)
 ok('no secrets or internal ids go to the model', !/password|pinHash|"pin"|token|[0-9a-f]{8}-[0-9a-f]{4}-/i.test(text), text.match(/password|pinHash|"pin"|token|[0-9a-f]{8}-[0-9a-f]{4}-/i)?.[0] ?? '')
 ok('the payload is small', text.length < 20000, String(text.length))
 
+// ── Бесплатная сводка: текст пишет программа, модель не нужна ──
+const fmt = (n) => Math.round(n).toLocaleString('ru-RU').replace(/ |,/g, ' ')
+const dg = await j('GET', `/reports/digest?from=${today}&to=${today}&lang=ru`, null, owner)
+ok('free digest works without any key', dg.s === 200 && typeof dg.text === 'string' && dg.text.length > 100 && dg.aiAvailable === status.configured)
+ok('digest has all sections', ['Главное', 'Что продаётся', 'Сотрудники', 'Стоит проверить', 'На что посмотреть сегодня'].every((h) => dg.text.includes(h)), dg.text.split('\n').filter((l) => l && l.length < 30).join(' | '))
+ok('digest shows the real revenue and receipt count', dg.text.includes(`Выручка ${fmt(sum.totals.revenue)} сум, чеков ${sum.totals.receipts}`), dg.text.split('\n')[1])
+ok('digest names the top product and the top employee', dg.text.includes(sum.byProduct[0].name.ru) && dg.text.includes(sum.byWaiter[0].name))
+const risky = sus.byUser.filter((u) => u.level !== 'low')
+ok('digest lists risky employees or says there are none', risky.length ? dg.text.includes(risky[0].name) && dg.text.includes('Это не обвинение') : dg.text.includes('Подозрительных действий за период нет'))
+ok('no more than three to-do points', dg.text.split('На что посмотреть сегодня')[1].split('\n').filter((l) => /^\d\./.test(l)).length <= 3)
+const dgUz = await j('GET', `/reports/digest?from=${today}&to=${today}&lang=uz`, null, owner)
+ok('digest in Uzbek', dgUz.s === 200 && dgUz.text.includes('Asosiysi') && dgUz.text.includes('so‘m') && !/[а-яё]{4,}/i.test(dgUz.text.replace(new RegExp(sum.byWaiter.map((w) => w.name).join('|') || 'x', 'g'), '')), dgUz.text.match(/[а-яё]{4,}/i)?.[0] ?? '')
+// Пустой период — без ошибок и без выдуманных цифр
+const empty = await j('GET', '/reports/digest?from=2020-01-01&to=2020-01-01&lang=ru', null, owner)
+ok('empty period: says there were no sales', empty.s === 200 && empty.text.includes('продаж не было') && empty.text.includes('Особых замечаний нет'))
+ok('kassa-only employee cannot open the digest', (await j('GET', `/reports/digest?from=${today}&to=${today}`, null, waiter)).s === 403)
+
 // Отказы
 ok('kassa-only employee cannot order a summary', (await j('POST', '/reports/ai-summary', { from: today, to: today }, waiter)).s === 403)
 ok('bad dates -> 400', (await j('POST', '/reports/ai-summary', { from: 'x', to: today }, owner)).s === 400)

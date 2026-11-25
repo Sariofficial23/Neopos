@@ -5,6 +5,7 @@ import { z } from 'zod'
 import { HttpError, makeAuthGuards } from '../auth.js'
 import { schema, type DB } from '../db/index.js'
 import { aiConfigured, writeSummary } from '../ai.js'
+import { writeDigest } from '../digest.js'
 import { dayStartOf } from './settings.js'
 
 const { receipts, receiptItems, payments, paymentMethods, saleTypes, users, tables, products, categories, reasons, auditLog, shifts } =
@@ -534,7 +535,7 @@ export function reportRoutes(app: FastifyInstance, db: DB) {
   // ───────────── ИИ-сводка ─────────────
 
   /** Цифры для сводки: всё считает программа, модель получает только этот набор. */
-  async function summaryFacts(tenantId: string, q: unknown) {
+  async function summaryFacts(tenantId: string, q: unknown, lang: 'uz' | 'ru' = 'ru') {
     const { start, end, dayStartHour } = range(q, await dayStart(tenantId))
     const { from, to } = rangeQuery.parse(q)
     const length = end.getTime() - start.getTime()
@@ -551,11 +552,11 @@ export function reportRoutes(app: FastifyInstance, db: DB) {
       totals: cur.totals,
       previousPeriodTotals: prev.totals.receipts > 0 ? prev.totals : null,
       byDay: cur.byDay,
-      paymentMethods: cur.byMethod.map((m) => ({ name: m.name.ru, amount: m.amount })),
-      saleTypes: cur.bySaleType.map((s) => ({ name: s.name.ru, receipts: s.receipts, revenue: s.revenue })),
+      paymentMethods: cur.byMethod.map((m) => ({ name: m.name[lang], amount: m.amount })),
+      saleTypes: cur.bySaleType.map((s) => ({ name: s.name[lang], receipts: s.receipts, revenue: s.revenue })),
       waiters: cur.byWaiter.map((w) => ({ name: w.name, receipts: w.receipts, revenue: w.revenue })),
-      topProducts: cur.byProduct.slice(0, 12).map((p) => ({ name: p.name.ru, qty: qty(p.qty), amount: p.amount, cost: p.cost, profit: p.amount - p.cost })),
-      categories: cur.byCategory.slice(0, 10).map((c) => ({ name: c.name?.ru ?? 'без категории', amount: c.amount })),
+      topProducts: cur.byProduct.slice(0, 12).map((p) => ({ name: p.name[lang], qty: qty(p.qty), amount: p.amount, cost: p.cost, profit: p.amount - p.cost })),
+      categories: cur.byCategory.slice(0, 10).map((c) => ({ name: c.name?.[lang] ?? '—', amount: c.amount })),
       voidedItems: cur.voids,
       cashOperations: { expense: cur.cash.expense, income: cur.cash.income, collection: cur.cash.collection },
       suspicious: {
@@ -573,6 +574,16 @@ export function reportRoutes(app: FastifyInstance, db: DB) {
     }
   }
 
+  /**
+   * Бесплатная сводка: текст пишет сама программа по тем же цифрам. Без ИИ, без ключей и без оплаты —
+   * доступна всегда. Платная ИИ-сводка ниже остаётся необязательным дополнением.
+   */
+  app.get('/api/reports/digest', { preHandler: requirePerm('reports.view') }, async (req) => {
+    const { lang } = z.object({ lang: z.enum(['uz', 'ru']).default('ru') }).parse(req.query)
+    const facts = await summaryFacts(req.auth.tenantId, req.query, lang)
+    return { text: writeDigest(facts, lang), generatedAt: new Date().toISOString(), aiAvailable: aiConfigured() }
+  })
+
   // Сводка стоит денег за каждый запрос к модели: одну и ту же не заказываем дважды и ограничиваем число в сутки.
   const aiCache = new Map<string, { at: number; value: { text: string; generatedAt: string; model: string } }>()
   const aiCount = new Map<string, { day: string; n: number }>()
@@ -588,7 +599,7 @@ export function reportRoutes(app: FastifyInstance, db: DB) {
   app.post('/api/reports/ai-summary', { preHandler: requirePerm('reports.view') }, async (req) => {
     const tenantId = req.auth.tenantId
     const body = z.object({ from: day, to: day, lang: z.enum(['uz', 'ru']).default('ru'), dry: z.boolean().default(false), fresh: z.boolean().default(false) }).parse(req.body)
-    const facts = await summaryFacts(tenantId, body)
+    const facts = await summaryFacts(tenantId, body, body.lang)
     if (body.dry) return { facts }
     if (!aiConfigured()) throw new HttpError(503, 'ai_not_configured')
     const key = `${tenantId}:${body.from}:${body.to}:${body.lang}`
