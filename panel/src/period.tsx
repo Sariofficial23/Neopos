@@ -16,12 +16,20 @@ export const dateTime = (iso: string | null) =>
     : '—'
 export const timeOnly = (iso: string) => new Date(iso).toLocaleTimeString('ru-RU', { timeZone: TZ, hour: '2-digit', minute: '2-digit' })
 
-const PRESETS: { key: Key; from: number; to: number }[] = [
-  { key: 'pToday', from: 0, to: 0 },
-  { key: 'pYesterday', from: 1, to: 1 },
-  { key: 'p7', from: 6, to: 0 },
-  { key: 'p30', from: 29, to: 0 },
-]
+/** Быстрые периоды, как в Clopos: границы считаются на момент показа (месяц меняется сам). */
+function presets(): { key: Key; from: number; to: number }[] {
+  const now = new Date(Date.now() + TZ_MS)
+  const dayOfMonth = now.getUTCDate()
+  const prevMonthDays = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 0)).getUTCDate()
+  return [
+    { key: 'pToday', from: 0, to: 0 },
+    { key: 'pYesterday', from: 1, to: 1 },
+    { key: 'p7', from: 6, to: 0 },
+    { key: 'p30', from: 29, to: 0 },
+    { key: 'pMonth', from: dayOfMonth - 1, to: 0 },
+    { key: 'pPrevMonth', from: dayOfMonth - 1 + prevMonthDays, to: dayOfMonth },
+  ]
+}
 
 /** Выбор периода: быстрые кнопки и две даты. Один на страницу, стоит над данными. */
 export function PeriodPicker({ value, onChange }: { value: Period; onChange: (p: Period) => void }) {
@@ -29,7 +37,7 @@ export function PeriodPicker({ value, onChange }: { value: Period; onChange: (p:
   return (
     <div className="flex flex-wrap items-center gap-2">
       <div className="inline-flex max-w-full overflow-x-auto rounded-xl bg-slate-200/70 p-1">
-        {PRESETS.map((p) => {
+        {presets().map((p) => {
           const on = value.from === dayAgo(p.from) && value.to === dayAgo(p.to)
           return (
             <button

@@ -2,9 +2,9 @@ import { useCallback, useEffect, useState } from 'react'
 import { api, ApiError, money, type L10n } from '../api'
 import { useI18n, type Key } from '../i18n'
 import { dateTime, PeriodPicker, timeOnly, todayPeriod, type Period } from '../period'
-import { Badge, ErrorNote, Modal, Toggle } from '../ui'
+import { Badge, ErrorNote, Modal, Segmented, Toggle } from '../ui'
 
-type Status = 'open' | 'closed' | 'cancelled'
+type Status = 'open' | 'closed' | 'cancelled' | 'refunded'
 
 type Row = {
   id: string
@@ -33,14 +33,14 @@ type Detail = Row & {
   history: { id: string; action: string; suspicious: boolean; data: Record<string, unknown>; createdAt: string; userName: string | null }[]
 }
 
-const STATUS_KEY: Record<Status, Key> = { open: 'stOpen', closed: 'stClosed', cancelled: 'stCancelled' }
-const STATUS_TONE: Record<Status, 'green' | 'slate' | 'brand'> = { open: 'brand', closed: 'green', cancelled: 'slate' }
+const STATUS_KEY: Record<Status, Key> = { open: 'stOpen', closed: 'stClosed', cancelled: 'stCancelled', refunded: 'stRefunded' }
+const STATUS_TONE: Record<Status, 'green' | 'slate' | 'brand'> = { open: 'brand', closed: 'green', cancelled: 'slate', refunded: 'slate' }
 const qtyText = (q: number) => (q % 1000 === 0 ? String(q / 1000) : (q / 1000).toFixed(3).replace(/0+$/, '').replace('.', ','))
 
 export function ReceiptsPage() {
   const { t, tErr, lang } = useI18n()
   const [period, setPeriod] = useState<Period>(todayPeriod)
-  const [status, setStatus] = useState<'all' | Status>('all')
+  const [status, setStatus] = useState<'all' | Status>('closed')
   const [suspicious, setSuspicious] = useState(false)
   const [number, setNumber] = useState('')
   const [data, setData] = useState<{ total: number; rows: Row[] } | null>(null)
@@ -110,12 +110,17 @@ export function ReceiptsPage() {
         <PeriodPicker value={period} onChange={setPeriod} />
       </div>
       <div className="mb-4 flex flex-wrap items-center gap-2">
-        <select className="input w-auto" aria-label={t('status')} value={status} onChange={(e) => setStatus(e.target.value as 'all' | Status)}>
-          <option value="all">{t('rcAll')}</option>
-          <option value="closed">{t('stClosed')}</option>
-          <option value="open">{t('stOpen')}</option>
-          <option value="cancelled">{t('stCancelled')}</option>
-        </select>
+        <Segmented
+          value={status}
+          onChange={setStatus}
+          options={[
+            { value: 'closed', label: t('rcTabClosed') },
+            { value: 'open', label: t('rcTabOpen') },
+            { value: 'cancelled', label: t('rcTabDeleted') },
+            { value: 'refunded', label: t('rcTabRefunded') },
+            { value: 'all', label: t('rcAll') },
+          ]}
+        />
         <input
           className="input w-32"
           inputMode="numeric"

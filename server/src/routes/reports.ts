@@ -303,13 +303,86 @@ export function reportRoutes(app: FastifyInstance, db: DB) {
     return rows.map((r) => ({ ...r, receipts: by.get(r.id)?.receipts ?? 0, revenue: by.get(r.id)?.revenue ?? 0 }))
   })
 
+  /**
+   * Отчёт «Товары»: по каждому проданному товару — категория, отдел, количество, выручка,
+   * себестоимость и прибыль. Угощение считается отдельно: его съели, но денег за него нет.
+   */
+  app.get('/api/reports/products', { preHandler: requirePerm('reports.view') }, async (req) => {
+    const { start, end } = range(req.query)
+    const tenantId = req.auth.tenantId
+    const closed = and(eq(receipts.tenantId, tenantId), eq(receipts.status, 'closed'), gte(receipts.closedAt, start), lt(receipts.closedAt, end))
+    const paid = sql`${receiptItems.comp} = false`
+    const rows = await db
+      .select({
+        productId: receiptItems.productId,
+        name: sql<{ uz: string; ru: string }>`min(${receiptItems.name}::text)::jsonb`,
+        categoryId: sql<string | null>`min(${products.categoryId}::text)`,
+        departmentId: sql<string | null>`min(${receiptItems.departmentId}::text)`,
+        qty: num(sql`sum(case when ${paid} then ${receiptItems.qty} else 0 end)`),
+        amount: num(sql`sum(case when ${paid} then ${receiptItems.total} else 0 end)`),
+        cost: num(sql`sum(round(${receiptItems.cost} * ${receiptItems.qty} / 1000.0))`),
+        compQty: num(sql`sum(case when ${paid} then 0 else ${receiptItems.qty} end)`),
+        receipts: num(sql`count(distinct ${receiptItems.receiptId})`),
+      })
+      .from(receiptItems)
+      .innerJoin(receipts, eq(receipts.id, receiptItems.receiptId))
+      .leftJoin(products, eq(products.id, receiptItems.productId))
+      .where(and(closed, isNull(receiptItems.voidedAt)))
+      .groupBy(receiptItems.productId)
+      .orderBy(desc(sql`sum(${receiptItems.total})`))
+    const [cats, deps] = await Promise.all([
+      db.select({ id: categories.id, name: categories.name }).from(categories).where(eq(categories.tenantId, tenantId)),
+      db.select({ id: schema.departments.id, name: schema.departments.name }).from(schema.departments).where(eq(schema.departments.tenantId, tenantId)),
+    ])
+    return {
+      rows: rows.map((p) => ({ ...p, profit: p.amount - p.cost })),
+      categories: cats,
+      departments: deps,
+    }
+  })
+
+  /** Отчёт «История»: журнал действий сотрудников за период — кто, когда и что сделал. */
+  app.get('/api/reports/history', { preHandler: requirePerm('reports.view') }, async (req) => {
+    const { start, end } = range(req.query)
+    const q = z.object({ suspicious: z.enum(['0', '1']).default('0') }).parse(req.query)
+    const tenantId = req.auth.tenantId
+    const where = and(
+      eq(auditLog.tenantId, tenantId),
+      gte(auditLog.createdAt, start),
+      lt(auditLog.createdAt, end),
+      q.suspicious === '1' ? eq(auditLog.suspicious, true) : undefined,
+    )
+    const [{ total }] = await db.select({ total: num(sql`count(*)`) }).from(auditLog).where(where)
+    const rows = await db
+      .select({
+        id: auditLog.id,
+        action: auditLog.action,
+        suspicious: auditLog.suspicious,
+        data: auditLog.data,
+        createdAt: auditLog.createdAt,
+        userId: auditLog.userId,
+        userName: users.name,
+        receiptId: auditLog.receiptId,
+        receiptNumber: receipts.number,
+        tableName: tables.name,
+      })
+      .from(auditLog)
+      .leftJoin(users, eq(users.id, auditLog.userId))
+      .leftJoin(receipts, eq(receipts.id, auditLog.receiptId))
+      .leftJoin(tables, eq(tables.id, receipts.tableId))
+      .where(where)
+      .orderBy(desc(auditLog.createdAt))
+      .limit(2000)
+    return { total, rows }
+  })
+
   // ───────────── Чеки ─────────────
 
   app.get('/api/receipts', { preHandler: requirePerm('sales.view') }, async (req) => {
     const { start, end } = range(req.query)
     const q = z
       .object({
-        status: z.enum(['all', 'open', 'closed', 'cancelled']).default('all'),
+        status: z.enum(['all', 'open', 'closed', 'cancelled', 'refunded']).default('all'),
         suspicious: z.enum(['0', '1']).default('0'),
         number: z.coerce.number().int().positive().optional(),
       })

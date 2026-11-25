@@ -4,6 +4,7 @@ import { api, ApiError, money, type L10n } from '../api'
 import { useI18n } from '../i18n'
 import { dateTime, PeriodPicker, todayPeriod, type Period } from '../period'
 import { ErrorNote, Segmented } from '../ui'
+import { HistoryReport, ProductsReport } from './ReportTabs'
 
 type Summary = {
   totals: {
@@ -221,7 +222,7 @@ export function TodayTiles() {
 export function ReportsPage() {
   const { t, tErr, lang } = useI18n()
   const [period, setPeriod] = useState<Period>(todayPeriod)
-  const [tab, setTab] = useState<'sales' | 'shifts'>('sales')
+  const [tab, setTab] = useState<'sales' | 'products' | 'shifts' | 'history'>('sales')
   const { data, error } = useSummary(period)
   const [shifts, setShifts] = useState<ShiftRow[] | null>(null)
   const [shiftError, setShiftError] = useState<string | null>(null)
@@ -280,7 +281,9 @@ export function ReportsPage() {
           onChange={setTab}
           options={[
             { value: 'sales', label: t('kRevenue') },
+            { value: 'products', label: t('rProducts') },
             { value: 'shifts', label: t('rShifts') },
+            { value: 'history', label: t('rHistory') },
           ]}
         />
       </div>
@@ -373,6 +376,9 @@ export function ReportsPage() {
           )}
         </>
       )}
+
+      {tab === 'products' && <ProductsReport period={period} />}
+      {tab === 'history' && <HistoryReport period={period} />}
 
       {tab === 'shifts' && (
         <>
