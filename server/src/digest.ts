@@ -51,6 +51,8 @@ const T = {
     stands: 'заметно больше остальных',
     kinds: {
       void_after_bill: 'удаление после счёта',
+      unpaid: 'закрытие без оплаты',
+      service_down: 'снижение обслуживания',
       refund: 'возврат',
       reopen: 'повторное открытие чека',
       price_down: 'снижение цены',
@@ -97,6 +99,8 @@ const T = {
     stands: 'boshqalardan ancha ko‘p',
     kinds: {
       void_after_bill: 'hisobdan keyin o‘chirish',
+      unpaid: 'to‘lovsiz yopish',
+      service_down: 'xizmat haqini kamaytirish',
       refund: 'qaytarish',
       reopen: 'chekni qayta ochish',
       price_down: 'narxni tushirish',
@@ -120,7 +124,7 @@ const T = {
 }
 
 /** Порядок действий в строке сотрудника — от самого опасного. */
-const KIND_ORDER = ['void_after_bill', 'cash_diff', 'refund', 'reopen', 'price_down', 'discount', 'comp', 'unlock', 'void']
+const KIND_ORDER = ['void_after_bill', 'cash_diff', 'unpaid', 'refund', 'reopen', 'price_down', 'service_down', 'discount', 'comp', 'unlock', 'void']
 
 export function writeDigest(f: DigestFacts, lang: Lang): string {
   const t = T[lang]

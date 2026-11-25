@@ -12,6 +12,8 @@ const ACTIONS: Record<string, { uz: string; ru: string }> = {
   'receipt.send': { uz: 'Oshxonaga yuborildi', ru: 'Отправлено на кухню' },
   'receipt.bill': { uz: 'Hisob chop etildi', ru: 'Напечатан счёт' },
   'receipt.discount': { uz: 'Chegirma o‘zgartirildi', ru: 'Изменена скидка' },
+  'receipt.service': { uz: 'Xizmat haqi o‘zgartirildi', ru: 'Изменён процент обслуживания' },
+  'receipt.close_unpaid': { uz: 'To‘lovsiz yopildi', ru: 'Закрыт без оплаты' },
   'receipt.pay': { uz: 'To‘lov qabul qilindi', ru: 'Принята оплата' },
   'receipt.close': { uz: 'Chek yopildi', ru: 'Чек закрыт' },
   'receipt.cancel': { uz: 'Savdo bekor qilindi', ru: 'Продажа отменена' },

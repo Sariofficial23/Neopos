@@ -1235,6 +1235,64 @@ export function posRoutes(app: FastifyInstance, db: DB) {
     })
   })
 
+  /**
+   * Процент обслуживания в самом чеке. null — вернуть обычный: по столу, залу или типу продажи.
+   * Снижение процента попадает в отчёт «Подозрительные».
+   */
+  app.post('/api/pos/receipts/:id/service', pos, async (req) => {
+    const { id } = idParam.parse(req.params)
+    const body = z.object({ percent: z.number().min(0).max(100).nullable() }).parse(req.body)
+    need(req, 'receipt.discount')
+    const tenantId = req.auth.tenantId
+    return db.transaction(async (tx) => {
+      const r0 = await loadOpen(tx, req, id)
+      let to: number
+      if (body.percent === null) {
+        const [d] = await tx
+          .select({ tableBp: tables.serviceBp, hallBp: halls.serviceBp, typeBp: saleTypes.serviceBp })
+          .from(receipts)
+          .leftJoin(tables, eq(tables.id, receipts.tableId))
+          .leftJoin(halls, eq(halls.id, tables.hallId))
+          .leftJoin(saleTypes, eq(saleTypes.id, receipts.saleTypeId))
+          .where(and(eq(receipts.id, id), eq(receipts.tenantId, tenantId)))
+        to = d?.tableBp ?? d?.hallBp ?? d?.typeBp ?? 0
+      } else to = Math.round(body.percent * 100)
+      if (to !== r0.serviceBp) {
+        const lowered = to < r0.serviceBp
+        await tx.update(receipts).set({ serviceBp: to, ...(lowered ? { suspicious: true } : {}) }).where(eq(receipts.id, id))
+        await recalc(tx, id)
+        const [r1] = await tx.select({ serviceAmount: receipts.serviceAmount }).from(receipts).where(eq(receipts.id, id))
+        await log(tx, req, id, 'receipt.service', { from: r0.serviceBp / 100, to: to / 100, amount: Math.max(0, r0.serviceAmount - r1.serviceAmount) }, lowered)
+      }
+      return fullReceipt(tx, tenantId, id)
+    })
+  })
+
+  /**
+   * «Закрыть без оплаты»: чек закрывается с нулевой суммой — угощение за счёт заведения, питание персонала.
+   * Товары списываются как при обычной продаже, денег в кассу не приходит. Всегда подозрительное действие.
+   */
+  app.post('/api/pos/receipts/:id/close-unpaid', pos, async (req) => {
+    const { id } = idParam.parse(req.params)
+    need(req, 'receipt.discount')
+    const tenantId = req.auth.tenantId
+    return db.transaction(async (tx) => {
+      const r0 = await loadOpen(tx, req, id, true)
+      await tx.update(receiptItems).set({ sentAt: new Date() }).where(and(eq(receiptItems.receiptId, id), isNull(receiptItems.sentAt), isNull(receiptItems.voidedAt)))
+      await recalc(tx, id)
+      const [r] = await tx.select().from(receipts).where(eq(receipts.id, id))
+      const live = await tx.select({ id: receiptItems.id }).from(receiptItems).where(and(eq(receiptItems.receiptId, id), isNull(receiptItems.voidedAt))).limit(1)
+      if (!live.length) throw new HttpError(409, 'receipt_empty')
+      // Вся сумма уходит в скидку: выручка по чеку — ноль, а в отчётах видно, сколько списано.
+      await tx.update(receipts).set({ discountKind: 'percent', discountValue: 100 }).where(eq(receipts.id, id))
+      await recalc(tx, id)
+      await tx.update(receipts).set({ status: 'closed', closedAt: new Date(), suspicious: true }).where(eq(receipts.id, id))
+      await adjustStockForReceipt(tx, id, -1)
+      await log(tx, req, id, 'receipt.close_unpaid', { total: r.total, number: r0.number }, true)
+      return { receipt: await fullReceipt(tx, tenantId, id) }
+    })
+  })
+
   // ───── Оплата ─────
 
   app.post('/api/pos/receipts/:id/pay', pos, async (req) => {

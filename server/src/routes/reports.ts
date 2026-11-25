@@ -439,9 +439,9 @@ export function reportRoutes(app: FastifyInstance, db: DB) {
       .where(and(eq(receipts.tenantId, tenantId), eq(receipts.status, 'closed'), gte(receipts.closedAt, start), lt(receipts.closedAt, end)))
       .groupBy(receipts.waiterId)
 
-    type Kind = 'void_after_bill' | 'void' | 'refund' | 'reopen' | 'price_down' | 'discount' | 'comp' | 'unlock' | 'cash_diff' | 'cancel'
+    type Kind = 'void_after_bill' | 'void' | 'refund' | 'reopen' | 'price_down' | 'discount' | 'comp' | 'unlock' | 'cash_diff' | 'cancel' | 'unpaid' | 'service_down'
     /** Вес случая: чем опаснее действие, тем больше. */
-    const WEIGHT: Record<Kind, number> = { void_after_bill: 5, cash_diff: 5, refund: 4, reopen: 4, price_down: 3, discount: 3, comp: 2, unlock: 2, void: 1, cancel: 0 }
+    const WEIGHT: Record<Kind, number> = { void_after_bill: 5, cash_diff: 5, refund: 4, reopen: 4, price_down: 3, discount: 3, comp: 2, unlock: 2, void: 1, cancel: 0, unpaid: 4, service_down: 2 }
     const n = (v: unknown) => (typeof v === 'number' && Number.isFinite(v) ? v : 0)
     const cases: { id: string; kind: Kind; at: Date; userId: string | null; userName: string | null; receiptId: string | null; receiptNumber: number | null; tableName: string | null; amount: number; data: Record<string, unknown> }[] = []
     /** Когда по чеку впервые напечатали счёт гостю: удаление после этого — самый частый способ «уменьшить» чек. */
@@ -476,6 +476,12 @@ export function reportRoutes(app: FastifyInstance, db: DB) {
         case 'item.comp':
           add('comp', n(d.total))
           break
+        case 'receipt.close_unpaid':
+          add('unpaid', n(d.total))
+          break
+        case 'receipt.service':
+          if (n(d.to) < n(d.from)) add('service_down', n(d.amount))
+          break
         case 'receipt.unlock':
           add('unlock')
           break
@@ -490,7 +496,7 @@ export function reportRoutes(app: FastifyInstance, db: DB) {
 
     const receiptsBy = new Map(closedBy.map((c) => [c.waiterId, c]))
     type Stat = { userId: string | null; name: string; receipts: number; revenue: number; counts: Record<Kind, number>; amounts: Record<Kind, number>; score: number }
-    const zero = (): Record<Kind, number> => ({ void_after_bill: 0, void: 0, refund: 0, reopen: 0, price_down: 0, discount: 0, comp: 0, unlock: 0, cash_diff: 0, cancel: 0 })
+    const zero = (): Record<Kind, number> => ({ void_after_bill: 0, void: 0, refund: 0, reopen: 0, price_down: 0, discount: 0, comp: 0, unlock: 0, cash_diff: 0, cancel: 0, unpaid: 0, service_down: 0 })
     const stats = new Map<string, Stat>()
     for (const c of cases) {
       const key = c.userId ?? ''

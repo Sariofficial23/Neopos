@@ -14,9 +14,9 @@ export function PayScreen({
 }: {
   receipt: Receipt
   onBack: () => void
-  onPaid: (change: number, closed: Receipt, printReceipt: boolean) => void
+  onPaid: (change: number, closed: Receipt, printReceipt: boolean, unpaid?: boolean) => void
 }) {
-  const { t, lang, boot, fail } = useApp()
+  const { t, lang, boot, fail, can } = useApp()
   const methods = boot.paymentMethods
   const total = receipt.total
   const cash = methods.find((m) => m.kind === 'cash')
@@ -66,6 +66,20 @@ export function PayScreen({
       const payments = methods.map((m) => ({ methodId: m.id, amount: value(m.id) })).filter((p) => p.amount > 0)
       const res = await api<{ change: number; receipt: Receipt }>(`/pos/receipts/${receipt.id}/pay`, { method: 'POST', body: { payments } })
       onPaid(res.change, res.receipt, printIt)
+    } catch (err) {
+      fail(err)
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  /** «Закрыть без оплаты»: только с правом на скидку и после подтверждения. */
+  async function closeUnpaid() {
+    if (busy || !window.confirm(t('closeUnpaidConfirm'))) return
+    setBusy(true)
+    try {
+      const res = await api<{ receipt: Receipt }>(`/pos/receipts/${receipt.id}/close-unpaid`, { method: 'POST' })
+      onPaid(0, res.receipt, printIt, true)
     } catch (err) {
       fail(err)
     } finally {
@@ -155,6 +169,11 @@ export function PayScreen({
           </label>
 
           <div className="pay-foot">
+            {can('receipt.discount') && (
+              <button className="btn unpaid" disabled={busy} onClick={() => void closeUnpaid()}>
+                {t('closeUnpaid')}
+              </button>
+            )}
             <button className="btn close" disabled={!valid || busy} onClick={() => void submit()}>
               {t('closeShort')}
             </button>

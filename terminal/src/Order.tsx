@@ -207,8 +207,8 @@ export function Order({ queue, receipt, setReceipt, onBack }: Props) {
       <PayScreen
         receipt={receipt}
         onBack={() => setDialog(null)}
-        onPaid={(change, closed, printReceipt) => {
-          toast(change > 0 ? `${t('paid')} · ${t('change')}: ${money(change)}` : t('paid'))
+        onPaid={(change, closed, printReceipt, unpaid) => {
+          toast(unpaid ? t('closedUnpaid') : change > 0 ? `${t('paid')} · ${t('change')}: ${money(change)}` : t('paid'))
           // Оплата сама отправляет на кухню то, что не успели отправить, — печатаем и это.
           const late = new Set(fresh.map((i) => i.id))
           printOut([...kitchen(closed, late), ...(printReceipt ? [guestReceipt(closed, boot, lang, { final: true, change })] : [])])
@@ -536,6 +536,7 @@ export function Order({ queue, receipt, setReceipt, onBack }: Props) {
           receipt={receipt}
           onClose={() => setDialog(null)}
           onSave={(body) => void call('/discount', 'POST', body, () => setDialog(null))}
+          onService={(percent) => void call('/service', 'POST', { percent })}
         />
       )}
 
@@ -606,7 +607,17 @@ function QtyDialog({
 
 type DiscountBody = { kind: 'percent' | 'amount'; value: number } | { kind: 'none' }
 
-function DiscountDialog({ receipt, onClose, onSave }: { receipt: Receipt; onClose: () => void; onSave: (b: DiscountBody) => void }) {
+function DiscountDialog({
+  receipt,
+  onClose,
+  onSave,
+  onService,
+}: {
+  receipt: Receipt
+  onClose: () => void
+  onSave: (b: DiscountBody) => void
+  onService: (percent: number | null) => void
+}) {
   const { t } = useApp()
   const [kind, setKind] = useState<'percent' | 'amount'>(receipt.discountKind ?? 'percent')
   const [value, setValue] = useState(receipt.discountKind ? String(receipt.discountValue) : '')
@@ -657,6 +668,20 @@ function DiscountDialog({ receipt, onClose, onSave }: { receipt: Receipt; onClos
           </button>
         </div>
       </form>
+      {/* Процент обслуживания именно для этого чека: меняется сразу, без кнопки «Сохранить». */}
+      <div style={{ display: 'grid', gap: 8, marginTop: 18 }}>
+        <b style={{ fontSize: 14 }}>{t('servicePercent')}</b>
+        <div className="quick">
+          {[0, 5, 10, 15, 20].map((p) => (
+            <button type="button" key={p} className={receipt.serviceBp === p * 100 ? 'on' : ''} onClick={() => onService(p)}>
+              {p}%
+            </button>
+          ))}
+          <button type="button" onClick={() => onService(null)}>
+            {t('serviceDefault')}
+          </button>
+        </div>
+      </div>
     </Dialog>
   )
 }

@@ -252,6 +252,9 @@ export function HistoryReport({ period }: { period: Period }) {
         return `${String(d.from ?? '—')} → ${String(d.to ?? '—')}`
       case 'receipt.discount':
         return d.kind === 'percent' ? `${String(d.value)}%` : sum(d.value)
+      case 'receipt.service':
+        return `${String(d.from)}% → ${String(d.to)}%`
+      case 'receipt.close_unpaid':
       case 'receipt.pay':
       case 'receipt.refund':
       case 'receipt.reopen':

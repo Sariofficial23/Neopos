@@ -290,6 +290,14 @@ const dict = {
   voidTitle: { uz: 'O‘chirish sababi', ru: 'Причина удаления' },
   percent: { uz: 'Foiz', ru: 'Процент' },
   amount: { uz: 'Summa', ru: 'Сумма' },
+  servicePercent: { uz: 'Xizmat haqi, %', ru: 'Обслуживание, %' },
+  serviceDefault: { uz: 'Odatdagi', ru: 'Обычный' },
+  closeUnpaid: { uz: 'To‘lovsiz yopish', ru: 'Закрыть без оплаты' },
+  closeUnpaidConfirm: {
+    uz: 'Chek to‘lovsiz yopiladi: summa nolga tushadi, taomlar hisobdan chiqariladi. Bu amal egasi hisobotida ko‘rinadi. Davom etilsinmi?',
+    ru: 'Чек закроется без оплаты: сумма станет нулевой, товары спишутся. Действие будет видно владельцу в отчёте. Продолжить?',
+  },
+  closedUnpaid: { uz: 'Chek to‘lovsiz yopildi', ru: 'Чек закрыт без оплаты' },
   removeDiscount: { uz: 'Chegirmani olib tashlash', ru: 'Убрать скидку' },
   commentHint: { uz: 'Oshxona uchun izoh', ru: 'Заметка для кухни' },
 

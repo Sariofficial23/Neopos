@@ -5,7 +5,7 @@ import { dateTime, type Period } from '../period'
 import { ErrorNote } from '../ui'
 import { Kpi } from './Reports'
 
-type Kind = 'void_after_bill' | 'void' | 'refund' | 'reopen' | 'price_down' | 'discount' | 'comp' | 'unlock' | 'cash_diff' | 'cancel'
+type Kind = 'void_after_bill' | 'void' | 'refund' | 'reopen' | 'price_down' | 'discount' | 'comp' | 'unlock' | 'cash_diff' | 'cancel' | 'unpaid' | 'service_down'
 type UserRow = {
   userId: string | null
   name: string
@@ -32,7 +32,7 @@ type Case = {
 type Data = { byUser: UserRow[]; cases: Case[]; totalCases: number; totals: { voidAfterBill: number; refunds: number; comps: number; high: number } }
 
 /** Столбцы таблицы по сотрудникам — от самого опасного к менее опасному. */
-const COLS: Kind[] = ['void_after_bill', 'refund', 'reopen', 'price_down', 'discount', 'comp', 'cash_diff', 'void']
+const COLS: Kind[] = ['void_after_bill', 'unpaid', 'refund', 'reopen', 'price_down', 'discount', 'comp', 'cash_diff', 'void']
 const LEVEL_CLASS = { high: 'bg-red-100 text-red-700', medium: 'bg-amber-100 text-amber-800', low: 'bg-slate-100 text-slate-600' } as const
 
 /** Отчёт «Подозрительные действия»: кто из сотрудников и что именно делает чаще остальных. */
@@ -77,6 +77,8 @@ export function SuspiciousReport({ period }: { period: Period }) {
         return [name, d.kind === 'percent' ? `${String(d.value)}%` : ''].filter(Boolean).join(' · ')
       case 'comp':
         return name
+      case 'service_down':
+        return `${String(d.from)}% → ${String(d.to)}%`
       case 'cash_diff':
         return `${t('suCashExpected')} ${num(d.expectedCash)}, ${t('suCashCounted')} ${num(d.countedCash)}`
       default:
