@@ -5,7 +5,7 @@ import { mediaUrl } from './Brand'
 import { Dialog } from './Dialogs'
 import { PayScreen } from './Pay'
 import { CategoryForm, loadMenu, ProductForm, type FullCategory, type FullProduct } from './MenuEdit'
-import { LineDialog, MoveDialog } from './OrderExtras'
+import { LineDialog, MoveDialog, SplitDialog } from './OrderExtras'
 import { guestReceipt, kitchenSlips, printSlips } from './print'
 
 /** Фото товара или категории на плитке: затемняется, чтобы название читалось. */
@@ -25,6 +25,7 @@ const Icon = {
   ),
   comment: <path d="M4 5h16v11H9l-5 4z" />,
   move: <path d="M4 8h13M13 4l4 4-4 4M20 16H7M11 12l-4 4 4 4" />,
+  split: <path d="M12 3v6M12 9l-6 6v6M12 9l6 6v6M3 21h6M15 21h6" />,
   guests: (
     <>
       <circle cx="9" cy="8" r="3.5" />
@@ -79,7 +80,7 @@ export function Order({ queue, receipt, setReceipt, onBack }: Props) {
   const fullCategory = (id: string) => menu?.categories.find((c) => c.id === id) ?? null
   const fullProduct = (id: string) => menu?.products.find((p) => p.id === id) ?? null
   const [query, setQuery] = useState<string | null>(null)
-  const [dialog, setDialog] = useState<'pay' | 'discount' | 'comment' | 'guests' | 'move' | null>(null)
+  const [dialog, setDialog] = useState<'pay' | 'discount' | 'comment' | 'guests' | 'move' | 'split' | null>(null)
   const [line, setLine] = useState<ReceiptItem | null>(null)
   const [busy, setBusy] = useState(false)
   const linesRef = useRef<HTMLUListElement>(null)
@@ -248,6 +249,11 @@ export function Order({ queue, receipt, setReceipt, onBack }: Props) {
             {can('receipt.transfer') && receipt.tableId && (
               <button title={t('moveTable')} aria-label={t('moveTable')} onClick={() => setDialog('move')}>
                 <Svg>{Icon.move}</Svg>
+              </button>
+            )}
+            {can('receipt.transfer') && receipt.items.filter((i) => !i.voided).length > 0 && (
+              <button title={t('splitTitle')} aria-label={t('splitTitle')} onClick={() => setDialog('split')}>
+                <Svg>{Icon.split}</Svg>
               </button>
             )}
             <button
@@ -443,6 +449,22 @@ export function Order({ queue, receipt, setReceipt, onBack }: Props) {
               setLine(null)
               // Кухня должна узнать, что блюдо готовить не нужно.
               printOut(kitchen(next, new Set([line.id]), true))
+            })
+          }
+        />
+      )}
+
+      {dialog === 'split' && (
+        <SplitDialog
+          receipt={receipt}
+          onClose={() => setDialog(null)}
+          onSplit={(items) =>
+            void enqueue(async () => {
+              const res = await api<{ receipt: Receipt; created: Receipt }>(`${base}/split`, { method: 'POST', body: { items } })
+              setDialog(null)
+              toast(`${t('splitDone')} №${res.created.number}`)
+              // Сразу открываем новый чек: обычно его тут же и оплачивают.
+              setReceipt(res.created)
             })
           }
         />

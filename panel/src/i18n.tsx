@@ -374,6 +374,7 @@ const dict = {
   'act.receipt.cancel': { uz: 'Chek bekor qilindi', ru: 'Чек отменён' },
   'act.receipt.reopen': { uz: 'Chek qayta ochildi', ru: 'Чек открыт повторно' },
   'act.receipt.move': { uz: 'Stol ko‘chirildi', ru: 'Перенос стола' },
+  'act.receipt.split': { uz: 'Hisob bo‘lindi', ru: 'Счёт разделён' },
   'act.receipt.refund': { uz: 'Qaytarish', ru: 'Возврат' },
   'act.item.price': { uz: 'Narx o‘zgartirildi', ru: 'Изменена цена' },
   'act.item.comp': { uz: 'Mehmon qilindi', ru: 'Угощение' },

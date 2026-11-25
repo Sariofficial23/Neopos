@@ -157,3 +157,61 @@ export function MoveDialog({ receipt, onClose, onMove }: { receipt: Receipt; onC
     </Dialog>
   )
 }
+
+/**
+ * «Разделить счёт», как в Clopos: отметить, сколько каждой позиции уходит в новый чек за тем же столом.
+ * Штучные позиции делятся по одной, весовые переносятся целиком. Хотя бы одна позиция должна остаться.
+ */
+export function SplitDialog({ receipt, onClose, onSplit }: { receipt: Receipt; onClose: () => void; onSplit: (items: { itemId: string; qty: number }[]) => void }) {
+  const { t, lang } = useApp()
+  const live = receipt.items.filter((i) => !i.voided)
+  const [take, setTake] = useState<Record<string, number>>({})
+  const whole = (i: ReceiptItem) => i.qty % 1000 === 0
+  const set = (i: ReceiptItem, qty: number) => setTake((cur) => ({ ...cur, [i.id]: Math.max(0, Math.min(i.qty, qty)) }))
+  const picked = live.filter((i) => (take[i.id] ?? 0) > 0)
+  const sum = picked.reduce((a, i) => a + (i.comp ? 0 : Math.round((i.total * take[i.id]) / i.qty)), 0)
+  const all = live.length > 0 && live.every((i) => take[i.id] === i.qty)
+
+  return (
+    <Dialog title={t('splitTitle')} onClose={onClose}>
+      <div className="muted" style={{ marginTop: -8, fontSize: 13 }}>
+        {t('splitHint')}
+      </div>
+      <div className="split-list">
+        {live.map((i) => {
+          const n = take[i.id] ?? 0
+          return (
+            <div key={i.id} className={`split-row ${n ? 'on' : ''}`}>
+              <span className="split-name">
+                {i.name[lang]}
+                <small className="num">
+                  {qtyText(i.qty)} × {money(i.price)}
+                </small>
+              </span>
+              {whole(i) && i.qty > 1000 ? (
+                <span className="split-step">
+                  <button aria-label="−" onClick={() => set(i, n - 1000)} disabled={!n}>
+                    −
+                  </button>
+                  <b className="num">{n / 1000}</b>
+                  <button aria-label="+" onClick={() => set(i, n + 1000)} disabled={n >= i.qty}>
+                    +
+                  </button>
+                </span>
+              ) : (
+                <input type="checkbox" role="switch" className="switch" aria-label={i.name[lang]} checked={n > 0} onChange={(e) => set(i, e.target.checked ? i.qty : 0)} />
+              )}
+            </div>
+          )
+        })}
+      </div>
+      <div className="err" role="alert">
+        {all ? t('splitAll') : ''}
+      </div>
+      <button className="btn send wide" disabled={!picked.length || all} onClick={() => onSplit(picked.map((i) => ({ itemId: i.id, qty: take[i.id] })))}>
+        {t('splitDo')}
+        {picked.length > 0 && !all ? ` · ${money(sum)} ${t('sum')}` : ''}
+      </button>
+    </Dialog>
+  )
+}

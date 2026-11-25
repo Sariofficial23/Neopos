@@ -902,6 +902,79 @@ export function posRoutes(app: FastifyInstance, db: DB) {
     })
   })
 
+  /**
+   * «Разделить счёт», как в Clopos: выбранные позиции (целиком или часть количества) уходят в новый чек
+   * за тем же столом. Новый чек наследует сотрудника, способ продажи, процент обслуживания и скидку в процентах.
+   * В исходном чеке должна остаться хотя бы одна позиция.
+   */
+  app.post('/api/pos/receipts/:id/split', pos, async (req) => {
+    const { id } = idParam.parse(req.params)
+    const body = z
+      .object({ items: z.array(z.object({ itemId: z.string().uuid(), qty: z.number().int().min(1).max(100_000_000) })).min(1).max(200) })
+      .parse(req.body)
+    need(req, 'receipt.transfer')
+    const tenantId = req.auth.tenantId
+    return db.transaction(async (tx) => {
+      const r = await loadOpen(tx, req, id)
+      const live = await tx.select().from(receiptItems).where(and(eq(receiptItems.receiptId, id), isNull(receiptItems.voidedAt)))
+      const byId = new Map(live.map((i) => [i.id, i]))
+      const want = new Map<string, number>()
+      for (const x of body.items) want.set(x.itemId, (want.get(x.itemId) ?? 0) + x.qty)
+      for (const [itemId, qty] of want) {
+        const item = byId.get(itemId)
+        if (!item) throw new HttpError(400, 'bad_item')
+        if (qty > item.qty) throw new HttpError(400, 'bad_qty')
+      }
+      // Нельзя унести всё: тогда это не разделение, а тот же чек.
+      if (live.every((i) => want.get(i.id) === i.qty)) throw new HttpError(400, 'split_all')
+
+      const [{ max }] = await tx
+        .select({ max: sql<number>`greatest(coalesce(max(${receipts.number}), 0), ${numberBase('receipt', tenantId)})::int`.mapWith(Number) })
+        .from(receipts)
+        .where(eq(receipts.tenantId, tenantId))
+      const [created] = await tx
+        .insert(receipts)
+        .values({
+          tenantId,
+          branchId: r.branchId,
+          shiftId: r.shiftId,
+          number: max + 1,
+          saleTypeId: r.saleTypeId,
+          tableId: r.tableId,
+          waiterId: r.waiterId,
+          guests: 1,
+          serviceBp: r.serviceBp,
+          // Скидка в процентах действует на обе части; скидка суммой остаётся в исходном чеке.
+          ...(r.discountKind === 'percent' ? { discountKind: r.discountKind, discountValue: r.discountValue } : {}),
+        })
+        .returning()
+
+      for (const [itemId, qty] of want) {
+        const item = byId.get(itemId)!
+        if (qty === item.qty) {
+          await tx.update(receiptItems).set({ receiptId: created.id }).where(eq(receiptItems.id, itemId))
+          continue
+        }
+        // Часть количества: строка делится на две, суммы — пропорционально.
+        const movedTotal = Math.round((item.total * qty) / item.qty)
+        const movedDiscount = Math.round((item.discountAmount * qty) / item.qty)
+        const { id: _id, ...copy } = item
+        await tx.insert(receiptItems).values({ ...copy, receiptId: created.id, qty, total: movedTotal, discountAmount: movedDiscount })
+        await tx
+          .update(receiptItems)
+          .set({ qty: item.qty - qty, total: item.total - movedTotal, discountAmount: item.discountAmount - movedDiscount })
+          .where(eq(receiptItems.id, itemId))
+      }
+      // Счёт, выданный гостю до разделения, уже неверен.
+      if (r.billPrinted) await tx.update(receipts).set({ billPrinted: false }).where(eq(receipts.id, id))
+      await recalc(tx, id)
+      await recalc(tx, created.id)
+      await log(tx, req, id, 'receipt.split', { to: created.number, items: want.size })
+      await log(tx, req, created.id, 'receipt.open', { number: created.number, splitFrom: r.number })
+      return { receipt: await fullReceipt(tx, tenantId, id), created: await fullReceipt(tx, tenantId, created.id) }
+    })
+  })
+
   /** Перенести чек на другой стол (как «Перенос стола» в Clopos). Нужно право; стол должен быть свободен. */
   app.post('/api/pos/receipts/:id/move', pos, async (req) => {
     const { id } = idParam.parse(req.params)

@@ -19,6 +19,8 @@ export function Hall({ onOpen, onMenu, hallId, setHallId }: { hallId: string; se
   const [dialog, setDialog] = useState<'type' | 'receipts' | null>(null)
   const [guestsFor, setGuestsFor] = useState<{ id: string; name: string } | null>(null)
   const [pending, setPending] = useState(false)
+  /** Стол с несколькими чеками: какой из них открыть */
+  const [pick, setPick] = useState<string | null>(null)
 
   const refresh = useCallback(async () => {
     try {
@@ -38,7 +40,22 @@ export function Hall({ onOpen, onMenu, hallId, setHallId }: { hallId: string; se
   }, [refresh])
 
   const hall = boot.halls.find((h) => h.id === hallId) ?? boot.halls[0]
-  const byTable = new Map(open.filter((r) => r.tableId).map((r) => [r.tableId!, r]))
+  // За столом может быть несколько чеков (после «Разделить счёт»): показываем первый, остальные — по выбору.
+  const tableReceipts = new Map<string, OpenReceipt[]>()
+  for (const r of open) if (r.tableId) tableReceipts.set(r.tableId, [...(tableReceipts.get(r.tableId) ?? []), r])
+  const byTable = new Map([...tableReceipts].map(([id, list]) => [id, list[0]]))
+  const openById = async (id: string) => {
+    if (pending) return
+    setPending(true)
+    try {
+      onOpen(await api<Receipt>(`/pos/receipts/${id}`))
+    } catch (err) {
+      fail(err)
+      void refresh()
+    } finally {
+      setPending(false)
+    }
+  }
   const awaySales = boot.saleTypes.filter((s) => s.kind !== 'hall')
   const redMs = (boot.tableRedMinutes ?? 0) * 60_000
 
@@ -98,6 +115,8 @@ export function Hall({ onOpen, onMenu, hallId, setHallId }: { hallId: string; se
           <div className={`tgrid ${planned ? 'plan' : ''}`}>
             {hall.tables.map((tb) => {
               const r = byTable.get(tb.id)
+              const many = tableReceipts.get(tb.id)?.length ?? 0
+              const tableTotal = (tableReceipts.get(tb.id) ?? []).reduce((a, x) => a + x.total, 0)
               // Стол занят чужим чеком, которого этот сотрудник не видит.
               const foreign = !r && busyTables.includes(tb.id)
               // Цвета как в Clopos: синий — мой стол, фиолетовый — другого сотрудника, красный — давно ничего не добавляли.
@@ -110,7 +129,7 @@ export function Hall({ onOpen, onMenu, hallId, setHallId }: { hallId: string; se
                   // Зал с планом из панели: стол стоит в своих клетках сетки.
                   style={planned ? { gridColumn: `${(tb.x ?? 0) + 1} / span ${tb.w ?? 2}`, gridRow: `${(tb.y ?? 0) + 1} / span ${tb.h ?? 2}` } : undefined}
                   // Свободный стол сначала спрашивает число гостей, занятый открывается сразу.
-                  onClick={() => (r || foreign ? void start({ tableId: tb.id }) : setGuestsFor({ id: tb.id, name: tb.name }))}
+                  onClick={() => (many > 1 ? setPick(tb.id) : r || foreign ? void start({ tableId: tb.id }) : setGuestsFor({ id: tb.id, name: tb.name }))}
                 >
                   <b>
                     {t('table')} {tb.name}
@@ -119,8 +138,13 @@ export function Hall({ onOpen, onMenu, hallId, setHallId }: { hallId: string; se
                     <>
                       <span className="waiter">({r.waiterName || '—'})</span>
                       <small className="num">
-                        {money(r.total)} {t('sum')}
+                        {money(tableTotal)} {t('sum')}
                       </small>
+                      {many > 1 && (
+                        <small className="num">
+                          {many} {t('receiptsShort')}
+                        </small>
+                      )}
                       {r.billPrinted && <span className="bill-tag">✓ {t('billPrintedTag')}</span>}
                     </>
                   )}
@@ -131,6 +155,31 @@ export function Hall({ onOpen, onMenu, hallId, setHallId }: { hallId: string; se
           </div>
         )}
       </div>
+
+      {pick && (
+        <Dialog title={`${t('table')} ${hall?.tables.find((x) => x.id === pick)?.name ?? ''} · ${t('receiptsTitle')}`} onClose={() => setPick(null)}>
+          <div className="list">
+            {(tableReceipts.get(pick) ?? []).map((x) => (
+              <button
+                key={x.id}
+                className="btn plain wide"
+                style={{ justifyContent: 'space-between' }}
+                onClick={() => {
+                  setPick(null)
+                  void openById(x.id)
+                }}
+              >
+                <span>
+                  №{x.number} · {x.waiterName || '—'}
+                </span>
+                <b className="num">
+                  {money(x.total)} {t('sum')}
+                </b>
+              </button>
+            ))}
+          </div>
+        </Dialog>
+      )}
 
       {guestsFor && (
         <GuestsDialog
