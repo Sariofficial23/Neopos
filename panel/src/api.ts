@@ -131,8 +131,8 @@ export type Product = {
   deletedAt?: string | null
 }
 
-export type Table = { id: string; hallId: string; name: string; seats: number; serviceBp: number | null }
-export type Hall = { id: string; name: string; sort: number; tables: Table[] }
+export type Table = { id: string; hallId: string; name: string; seats: number; serviceBp: number | null; x: number; y: number; w: number; h: number; shape: 'rect' | 'round' }
+export type Hall = { id: string; name: string; sort: number; serviceBp: number | null; tables: Table[] }
 
 /** Сумма в сумах с пробелами между разрядами: 38 000 */
 export const money = (n: number) => n.toLocaleString('ru-RU').replace(/,/g, ' ')

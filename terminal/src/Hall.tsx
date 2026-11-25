@@ -63,6 +63,9 @@ export function Hall({ onOpen, onMenu, hallId, setHallId }: { hallId: string; se
   // «Чеки» — отдельный экран на всё окно: открытые и закрытые.
   if (dialog === 'receipts') return <ReceiptsScreen open={open} onOpen={onOpen} onBack={() => setDialog(null)} />
 
+  /** Расставлены ли столы этого зала в панели («Управление столами»). Нет — обычная сетка по порядку. */
+  const planned = !!hall && hall.tables.some((tb) => (tb.x ?? 0) > 0 || (tb.y ?? 0) > 0)
+
   return (
     <>
       <header className="bar">
@@ -88,10 +91,11 @@ export function Hall({ onOpen, onMenu, hallId, setHallId }: { hallId: string; se
       </header>
 
       <div className="hall">
+        {/* планировка задана в панели, если хоть один стол сдвинут с левого верхнего угла */}
         {!hall || hall.tables.length === 0 ? (
           <div className="empty-note">{t('noTables')}</div>
         ) : (
-          <div className="tgrid">
+          <div className={`tgrid ${planned ? 'plan' : ''}`}>
             {hall.tables.map((tb) => {
               const r = byTable.get(tb.id)
               // Стол занят чужим чеком, которого этот сотрудник не видит.
@@ -102,7 +106,9 @@ export function Hall({ onOpen, onMenu, hallId, setHallId }: { hallId: string; se
               return (
                 <button
                   key={tb.id}
-                  className={`table ${r ? `busy ${late ? 'late' : mine ? 'mine' : ''} ${r.billPrinted ? 'bill' : ''}` : foreign ? 'other' : ''}`}
+                  className={`table ${tb.shape === 'round' && planned ? 'round' : ''} ${r ? `busy ${late ? 'late' : mine ? 'mine' : ''} ${r.billPrinted ? 'bill' : ''}` : foreign ? 'other' : ''}`}
+                  // Зал с планом из панели: стол стоит в своих клетках сетки.
+                  style={planned ? { gridColumn: `${(tb.x ?? 0) + 1} / span ${tb.w ?? 2}`, gridRow: `${(tb.y ?? 0) + 1} / span ${tb.h ?? 2}` } : undefined}
                   // Свободный стол сначала спрашивает число гостей, занятый открывается сразу.
                   onClick={() => (r || foreign ? void start({ tableId: tb.id }) : setGuestsFor({ id: tb.id, name: tb.name }))}
                 >

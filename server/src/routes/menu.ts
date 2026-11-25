@@ -346,9 +346,20 @@ export function menuRoutes(app: FastifyInstance, db: DB) {
 const hallBody = z.object({
   name: z.string().trim().min(1).max(60),
   sort: z.number().int().min(0).max(100000).default(0),
-  /** Если задано — этот процент обслуживания ставится всем столам зала. */
+  /** Плата за обслуживание в зале: 0–100; null — «по умолчанию» (как у способа продажи). */
+  servicePercent: z.number().min(0).max(100).nullish(),
+  /** Прежний способ: проставить процент каждому столу зала. Оставлен для старых версий панели. */
   servicePercentForAll: z.number().min(0).max(100).nullish(),
 })
+
+/** Место стола на плане зала: клетки сетки 24 × 40, размер и форма. */
+const placeBody = {
+  x: z.number().int().min(0).max(23),
+  y: z.number().int().min(0).max(39),
+  w: z.number().int().min(1).max(8),
+  h: z.number().int().min(1).max(8),
+  shape: z.enum(['rect', 'round']),
+}
 
 const tableBody = z.object({
   hallId: z.string().uuid(),
@@ -356,6 +367,11 @@ const tableBody = z.object({
   seats: z.number().int().min(1).max(100).default(4),
   /** Процент обслуживания для стола: 0–100, можно с десятыми. */
   servicePercent: z.number().min(0).max(100).nullish(),
+  x: placeBody.x.optional(),
+  y: placeBody.y.optional(),
+  w: placeBody.w.optional(),
+  h: placeBody.h.optional(),
+  shape: placeBody.shape.optional(),
 })
 
 /** Проценты в сотые доли процента; пусто — брать из способа продажи. */
@@ -416,20 +432,32 @@ export function hallRoutes(app: FastifyInstance, db: DB) {
   })
 
   app.post('/api/halls', edit, async (req) => {
-    const { servicePercentForAll: _unused, ...body } = hallBody.parse(req.body)
+    const { servicePercentForAll: _unused, servicePercent, ...body } = hallBody.parse(req.body)
     const tenantId = req.auth.tenantId
+    // Новый зал встаёт в конец списка.
+    const [{ n }] = await db.select({ n: count() }).from(halls).where(and(eq(halls.tenantId, tenantId), isNull(halls.deletedAt)))
     const [row] = await db
       .insert(halls)
-      .values({ tenantId, branchId: await defaultBranch(tenantId), ...body })
+      .values({ tenantId, branchId: await defaultBranch(tenantId), ...body, sort: body.sort || n, serviceBp: toBp(servicePercent) })
       .returning()
     return { ...row, tables: [] }
   })
 
   app.patch('/api/halls/:id', edit, async (req) => {
     const { id } = idParam.parse(req.params)
-    const { servicePercentForAll, ...body } = hallBody.parse(req.body)
+    const raw = req.body as Record<string, unknown> | null
+    const { servicePercentForAll, servicePercent, sort, ...body } = hallBody.parse(req.body)
     await loadHall(req.auth.tenantId, id)
-    const [row] = await db.update(halls).set(body).where(eq(halls.id, id)).returning()
+    const [row] = await db
+      .update(halls)
+      .set({
+        ...body,
+        // Порядок и процент меняем, только если их прислали: старая панель о них не знает.
+        ...(raw && 'sort' in raw ? { sort } : {}),
+        ...(raw && 'servicePercent' in raw ? { serviceBp: toBp(servicePercent) } : {}),
+      })
+      .where(eq(halls.id, id))
+      .returning()
     if (servicePercentForAll != null) {
       await db
         .update(tables)
@@ -456,6 +484,60 @@ export function hallRoutes(app: FastifyInstance, db: DB) {
     return { ok: true }
   })
 
+  /** «Настроить порядок залов»: залы идут на кассе в присланном порядке. */
+  app.post('/api/halls/order', edit, async (req) => {
+    const { ids } = z.object({ ids: z.array(z.string().uuid()).min(1).max(200) }).parse(req.body)
+    const tenantId = req.auth.tenantId
+    await db.transaction(async (tx) => {
+      for (const [i, id] of ids.entries()) await tx.update(halls).set({ sort: i }).where(and(eq(halls.id, id), eq(halls.tenantId, tenantId)))
+    })
+    return { ok: true }
+  })
+
+  /** План зала: сохраняет место, размер и форму сразу всех столов. */
+  app.put('/api/halls/:id/layout', edit, async (req) => {
+    const { id } = idParam.parse(req.params)
+    const { tables: list } = z.object({ tables: z.array(z.object({ id: z.string().uuid(), ...placeBody })).max(500) }).parse(req.body)
+    const tenantId = req.auth.tenantId
+    await loadHall(tenantId, id)
+    await db.transaction(async (tx) => {
+      for (const { id: tableId, ...place } of list) {
+        await tx.update(tables).set(place).where(and(eq(tables.id, tableId), eq(tables.hallId, id), eq(tables.tenantId, tenantId), isNull(tables.deletedAt)))
+      }
+    })
+    return { ok: true, saved: list.length }
+  })
+
+  /** «Очистить столы»: убирает все столы зала. Нельзя, пока за каким-то из них открыт чек. */
+  app.delete('/api/halls/:id/tables', edit, async (req) => {
+    const { id } = idParam.parse(req.params)
+    const tenantId = req.auth.tenantId
+    await loadHall(tenantId, id)
+    const own = await db.select({ id: tables.id }).from(tables).where(and(eq(tables.hallId, id), isNull(tables.deletedAt)))
+    await assertNoOpenReceipts(tenantId, own.map((t) => t.id))
+    await db.update(tables).set({ deletedAt: new Date() }).where(and(eq(tables.hallId, id), isNull(tables.deletedAt)))
+    return { ok: true, removed: own.length }
+  })
+
+  /** Свободные места на плане для новых столов: размер 2 × 2, по восемь в ряд, как в Clopos. */
+  async function freePlaces(hallId: string, howMany: number) {
+    const taken = await db.select({ x: tables.x, y: tables.y, w: tables.w, h: tables.h }).from(tables).where(and(eq(tables.hallId, hallId), isNull(tables.deletedAt)))
+    const busy = (x: number, y: number) => taken.some((t) => x < t.x + t.w && x + 2 > t.x && y < t.y + t.h && y + 2 > t.y)
+    const out: { x: number; y: number; w: number; h: number }[] = []
+    for (let row = 0; row < 13 && out.length < howMany; row++) {
+      for (let col = 0; col < 8 && out.length < howMany; col++) {
+        const x = col * 3
+        const y = row * 3
+        if (busy(x, y)) continue
+        out.push({ x, y, w: 2, h: 2 })
+        taken.push({ x, y, w: 2, h: 2 })
+      }
+    }
+    // План заполнен — остальные встают в последнюю клетку, владелец расставит сам.
+    while (out.length < howMany) out.push({ x: 21, y: 38, w: 2, h: 2 })
+    return out
+  }
+
   async function assertTableNameFree(hallId: string, names: string[], exceptId?: string) {
     const cond = and(eq(tables.hallId, hallId), inArray(tables.name, names), isNull(tables.deletedAt))
     const [taken] = await db
@@ -471,9 +553,10 @@ export function hallRoutes(app: FastifyInstance, db: DB) {
     await loadHall(tenantId, body.hallId)
     await assertTableNameFree(body.hallId, [body.name])
     const { servicePercent, ...rest } = body
+    const [place] = await freePlaces(body.hallId, 1)
     const [row] = await db
       .insert(tables)
-      .values({ tenantId, ...rest, serviceBp: toBp(servicePercent) })
+      .values({ tenantId, ...place, ...rest, serviceBp: toBp(servicePercent) })
       .returning()
     return row
   })
@@ -494,9 +577,10 @@ export function hallRoutes(app: FastifyInstance, db: DB) {
     await loadHall(tenantId, body.hallId)
     const names = Array.from({ length: body.to - body.from + 1 }, (_, i) => String(body.from + i))
     await assertTableNameFree(body.hallId, names)
+    const places = await freePlaces(body.hallId, names.length)
     const rows = await db
       .insert(tables)
-      .values(names.map((name) => ({ tenantId, hallId: body.hallId, name, seats: body.seats, serviceBp: toBp(body.servicePercent) })))
+      .values(names.map((name, i) => ({ tenantId, hallId: body.hallId, name, seats: body.seats, serviceBp: toBp(body.servicePercent), ...places[i] })))
       .returning()
     return rows
   })

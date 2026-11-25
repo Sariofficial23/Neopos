@@ -305,7 +305,9 @@ export function posRoutes(app: FastifyInstance, db: DB) {
       halls: hallRows.map((h) => ({
         id: h.id,
         name: h.name,
-        tables: tableRows.filter((t) => t.hallId === h.id).map((t) => ({ id: t.id, name: t.name, seats: t.seats, serviceBp: t.serviceBp })),
+        tables: tableRows
+          .filter((t) => t.hallId === h.id)
+          .map((t) => ({ id: t.id, name: t.name, seats: t.seats, serviceBp: t.serviceBp ?? h.serviceBp, x: t.x, y: t.y, w: t.w, h: t.h, shape: t.shape })),
       })),
       saleTypes: sales.map((s) => ({ id: s.id, kind: s.kind, name: s.name, serviceBp: s.serviceBp })),
       paymentMethods: methods.map((m) => ({ id: m.id, kind: m.kind, name: m.name })),
@@ -639,11 +641,13 @@ export function posRoutes(app: FastifyInstance, db: DB) {
       let tableServiceBp: number | null = null
       if (body.tableId) {
         const [t] = await tx
-          .select({ id: tables.id, serviceBp: tables.serviceBp })
+          .select({ id: tables.id, serviceBp: tables.serviceBp, hallServiceBp: halls.serviceBp })
           .from(tables)
+          .innerJoin(halls, eq(halls.id, tables.hallId))
           .where(and(eq(tables.id, body.tableId), eq(tables.tenantId, tenantId), isNull(tables.deletedAt)))
         if (!t) throw new HttpError(400, 'bad_table')
-        tableServiceBp = t.serviceBp
+        // Сначала процент стола, затем зала; если нет ни того ни другого — способа продажи.
+        tableServiceBp = t.serviceBp ?? t.hallServiceBp
         // Если за столом уже открыт чек — возвращаем его, а не создаём второй.
         const [existing] = await tx
           .select({ id: receipts.id, waiterId: receipts.waiterId })
@@ -905,8 +909,9 @@ export function posRoutes(app: FastifyInstance, db: DB) {
       const r = await loadOpen(tx, req, id)
       if (r.tableId === tableId) return fullReceipt(tx, tenantId, id)
       const [target] = await tx
-        .select({ id: tables.id, name: tables.name, serviceBp: tables.serviceBp })
+        .select({ id: tables.id, name: tables.name, serviceBp: sql<number | null>`coalesce(${tables.serviceBp}, ${halls.serviceBp})` })
         .from(tables)
+        .innerJoin(halls, eq(halls.id, tables.hallId))
         .where(and(eq(tables.id, tableId), eq(tables.tenantId, tenantId), isNull(tables.deletedAt)))
       if (!target) throw new HttpError(400, 'bad_table')
       const [taken] = await tx
