@@ -77,5 +77,8 @@ ok('deleted employee is gone and the PIN is free again', !(await j('GET', '/staf
 const vId = (await j('GET', '/staff', null, owner)).list.find((x) => x.login === vLogin)?.id
 if (vId) await j('DELETE', '/staff/' + vId, null, owner)
 
-console.log(failed ? `\n${failed} FAILED` : '\nALL PASSED')
+// уборка: пробные должности (и оставшиеся от прошлых запусков)
+for (const r of (await j('GET', '/roles', null, owner)).list) if (/^(Test role|Viewer) [0-9]+$/.test(r.name)) await j('DELETE', '/roles/' + r.id, null, owner)
+
+console.log(failed ?`\n${failed} FAILED` : '\nALL PASSED')
 process.exit(failed ? 1 : 0)
