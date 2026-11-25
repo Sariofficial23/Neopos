@@ -351,3 +351,121 @@ export function HistoryReport({ period }: { period: Period }) {
     </>
   )
 }
+
+// ───────────── Зарплата ─────────────
+
+type SalaryRow = {
+  id: string
+  name: string
+  roleName: string
+  receipts: number
+  sales: number
+  service: number
+  salaryFixed: number
+  salarySalesBp: number
+  salaryServiceBp: number
+  fixed: number
+  fromSales: number
+  fromService: number
+  total: number
+}
+
+const pct = (bp: number) => (bp ? `${String(bp / 100).replace('.', ',')}%` : '')
+
+/** Отчёт «Зарплата»: оклад за дни периода, процент от своих продаж и от обслуживания. */
+export function SalaryReport({ period }: { period: Period }) {
+  const { t } = useI18n()
+  const { data, error } = useReport<{ rows: SalaryRow[]; days: number }>(`/reports/salary?from=${period.from}&to=${period.to}`)
+  const rows = data?.rows ?? []
+  const sum = (k: 'receipts' | 'sales' | 'service' | 'fixed' | 'fromSales' | 'fromService' | 'total') => rows.reduce((a, r) => a + r[k], 0)
+  const noRates = rows.length > 0 && rows.every((r) => !r.salaryFixed && !r.salarySalesBp && !r.salaryServiceBp)
+  const part = (amount: number, hint: string) => (
+    <td className="px-4 py-2.5 text-right tabular-nums">
+      {amount ? money(amount) : '—'}
+      {hint && <div className="text-xs text-slate-500">{hint}</div>}
+    </td>
+  )
+
+  return (
+    <>
+      <div className="mb-4 flex justify-end">
+        <button
+          className="btn btn-ghost"
+          disabled={!rows.length}
+          onClick={() =>
+            downloadCsv(
+              `neopos-salary-${period.from}_${period.to}.csv`,
+              [t('slEmployee'), t('role'), t('slReceipts'), t('slSales'), t('slService'), t('slFixed'), t('slFromSales'), t('slFromService'), t('slTotal')],
+              rows.map((r) => [r.name, r.roleName, r.receipts, r.sales, r.service, r.fixed, r.fromSales, r.fromService, r.total]),
+            )
+          }
+        >
+          ↓ {t('exportCsv')}
+        </button>
+      </div>
+      <ErrorNote text={error} />
+      {!data && !error && <div className="text-sm text-slate-500">{t('loading')}</div>}
+      {noRates && (
+        <div role="note" className="mb-3 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+          {t('slNoRates')}
+        </div>
+      )}
+      {data && (
+        <div className="card overflow-x-auto">
+          <table className="w-full min-w-[900px] text-left text-sm">
+            <thead className="border-b border-slate-200 text-xs uppercase tracking-wide text-slate-500">
+              <tr>
+                <th className="px-4 py-3 font-medium">{t('slEmployee')}</th>
+                <th className="px-4 py-3 text-right font-medium">{t('slReceipts')}</th>
+                <th className="px-4 py-3 text-right font-medium">{t('slSales')}</th>
+                <th className="px-4 py-3 text-right font-medium">{t('slService')}</th>
+                <th className="px-4 py-3 text-right font-medium">{t('slFixed')}</th>
+                <th className="px-4 py-3 text-right font-medium">{t('slFromSales')}</th>
+                <th className="px-4 py-3 text-right font-medium">{t('slFromService')}</th>
+                <th className="px-4 py-3 text-right font-medium">{t('slTotal')}</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-100">
+              {rows.map((r) => (
+                <tr key={r.id} className="hover:bg-slate-50">
+                  <td className="px-4 py-2.5 font-medium">
+                    {r.name}
+                    <div className="text-xs font-normal text-slate-500">{r.roleName}</div>
+                  </td>
+                  <td className="px-4 py-2.5 text-right tabular-nums text-slate-600">{r.receipts || '—'}</td>
+                  <td className="px-4 py-2.5 text-right tabular-nums text-slate-600">{r.sales ? money(r.sales) : '—'}</td>
+                  <td className="px-4 py-2.5 text-right tabular-nums text-slate-600">{r.service ? money(r.service) : '—'}</td>
+                  {part(r.fixed, r.salaryFixed ? money(r.salaryFixed) : '')}
+                  {part(r.fromSales, pct(r.salarySalesBp))}
+                  {part(r.fromService, pct(r.salaryServiceBp))}
+                  <td className="px-4 py-2.5 text-right font-semibold tabular-nums">{money(r.total)}</td>
+                </tr>
+              ))}
+              {rows.length === 0 && (
+                <tr>
+                  <td colSpan={8} className="px-4 py-10 text-center text-slate-500">
+                    {t('emptyList')}
+                  </td>
+                </tr>
+              )}
+            </tbody>
+            {rows.length > 0 && (
+              <tfoot className="border-t border-slate-200 bg-slate-50 font-semibold">
+                <tr>
+                  <td className="px-4 py-3">{t('rpTotal')}</td>
+                  <td className="px-4 py-3 text-right tabular-nums">{sum('receipts')}</td>
+                  <td className="px-4 py-3 text-right tabular-nums">{money(sum('sales'))}</td>
+                  <td className="px-4 py-3 text-right tabular-nums">{money(sum('service'))}</td>
+                  <td className="px-4 py-3 text-right tabular-nums">{money(sum('fixed'))}</td>
+                  <td className="px-4 py-3 text-right tabular-nums">{money(sum('fromSales'))}</td>
+                  <td className="px-4 py-3 text-right tabular-nums">{money(sum('fromService'))}</td>
+                  <td className="px-4 py-3 text-right tabular-nums">{money(sum('total'))}</td>
+                </tr>
+              </tfoot>
+            )}
+          </table>
+        </div>
+      )}
+    </>
+  )
+}

@@ -32,6 +32,10 @@ const staffBody = z.object({
     .nullish(),
   lang: z.enum(['uz', 'ru']).default('uz'),
   active: z.boolean().default(true),
+  /** Ставки зарплаты. Не переданы — не меняются (касса их не присылает). */
+  salaryFixed: z.number().int().min(0).max(1_000_000_000).optional(),
+  salarySalesBp: z.number().int().min(0).max(10_000).optional(),
+  salaryServiceBp: z.number().int().min(0).max(10_000).optional(),
 })
 
 export function staffRoutes(app: FastifyInstance, db: DB) {
@@ -113,6 +117,9 @@ export function staffRoutes(app: FastifyInstance, db: DB) {
     isOwner: roles.isOwner,
     hasPin: users.pinHash,
     pin: users.pin,
+    salaryFixed: users.salaryFixed,
+    salarySalesBp: users.salarySalesBp,
+    salaryServiceBp: users.salaryServiceBp,
     createdAt: users.createdAt,
   }
 
@@ -125,7 +132,15 @@ export function staffRoutes(app: FastifyInstance, db: DB) {
       .orderBy(asc(users.createdAt))
     // ПИН-коды видит только тот, кто может править сотрудников; ПИН владельца — только владелец.
     const canSee = req.auth.role.permissions.includes('staff.edit')
-    return rows.map((r) => ({ ...r, hasPin: r.hasPin != null, pin: canSee && (!r.isOwner || req.auth.role.isOwner) ? r.pin : null }))
+    return rows.map((r) => ({
+      ...r,
+      hasPin: r.hasPin != null,
+      pin: canSee && (!r.isOwner || req.auth.role.isOwner) ? r.pin : null,
+      // Ставки зарплаты — тоже только тем, кто правит сотрудников.
+      salaryFixed: canSee ? r.salaryFixed : 0,
+      salarySalesBp: canSee ? r.salarySalesBp : 0,
+      salaryServiceBp: canSee ? r.salaryServiceBp : 0,
+    }))
   })
 
   async function loadRole(tenantId: string, roleId: string) {
@@ -177,6 +192,9 @@ export function staffRoutes(app: FastifyInstance, db: DB) {
         pin: body.pin || null,
         lang: body.lang,
         active: body.active,
+        salaryFixed: body.salaryFixed ?? 0,
+        salarySalesBp: body.salarySalesBp ?? 0,
+        salaryServiceBp: body.salaryServiceBp ?? 0,
       })
       .returning({ id: users.id })
     return row
@@ -214,6 +232,9 @@ export function staffRoutes(app: FastifyInstance, db: DB) {
       lang: body.lang,
       active: body.active,
     }
+    if (body.salaryFixed !== undefined) patch.salaryFixed = body.salaryFixed
+    if (body.salarySalesBp !== undefined) patch.salarySalesBp = body.salarySalesBp
+    if (body.salaryServiceBp !== undefined) patch.salaryServiceBp = body.salaryServiceBp
     if (!body.login) patch.passwordHash = null
     else if (body.password) patch.passwordHash = await hashPassword(body.password)
     if (body.pin) {

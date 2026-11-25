@@ -81,6 +81,10 @@ export type Staff = {
   hasPin: boolean
   /** Сам ПИН-код — приходит только тем, кто может править сотрудников */
   pin?: string | null
+  /** Зарплата: оклад в месяц и проценты в сотых долях (1000 = 10%) */
+  salaryFixed?: number
+  salarySalesBp?: number
+  salaryServiceBp?: number
 }
 
 export type Me = {

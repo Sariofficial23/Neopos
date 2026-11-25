@@ -89,6 +89,10 @@ export const users = pgTable(
      * Вход по-прежнему идёт по pinHash. У старых сотрудников заполняется при следующем входе на кассе.
      */
     pin: text('pin'),
+    /** Зарплата: оклад в месяц (сум), процент от своих продаж и от обслуживания своих чеков (сотые доли процента) */
+    salaryFixed: integer('salary_fixed').notNull().default(0),
+    salarySalesBp: integer('salary_sales_bp').notNull().default(0),
+    salaryServiceBp: integer('salary_service_bp').notNull().default(0),
     lang: text('lang').notNull().default('uz'),
     active: boolean('active').notNull().default(true),
     deletedAt: timestamp('deleted_at', { withTimezone: true }),

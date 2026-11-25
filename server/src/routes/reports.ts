@@ -341,6 +341,59 @@ export function reportRoutes(app: FastifyInstance, db: DB) {
     }
   })
 
+  /**
+   * Отчёт «Заработная плата»: оклад за дни периода + процент от своих продаж + процент от обслуживания.
+   * Оклад делится по дням: за каждый день периода — оклад / число дней в его месяце.
+   * Продажи считаются без обслуживания, по закрытым чекам сотрудника.
+   */
+  app.get('/api/reports/salary', { preHandler: requirePerm('reports.view') }, async (req) => {
+    const { start, end } = range(req.query)
+    const { from, to } = rangeQuery.parse(req.query)
+    const tenantId = req.auth.tenantId
+    const staff = await db
+      .select({
+        id: users.id,
+        name: users.name,
+        roleName: schema.roles.name,
+        active: users.active,
+        deleted: sql<boolean>`${users.deletedAt} is not null`,
+        salaryFixed: users.salaryFixed,
+        salarySalesBp: users.salarySalesBp,
+        salaryServiceBp: users.salaryServiceBp,
+      })
+      .from(users)
+      .innerJoin(schema.roles, eq(schema.roles.id, users.roleId))
+      .where(eq(users.tenantId, tenantId))
+      .orderBy(asc(users.createdAt))
+    const sales = await db
+      .select({
+        waiterId: receipts.waiterId,
+        receipts: num(sql`count(*)`),
+        sales: num(sql`sum(${receipts.total} - ${receipts.serviceAmount})`),
+        service: num(sql`sum(${receipts.serviceAmount})`),
+      })
+      .from(receipts)
+      .where(and(eq(receipts.tenantId, tenantId), eq(receipts.status, 'closed'), gte(receipts.closedAt, start), lt(receipts.closedAt, end)))
+      .groupBy(receipts.waiterId)
+    const byUser = new Map(sales.map((s) => [s.waiterId, s]))
+    // Доля месячного оклада, приходящаяся на период: сумма (1 / дней в месяце) по каждому дню.
+    let share = 0
+    for (let d = new Date(`${from}T00:00:00Z`); d <= new Date(`${to}T00:00:00Z`); d = new Date(d.getTime() + 86_400_000)) {
+      share += 1 / new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth() + 1, 0)).getUTCDate()
+    }
+    const rows = staff
+      .map((u) => {
+        const s = byUser.get(u.id)
+        const fixed = Math.round(u.salaryFixed * share)
+        const fromSales = Math.round(((s?.sales ?? 0) * u.salarySalesBp) / 10_000)
+        const fromService = Math.round(((s?.service ?? 0) * u.salaryServiceBp) / 10_000)
+        return { ...u, receipts: s?.receipts ?? 0, sales: s?.sales ?? 0, service: s?.service ?? 0, fixed, fromSales, fromService, total: fixed + fromSales + fromService }
+      })
+      // Уволенных и выключенных показываем, только если им есть что начислить.
+      .filter((u) => (!u.deleted && u.active) || u.total > 0 || u.receipts > 0)
+    return { rows, days: Math.round((end.getTime() - start.getTime()) / 86_400_000) }
+  })
+
   /** Отчёт «История»: журнал действий сотрудников за период — кто, когда и что сделал. */
   app.get('/api/reports/history', { preHandler: requirePerm('reports.view') }, async (req) => {
     const { start, end } = range(req.query)

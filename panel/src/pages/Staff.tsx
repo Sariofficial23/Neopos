@@ -16,7 +16,14 @@ type Draft = {
   active: boolean
   hadPin: boolean
   hadLogin: boolean
+  salaryFixed: string
+  salarySales: string
+  salaryService: string
 }
+
+/** Процент: в форме «5» или «2,5», на сервере — сотые доли (500, 250). */
+const pctText = (bp: number | undefined) => (bp ? String(bp / 100).replace('.', ',') : '')
+const pctBp = (v: string) => Math.min(10_000, Math.round((Number(v.replace(',', '.')) || 0) * 100))
 
 export function StaffPage() {
   const { t, tErr } = useI18n()
@@ -61,6 +68,9 @@ export function StaffPage() {
       active: true,
       hadPin: false,
       hadLogin: false,
+      salaryFixed: '',
+      salarySales: '',
+      salaryService: '',
     })
   }
 
@@ -78,6 +88,9 @@ export function StaffPage() {
       active: s.active,
       hadPin: s.hasPin,
       hadLogin: !!s.login,
+      salaryFixed: s.salaryFixed ? String(s.salaryFixed) : '',
+      salarySales: pctText(s.salarySalesBp),
+      salaryService: pctText(s.salaryServiceBp),
     })
   }
 
@@ -96,6 +109,9 @@ export function StaffPage() {
         pin: draft.pin || null,
         lang: draft.lang,
         active: draft.active,
+        salaryFixed: Number(draft.salaryFixed) || 0,
+        salarySalesBp: pctBp(draft.salarySales),
+        salaryServiceBp: pctBp(draft.salaryService),
       }
       if (draft.id) await api(`/staff/${draft.id}`, { method: 'PATCH', body })
       else await api('/staff', { method: 'POST', body })
@@ -262,6 +278,21 @@ export function StaffPage() {
                 />
               </Field>
             </div>
+            <fieldset>
+              <legend className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">{t('salaryTitle')}</legend>
+              <div className="grid items-end gap-3 sm:grid-cols-3">
+                <Field label={t('salaryFixed')}>
+                  <input className="input tabular-nums" inputMode="numeric" placeholder="0" value={draft.salaryFixed} onChange={(e) => up('salaryFixed', e.target.value.replace(/\D/g, '').slice(0, 10))} />
+                </Field>
+                <Field label={t('salarySales')}>
+                  <input className="input tabular-nums" inputMode="decimal" placeholder="0" value={draft.salarySales} onChange={(e) => up('salarySales', e.target.value.replace(/[^0-9.,]/g, '').slice(0, 5))} />
+                </Field>
+                <Field label={t('salaryService')}>
+                  <input className="input tabular-nums" inputMode="decimal" placeholder="0" value={draft.salaryService} onChange={(e) => up('salaryService', e.target.value.replace(/[^0-9.,]/g, '').slice(0, 5))} />
+                </Field>
+              </div>
+              <p className="mt-1 text-xs text-slate-500">{t('salaryHint')}</p>
+            </fieldset>
             <Toggle checked={draft.active} onChange={(v) => up('active', v)} label={t('active')} />
             <ErrorNote text={error} />
             <div className="flex items-center justify-between gap-3 pt-1">
