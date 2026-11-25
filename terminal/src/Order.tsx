@@ -289,6 +289,11 @@ export function Order({ queue, receipt, setReceipt, onBack }: Props) {
                   <span className="nm">
                     {i.name[lang]}
                     {i.comp && <small className="comp-tag">🎁 {t('compItem')}</small>}
+                    {!i.comp && (i.discountAmount ?? 0) > 0 && (
+                      <small className="disc-tag num">
+                        −{i.discountPercent ? `${i.discountPercent}%` : money(i.discountAmount ?? 0)}
+                      </small>
+                    )}
                     {i.comment && <small>{i.comment}</small>}
                   </span>
                   <span className={`s num ${i.comp ? 'comp-sum' : ''}`}>{money(i.total)}</span>
@@ -450,6 +455,7 @@ export function Order({ queue, receipt, setReceipt, onBack }: Props) {
           onQty={(qty) => void call(`/items/${line.id}`, 'PATCH', { qty }, () => setLine(null))}
           onPrice={(price) => void call(`/items/${line.id}/price`, 'POST', { price }, () => setLine(null))}
           onComp={(comp) => void call(`/items/${line.id}/comp`, 'POST', { comp }, () => setLine(null))}
+          onDiscount={(d) => void call(`/items/${line.id}/discount`, 'POST', d, () => setLine(null))}
           onVoid={(reasonId) =>
             void call(`/items/${line.id}/void`, 'POST', { reasonId }, (next) => {
               setLine(null)

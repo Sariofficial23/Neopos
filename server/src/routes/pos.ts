@@ -522,6 +522,13 @@ export function posRoutes(app: FastifyInstance, db: DB) {
 
   // ───────────── Чеки ─────────────
 
+  /** Сумма позиции: цена × количество минус её собственная скидка (процентом или суммой). */
+  const lineSums = (price: number, qty: number, percent: number, amount: number) => {
+    const gross = Math.round((price * qty) / 1000)
+    const discountAmount = percent > 0 ? Math.round((gross * percent) / 100) : Math.min(amount, gross)
+    return { total: gross - discountAmount, discountAmount }
+  }
+
   /** Пересчитывает суммы чека по позициям. Вызывается после каждого изменения. */
   async function recalc(tx: Tx, receiptId: string) {
     const [r] = await tx.select().from(receipts).where(eq(receipts.id, receiptId))
@@ -573,6 +580,8 @@ export function posRoutes(app: FastifyInstance, db: DB) {
         price: i.price,
         qty: i.qty,
         total: i.total,
+        discountAmount: i.discountAmount,
+        discountPercent: i.discountPercent,
         comment: i.comment,
         sent: i.sentAt != null,
         voided: i.voidedAt != null,
@@ -761,7 +770,7 @@ export function posRoutes(app: FastifyInstance, db: DB) {
         )
       if (same) {
         const qty = same.qty + body.qty
-        await tx.update(receiptItems).set({ qty, total: Math.round((p.price * qty) / 1000) }).where(eq(receiptItems.id, same.id))
+        await tx.update(receiptItems).set({ qty, ...lineSums(p.price, qty, same.discountPercent, same.discountAmount) }).where(eq(receiptItems.id, same.id))
       } else {
         await tx.insert(receiptItems).values({
           tenantId,
@@ -799,7 +808,7 @@ export function posRoutes(app: FastifyInstance, db: DB) {
         const qty = body.qty ?? item.qty
         await tx
           .update(receiptItems)
-          .set({ qty, total: Math.round((item.price * qty) / 1000), ...(body.comment !== undefined ? { comment: body.comment } : {}) })
+          .set({ qty, ...lineSums(item.price, qty, item.discountPercent, item.discountAmount), ...(body.comment !== undefined ? { comment: body.comment } : {}) })
           .where(eq(receiptItems.id, itemId))
       }
       await recalc(tx, id)
@@ -1045,11 +1054,42 @@ export function posRoutes(app: FastifyInstance, db: DB) {
       const [item] = await tx.select().from(receiptItems).where(and(eq(receiptItems.id, itemId), eq(receiptItems.receiptId, id)))
       if (!item || item.voidedAt) throw new HttpError(404, 'not_found')
       if (item.price !== price) {
-        await tx.update(receiptItems).set({ price, total: Math.round((price * item.qty) / 1000) }).where(eq(receiptItems.id, itemId))
+        await tx.update(receiptItems).set({ price, ...lineSums(price, item.qty, item.discountPercent, item.discountAmount) }).where(eq(receiptItems.id, itemId))
         await tx.update(receipts).set({ suspicious: true }).where(eq(receipts.id, id))
         await log(tx, req, id, 'item.price', { name: item.name, from: item.price, to: price }, true)
         await recalc(tx, id)
       }
+      return fullReceipt(tx, req.auth.tenantId, id)
+    })
+  })
+
+  /**
+   * Скидка на отдельную позицию (как «Скидка на товар» в Clopos): процентом или суммой.
+   * Скидка на весь чек считается уже после неё. Нужно то же право, что и для скидки на чек.
+   */
+  app.post('/api/pos/receipts/:id/items/:itemId/discount', pos, async (req) => {
+    const { id, itemId } = itemParam.parse(req.params)
+    const body = z
+      .discriminatedUnion('kind', [
+        z.object({ kind: z.literal('percent'), value: z.number().int().min(1).max(100) }),
+        z.object({ kind: z.literal('amount'), value: z.number().int().min(1).max(1e12) }),
+        z.object({ kind: z.literal('none') }),
+      ])
+      .parse(req.body)
+    need(req, 'receipt.discount')
+    return db.transaction(async (tx) => {
+      await loadOpen(tx, req, id)
+      const [item] = await tx.select().from(receiptItems).where(and(eq(receiptItems.id, itemId), eq(receiptItems.receiptId, id)))
+      if (!item || item.voidedAt) throw new HttpError(404, 'not_found')
+      const percent = body.kind === 'percent' ? body.value : 0
+      const amount = body.kind === 'amount' ? body.value : 0
+      const sums = lineSums(item.price, item.qty, percent, amount)
+      await tx.update(receiptItems).set({ discountPercent: percent, ...sums }).where(eq(receiptItems.id, itemId))
+      // Большая скидка — повод владельцу посмотреть чек.
+      const big = sums.discountAmount > 0 && sums.discountAmount * 5 >= sums.total + sums.discountAmount
+      if (big) await tx.update(receipts).set({ suspicious: true }).where(eq(receipts.id, id))
+      await log(tx, req, id, 'item.discount', { name: item.name, kind: body.kind, value: body.kind === 'none' ? 0 : body.value, amount: sums.discountAmount }, big)
+      await recalc(tx, id)
       return fullReceipt(tx, req.auth.tenantId, id)
     })
   })

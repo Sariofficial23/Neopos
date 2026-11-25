@@ -21,6 +21,8 @@ const dict = {
   moveTable: { uz: 'Stolni ko‘chirish', ru: 'Перенос стола' },
   moveHint: { uz: 'Faqat bo‘sh stolga ko‘chirish mumkin.', ru: 'Перенести можно только на свободный стол.' },
   splitTitle: { uz: 'Hisobni bo‘lish', ru: 'Разделить счёт' },
+  itemDiscount: { uz: 'Taomga chegirma', ru: 'Скидка на товар' },
+  itemDiscountOff: { uz: 'Olib tashlash', ru: 'Убрать' },
   mergeTitle: { uz: 'Cheklarni birlashtirish', ru: 'Объединить чеки' },
   mergeHint: { uz: 'Tanlangan chekning barcha taomlari shu chekka o‘tadi.', ru: 'Все позиции выбранного чека перейдут в этот чек.' },
   mergeNone: { uz: 'Boshqa ochiq chek yo‘q', ru: 'Других открытых чеков нет' },

@@ -16,6 +16,7 @@ export function LineDialog({
   onQty,
   onPrice,
   onComp,
+  onDiscount,
   onVoid,
 }: {
   item: ReceiptItem
@@ -23,12 +24,16 @@ export function LineDialog({
   onQty: (qty: number) => void
   onPrice: (price: number) => void
   onComp: (comp: boolean) => void
+  onDiscount: (d: { kind: 'percent' | 'amount'; value: number } | { kind: 'none' }) => void
   onVoid: (reasonId: string) => void
 }) {
   const { t, lang, boot, can } = useApp()
   const [n, setN] = useState(Math.round(item.qty / 1000))
   const [price, setPrice] = useState(String(item.price))
   const [voiding, setVoiding] = useState(false)
+  const [disc, setDisc] = useState('')
+  const gross = Math.round((item.price * item.qty) / 1000)
+  const hasDiscount = (item.discountAmount ?? 0) > 0
   const reasons = boot.reasons.filter((r) => r.kind === 'void')
 
   if (voiding)
@@ -50,7 +55,8 @@ export function LineDialog({
   return (
     <Dialog title={item.name[lang]} onClose={onClose}>
       <div className="muted num" style={{ marginTop: -8 }}>
-        {qtyText(item.qty)} × {money(item.price)} = {money(item.total)}
+        {qtyText(item.qty)} × {money(item.price)} = {hasDiscount ? `${money(gross)} − ${money(item.discountAmount ?? 0)} = ` : ''}
+        {money(item.total)}
       </div>
 
       {!item.sent && (
@@ -93,6 +99,41 @@ export function LineDialog({
             {t('save')}
           </button>
         </form>
+      )}
+
+      {can('receipt.discount') && !item.comp && (
+        <div className="line-disc">
+          <span className="field-label">
+            {t('itemDiscount')}
+            {hasDiscount && (
+              <b className="num">
+                {' '}
+                · {item.discountPercent ? `${item.discountPercent}%` : `${money(item.discountAmount ?? 0)} ${t('sum')}`}
+              </b>
+            )}
+          </span>
+          <div className="line-disc-quick">
+            {[5, 10, 15, 20, 50].map((p) => (
+              <button key={p} type="button" className={item.discountPercent === p ? 'on' : ''} onClick={() => onDiscount({ kind: 'percent', value: p })}>
+                {p}%
+              </button>
+            ))}
+          </div>
+          <div className="line-disc-own">
+            <input className="input num" inputMode="numeric" placeholder="0" aria-label={t('itemDiscount')} value={disc} onChange={(e) => setDisc(digits(e.target.value))} />
+            <button type="button" className="btn plain" disabled={!Number(disc) || Number(disc) > 100} onClick={() => onDiscount({ kind: 'percent', value: Number(disc) })}>
+              %
+            </button>
+            <button type="button" className="btn plain" disabled={!Number(disc) || Number(disc) > gross} onClick={() => onDiscount({ kind: 'amount', value: Number(disc) })}>
+              {t('sum')}
+            </button>
+            {hasDiscount && (
+              <button type="button" className="btn plain danger-text" onClick={() => onDiscount({ kind: 'none' })}>
+                {t('itemDiscountOff')}
+              </button>
+            )}
+          </div>
+        </div>
       )}
 
       {can('receipt.comp') && (

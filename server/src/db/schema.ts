@@ -432,7 +432,10 @@ export const receiptItems = pgTable(
       .notNull()
       .default([]),
     comment: text('comment'),
+    /** Скидка на саму позицию, сум: уже вычтена из total */
     discountAmount: money('discount_amount'),
+    /** Если скидка на позицию задана процентом — он хранится здесь и пересчитывается при смене количества или цены */
+    discountPercent: integer('discount_percent').notNull().default(0),
     total: money('total'),
     /** Угощение: позиция за 0 с причиной */
     comp: boolean('comp').notNull().default(false),

@@ -238,6 +238,8 @@ export function HistoryReport({ period }: { period: Period }) {
         return [name, d.reason && typeof d.reason === 'object' ? (d.reason as L10n)[lang] : '', sum(d.total)].filter(Boolean).join(' · ')
       case 'item.price':
         return `${name}: ${sum(d.from)} → ${sum(d.to)}`
+      case 'item.discount':
+        return [name, d.kind === 'percent' ? `${String(d.value)}%` : '', d.amount ? `−${sum(d.amount)}` : ''].filter(Boolean).join(' · ')
       case 'item.comp':
       case 'item.uncomp':
         return [name, sum(d.total)].filter(Boolean).join(' · ')

@@ -137,6 +137,9 @@ export type ReceiptItem = {
   price: number
   qty: number
   total: number
+  /** Скидка на саму позицию: сумма и, если задана процентом, процент */
+  discountAmount?: number
+  discountPercent?: number
   comment: string | null
   sent: boolean
   voided: boolean

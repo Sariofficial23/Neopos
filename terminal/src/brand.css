@@ -71,3 +71,14 @@
 .split-step button { width: 40px; height: 40px; border-radius: 4px; background: #fff; box-shadow: inset 0 0 0 1px #d6d0f5; font-size: 20px; font-weight: 700; color: var(--np-deep); }
 .split-step button:disabled { opacity: 0.35; }
 .split-step b { min-width: 22px; text-align: center; font-size: 16px; }
+
+/* Скидка на позицию */
+.lines .disc-tag { color: var(--np-coral); font-weight: 600; }
+.line-disc { display: grid; gap: 8px; }
+.line-disc .field-label { font-size: 13px; font-weight: 600; color: var(--muted); }
+.line-disc .field-label b { color: var(--np-coral); }
+.line-disc-quick { display: grid; grid-template-columns: repeat(5, 1fr); gap: 6px; }
+.line-disc-quick button { height: 44px; border-radius: 4px; background: #f6f4ff; box-shadow: inset 0 0 0 1px #d6d0f5; font-weight: 700; color: var(--np-deep); }
+.line-disc-quick button.on { background: var(--np); color: #fff; box-shadow: none; }
+.line-disc-own { display: grid; grid-template-columns: minmax(0, 1fr) auto auto auto; gap: 6px; }
+.line-disc-own .btn { min-width: 52px; padding: 0 12px; }

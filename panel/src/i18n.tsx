@@ -381,6 +381,7 @@ const dict = {
   rcTabMerged: { uz: 'Birlashtirilgan', ru: 'Объединённые' },
   'act.receipt.refund': { uz: 'Qaytarish', ru: 'Возврат' },
   'act.item.price': { uz: 'Narx o‘zgartirildi', ru: 'Изменена цена' },
+  'act.item.discount': { uz: 'Taomga chegirma', ru: 'Скидка на товар' },
   'act.item.comp': { uz: 'Mehmon qilindi', ru: 'Угощение' },
   'act.item.uncomp': { uz: 'Mehmon bekor qilindi', ru: 'Угощение отменено' },
 
