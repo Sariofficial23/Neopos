@@ -538,6 +538,8 @@ const dict = {
   'err.forbidden': { uz: 'Bu amal uchun ruxsat yo‘q', ru: 'Нет прав на это действие' },
   'err.validation': { uz: 'Maydonlarni tekshiring', ru: 'Проверьте заполнение полей' },
   'err.network': { uz: 'Server bilan aloqa yo‘q', ru: 'Нет связи с сервером' },
+  'err.telegram_off': { uz: 'Telegram-bot hali ulanmagan', ru: 'Telegram-бот ещё не подключён' },
+  'err.telegram_bad_data': { uz: 'Sahifani Telegram ichida qayta oching', ru: 'Откройте страницу заново внутри Telegram' },
   'err.internal': { uz: 'Serverda xatolik', ru: 'Ошибка на сервере' },
 } as const
 

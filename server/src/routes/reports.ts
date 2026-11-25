@@ -233,6 +233,9 @@ export async function buildSummary(db: DB, tenantId: string, f: ReportFilter) {
   }
 }
 
+/** Сводка за период для других частей сервера (Telegram-бот): появляется после подключения отчётов. */
+export const reportApi: { digest?: (tenantId: string, from: string, to: string, lang: 'uz' | 'ru') => Promise<{ text: string; receipts: number }> } = {}
+
 export function reportRoutes(app: FastifyInstance, db: DB) {
   const { requirePerm, requirePos } = makeAuthGuards(db)
   /** Час начала рабочего дня заведения — от него считаются все отчёты панели. */
@@ -578,6 +581,11 @@ export function reportRoutes(app: FastifyInstance, db: DB) {
         notableCases: sus.cases.slice(0, 12).map((c) => ({ what: c.kind, employee: c.userName, receipt: c.receiptNumber, table: c.tableName, amount: Math.abs(c.amount) })),
       },
     }
+  }
+
+  reportApi.digest = async (tenantId, from, to, lang) => {
+    const facts = await summaryFacts(tenantId, { from, to }, lang)
+    return { text: writeDigest(facts, lang), receipts: facts.totals.receipts }
   }
 
   /**

@@ -3,13 +3,14 @@ import { api, ApiError, money, type L10n } from '../api'
 import { LangSwitch, useI18n } from '../i18n'
 import { dateTime, dayAgo, type Period } from '../period'
 import { useSession } from '../session'
+import { Toggle } from '../ui'
 
 /**
  * Мини-приложение NeoPos в Telegram (адрес /tg): владелец входит тем же логином и паролем,
  * что и в веб-панель, и видит отчёты своего заведения. Экран рассчитан на телефон.
  */
 
-type Tg = { ready: () => void; expand: () => void; setHeaderColor?: (c: string) => void; HapticFeedback?: { impactOccurred: (s: string) => void } }
+type Tg = { initData?: string; ready: () => void; expand: () => void; setHeaderColor?: (c: string) => void; HapticFeedback?: { impactOccurred: (s: string) => void } }
 const tg = () => (window as unknown as { Telegram?: { WebApp?: Tg } }).Telegram?.WebApp
 
 /** Подключает мост Telegram: разворачивает окно на весь экран. Вне Telegram страница работает как обычный сайт. */
@@ -54,6 +55,21 @@ const W = {
   noCategory: { uz: 'Kategoriyasiz', ru: 'Без категории' },
   refresh: { uz: 'Yangilash', ru: 'Обновить' },
   pcs: { uz: 'dona', ru: 'шт' },
+  nTitle: { uz: 'Telegram xabarnomalari', ru: 'Уведомления в Telegram' },
+  nHint: {
+    uz: 'Bot sizga o‘zi yozadi — ilovani ochish shart emas.',
+    ru: 'Бот сам напишет вам — открывать приложение не нужно.',
+  },
+  nOn: { uz: 'Xabarnomalarni yoqish', ru: 'Включить уведомления' },
+  nDigest: { uz: 'Har kuni ertalab — kechagi kun xulosasi', ru: 'Каждое утро — сводка за вчера' },
+  nShift: { uz: 'Smena yopilganda', ru: 'Когда закрывают смену' },
+  nSuspicious: { uz: 'Shubhali amallar (qaytarish, to‘lovsiz yopish…)', ru: 'Подозрительные действия (возврат, закрытие без оплаты…)' },
+  nSent: { uz: 'Yoqildi — bot sizga xabar yubordi.', ru: 'Включено — бот прислал вам сообщение.' },
+  nNotSent: {
+    uz: 'Yoqildi, lekin bot xabar yubora olmadi. Botni oching va «Start» bosing.',
+    ru: 'Включено, но бот не смог написать вам. Откройте бота и нажмите «Старт».',
+  },
+  nReport: { uz: 'Bugungi xulosa — botda /report buyrug‘i.', ru: 'Сводка за сегодня — команда /report в боте.' },
 } as const
 
 type Summary = {
@@ -94,6 +110,69 @@ const Row = ({ name, sub, value, strong }: { name: string; sub?: string; value: 
     <span className={`whitespace-nowrap tabular-nums ${strong ? 'font-semibold' : ''}`}>{value}</span>
   </div>
 )
+
+type LinkState = { linked: boolean; notify: { digest: boolean; shift: boolean; suspicious: boolean }; sent?: boolean }
+
+/** Уведомления бота для этого чата. Видно только внутри Telegram: вне его привязывать нечего. */
+function TgNotify() {
+  const { tErr, lang } = useI18n()
+  const initData = tg()?.initData ?? ''
+  const [st, setSt] = useState<LinkState | null>(null)
+  const [busy, setBusy] = useState(false)
+  const [note, setNote] = useState<string | null>(null)
+  const [error, setError] = useState<string | null>(null)
+
+  useEffect(() => {
+    if (!initData) return
+    api<LinkState>('/telegram/link/state', { method: 'POST', body: { initData } })
+      .then(setSt)
+      .catch(() => setSt(null))
+  }, [initData])
+
+  async function save(path: string, body: Record<string, unknown> = {}) {
+    setBusy(true)
+    setError(null)
+    setNote(null)
+    try {
+      const next = await api<LinkState>(path, { method: 'POST', body: { initData, lang, ...body } })
+      setSt(next)
+      if (next.sent === false) setNote(W.nNotSent[lang])
+      else if (path === '/telegram/link' && !st?.linked) setNote(W.nSent[lang])
+    } catch (err) {
+      setError(tErr(err instanceof ApiError ? err.code : 'internal'))
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  if (!initData || !st) return null
+  return (
+    <section className="space-y-2 rounded-2xl bg-white p-4 shadow-sm ring-1 ring-slate-200">
+      <div>
+        <h2 className="text-sm font-semibold">🔔 {W.nTitle[lang]}</h2>
+        <p className="text-xs text-slate-500">{W.nHint[lang]}</p>
+      </div>
+      <Toggle label={W.nOn[lang]} checked={st.linked} disabled={busy} onChange={(v) => void save(v ? '/telegram/link' : '/telegram/unlink')} />
+      {st.linked &&
+        (['digest', 'shift', 'suspicious'] as const).map((k) => (
+          <Toggle
+            key={k}
+            label={W[k === 'digest' ? 'nDigest' : k === 'shift' ? 'nShift' : 'nSuspicious'][lang]}
+            checked={st.notify[k]}
+            disabled={busy}
+            onChange={(v) => void save('/telegram/link', { notify: { [k]: v } })}
+          />
+        ))}
+      {st.linked && <p className="text-xs text-slate-500">{W.nReport[lang]}</p>}
+      {note && <div className="rounded-lg bg-emerald-50 px-3 py-2 text-sm font-medium text-emerald-800">{note}</div>}
+      {error && (
+        <div role="alert" className="rounded-lg bg-red-50 px-3 py-2 text-sm font-medium text-red-700">
+          {error}
+        </div>
+      )}
+    </section>
+  )
+}
 
 function TgLogin() {
   const { t, tErr, lang } = useI18n()
@@ -223,6 +302,7 @@ function TgReports() {
             {error}
           </div>
         )}
+        {allowed && <TgNotify />}
         {allowed && !data && !error && <div className="p-6 text-center text-sm text-slate-500">{t('loading')}</div>}
         {data && (
           <>

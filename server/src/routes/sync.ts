@@ -228,7 +228,8 @@ export function syncRoutes(app: FastifyInstance, db: DB) {
       // Остаток считает облако. Сначала возвращаем товар по чекам, которые были закрыты…
       for (const id of receiptIds) if (prev.get(id) === 'closed') await adjustStockForReceipt(tx, id, 1, true)
 
-      for (const [name, table] of SALES) await upsert(tx, table, body[name])
+      // Отметка «сообщено в Telegram» ведётся только в облаке: присланная запись её не сбрасывает.
+      for (const [name, table] of SALES) await upsert(tx, table, body[name], name === 'auditLog' ? ['notifiedAt'] : [])
 
       // Позиции и оплаты, которых в присланном чеке уже нет (удалили на кассе), убираем и в облаке.
       // Дальше работаем только с чеками, которые после записи действительно принадлежат заведению.

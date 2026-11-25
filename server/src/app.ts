@@ -69,7 +69,7 @@ export async function buildApp(db: DB) {
   syncRoutes(app, db)
   terminalRoutes(app, db)
   subscriptionRoutes(app, db)
-  telegramRoutes(app)
+  telegramRoutes(app, db)
   paymentMethodRoutes(app, db)
   serveKassa(app)
   return app

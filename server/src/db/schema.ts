@@ -487,6 +487,8 @@ export const auditLog = pgTable(
     action: text('action').notNull(),
     suspicious: boolean('suspicious').notNull().default(false),
     data: jsonb('data').$type<Record<string, unknown>>().notNull().default({}),
+    /** Когда об этом действии сообщили в Telegram (или решили не сообщать) */
+    notifiedAt: timestamp('notified_at', { withTimezone: true }),
     createdAt: createdAt(),
   },
   (t) => [
@@ -550,6 +552,8 @@ export const telegramLinks = pgTable(
     lang: text('lang').notNull().default('uz'),
     /** Какие уведомления включены */
     notify: jsonb('notify').$type<Record<string, boolean>>().notNull().default({}),
+    /** За какой рабочий день уже отправлена ежедневная сводка (ГГГГ-ММ-ДД) */
+    digestSentOn: text('digest_sent_on'),
     createdAt: createdAt(),
   },
   (t) => [uniqueIndex('telegram_chat_uq').on(t.tenantId, t.chatId)],
