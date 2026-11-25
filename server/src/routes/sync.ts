@@ -167,8 +167,10 @@ export function syncRoutes(app: FastifyInstance, db: DB) {
 
   app.get('/api/sync/pull', async (req) => {
     const tenantId = await deviceTenant(req)
-    const [tenant] = await db.select().from(s.tenants).where(eq(s.tenants.id, tenantId))
-    if (!tenant) throw new HttpError(404, 'not_found')
+    const [row] = await db.select().from(s.tenants).where(eq(s.tenants.id, tenantId))
+    if (!row) throw new HttpError(404, 'not_found')
+    // Пароль владельца, видимый администратору платформы, на главный терминал не отдаём.
+    const tenant = { ...row, ownerPassword: null }
     const tables: Record<string, Row[]> = {}
     for (const [name, table] of CONFIG) tables[name] = (await db.select().from(table).where(eq(table.tenantId, tenantId))) as Row[]
 

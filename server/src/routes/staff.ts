@@ -244,6 +244,10 @@ export function staffRoutes(app: FastifyInstance, db: DB) {
       patch.pin = body.pin
     }
     await db.update(users).set(patch).where(eq(users.id, id))
+    // Владелец сменил пароль сам — пароль, который видел администратор NeoPos, больше не действует.
+    if (existing.role.isOwner && (body.password || !body.login)) {
+      await db.update(schema.tenants).set({ ownerPassword: null }).where(eq(schema.tenants.id, tenantId))
+    }
     return { ok: true }
   })
 

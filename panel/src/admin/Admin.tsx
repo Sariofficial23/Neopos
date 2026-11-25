@@ -36,7 +36,11 @@ const T = {
   created: { uz: 'Yaratilgan', ru: 'Создан' },
   staff: { uz: 'Xodimlar', ru: 'Сотрудники' },
   kassas: { uz: 'Kassalar', ru: 'Кассы' },
-  revenue30: { uz: 'Tushum, 30 kun', ru: 'Выручка за 30 дней' },
+  passwordUnknown: { uz: 'noma’lum', ru: 'неизвестен' },
+  passwordUnknownHint: {
+    uz: 'Parolni brend egasi o‘zi qo‘ygan yoki o‘zgartirgan. Ko‘rish uchun «Yangi parol» orqali yangisini qo‘ying.',
+    ru: 'Пароль задал или сменил сам владелец. Чтобы видеть его здесь, задайте новый кнопкой «Новый пароль».',
+  },
   lastSale: { uz: 'Oxirgi savdo', ru: 'Последняя продажа' },
   active: { uz: 'Faol', ru: 'Работает' },
   blocked: { uz: 'Bloklangan', ru: 'Заблокирован' },
@@ -146,9 +150,9 @@ type Brand = {
   blocked: boolean
   createdAt: string
   owner: { name: string; login: string | null } | null
+  /** Пароль, заданный администратором; null — владелец сменил его сам */
+  ownerPassword: string | null
   staff: number
-  terminals: number
-  revenue30: number
   lastSale: string | null
 }
 
@@ -394,9 +398,9 @@ function AdminHome({ me, setMe, onSignOut }: { me: Me; setMe: (m: Me) => void; o
                 <tr>
                   <th className="px-4 py-3 font-medium">{t('brands')}</th>
                   <th className="px-4 py-3 font-medium">{t('owner')}</th>
+                  <th className="px-4 py-3 font-medium">{t('login')}</th>
+                  <th className="px-4 py-3 font-medium">{t('password')}</th>
                   <th className="px-4 py-3 text-right font-medium">{t('staff')}</th>
-                  <th className="px-4 py-3 text-right font-medium">{t('kassas')}</th>
-                  <th className="px-4 py-3 text-right font-medium">{t('revenue30')}</th>
                   <th className="px-4 py-3 font-medium">{t('lastSale')}</th>
                   <th className="px-4 py-3 text-center font-medium">{t('access')}</th>
                   <th className="px-4 py-3" />
@@ -412,13 +416,16 @@ function AdminHome({ me, setMe, onSignOut }: { me: Me; setMe: (m: Me) => void; o
                         {b.note ? ` · ${b.note}` : ''}
                       </div>
                     </td>
-                    <td className="px-4 py-3">
-                      <div>{b.owner?.name ?? '—'}</div>
-                      <div className="font-mono text-xs text-slate-500">{b.owner?.login ?? '—'}</div>
+                    <td className="px-4 py-3">{b.owner?.name ?? '—'}</td>
+                    <td className="px-4 py-3 font-mono font-medium">{b.owner?.login ?? '—'}</td>
+                    <td className="px-4 py-3 font-mono font-medium">
+                      {b.ownerPassword ?? (
+                        <span className="font-sans text-xs font-normal text-slate-400" title={t('passwordUnknownHint')}>
+                          {t('passwordUnknown')}
+                        </span>
+                      )}
                     </td>
                     <td className="px-4 py-3 text-right tabular-nums">{b.staff}</td>
-                    <td className="px-4 py-3 text-right tabular-nums">{b.terminals}</td>
-                    <td className="px-4 py-3 text-right font-medium tabular-nums">{money(b.revenue30)}</td>
                     <td className="px-4 py-3 text-slate-600">{date(b.lastSale) ?? <span className="text-slate-400">{t('never')}</span>}</td>
                     <td className="px-4 py-3">
                       <div className="flex flex-col items-center gap-1">

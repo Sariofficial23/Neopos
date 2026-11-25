@@ -146,8 +146,7 @@ export function adminRoutes(app: FastifyInstance, db: DB) {
 
   app.get('/api/admin/tenants', guard, async () => {
     const list = await db.select().from(tenants).orderBy(desc(tenants.createdAt))
-    const since = new Date(Date.now() - 30 * 86_400_000)
-    const [owners, staff, devices, sales] = await Promise.all([
+    const [owners, staff, sales] = await Promise.all([
       db
         .select({ tenantId: users.tenantId, name: users.name, login: users.login, createdAt: users.createdAt })
         .from(users)
@@ -159,13 +158,8 @@ export function adminRoutes(app: FastifyInstance, db: DB) {
         .from(users)
         .where(isNull(users.deletedAt))
         .groupBy(users.tenantId),
-      db.select({ tenantId: terminals.tenantId, n: count() }).from(terminals).groupBy(terminals.tenantId),
       db
-        .select({
-          tenantId: receipts.tenantId,
-          revenue30: sql<number>`coalesce(sum(case when ${receipts.closedAt} >= ${since} then ${receipts.total} else 0 end), 0)::bigint`.mapWith(Number),
-          lastSale: max(receipts.closedAt),
-        })
+        .select({ tenantId: receipts.tenantId, lastSale: max(receipts.closedAt) })
         .from(receipts)
         .where(eq(receipts.status, 'closed'))
         .groupBy(receipts.tenantId),
@@ -173,7 +167,6 @@ export function adminRoutes(app: FastifyInstance, db: DB) {
     const ownerBy = new Map<string, { name: string; login: string | null }>()
     for (const o of owners) if (!ownerBy.has(o.tenantId)) ownerBy.set(o.tenantId, o)
     const staffBy = new Map(staff.map((s) => [s.tenantId, s.n]))
-    const devBy = new Map(devices.map((d) => [d.tenantId, d.n]))
     const salesBy = new Map(sales.map((s) => [s.tenantId, s]))
     return list.map((t) => ({
       id: t.id,
@@ -183,9 +176,9 @@ export function adminRoutes(app: FastifyInstance, db: DB) {
       blockedAt: t.blockedAt,
       createdAt: t.createdAt,
       owner: ownerBy.get(t.id) ?? null,
+      // Пароль, заданный администратором; null — владелец сменил его сам или задавал при регистрации.
+      ownerPassword: t.ownerPassword,
       staff: staffBy.get(t.id) ?? 0,
-      terminals: devBy.get(t.id) ?? 0,
-      revenue30: salesBy.get(t.id)?.revenue30 ?? 0,
       lastSale: salesBy.get(t.id)?.lastSale ?? null,
     }))
   })
@@ -210,7 +203,10 @@ export function adminRoutes(app: FastifyInstance, db: DB) {
       password: body.password,
       lang: body.lang,
     })
-    if (body.note) await db.update(tenants).set({ note: body.note }).where(eq(tenants.id, tenant.id))
+    await db
+      .update(tenants)
+      .set({ ownerPassword: body.password, ...(body.note ? { note: body.note } : {}) })
+      .where(eq(tenants.id, tenant.id))
     return { id: tenant.id }
   })
 
@@ -251,6 +247,7 @@ export function adminRoutes(app: FastifyInstance, db: DB) {
       .update(users)
       .set({ login, passwordHash: await hashPassword(body.password), active: true })
       .where(eq(users.id, owner.id))
+    await db.update(tenants).set({ ownerPassword: body.password }).where(eq(tenants.id, id))
     return { login }
   })
 }

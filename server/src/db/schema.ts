@@ -39,6 +39,11 @@ export const tenants = pgTable('tenants', {
   blockedAt: timestamp('blocked_at', { withTimezone: true }),
   /** Заметка администратора: телефон, договор, тариф */
   note: text('note'),
+  /**
+   * Пароль владельца, который задал администратор NeoPos (при создании бренда или кнопкой «Новый пароль»).
+   * Виден только в админ-панели, чтобы его можно было подсказать клиенту. Если владелец сменил пароль сам — пусто.
+   */
+  ownerPassword: text('owner_password'),
   /** Абонентская плата: тариф, сумма в месяц (сум) и дата следующего платежа */
   tariff: text('tariff').notNull().default('Standard'),
   monthlyFee: bigint('monthly_fee', { mode: 'number' }).notNull().default(0),

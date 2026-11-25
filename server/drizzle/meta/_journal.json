@@ -113,6 +113,13 @@
       "when": 1795592578788,
       "tag": "0015_nappy_vulcan",
       "breakpoints": true
+    },
+    {
+      "idx": 16,
+      "version": "7",
+      "when": 1795598671070,
+      "tag": "0016_dark_talos",
+      "breakpoints": true
     }
   ]
 }
