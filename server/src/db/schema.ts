@@ -402,6 +402,8 @@ export const receipts = pgTable(
     closedAt: timestamp('closed_at', { withTimezone: true }),
     /** Растёт при каждом изменении — защита от одновременной правки с двух терминалов */
     version: integer('version').notNull().default(1),
+    /** Чек заблокирован: менять его нельзя, пока не снимут блокировку; оплатить и напечатать счёт можно */
+    locked: boolean('locked').notNull().default(false),
   },
   (t) => [
     uniqueIndex('receipts_number_uq').on(t.tenantId, t.number),
@@ -505,6 +507,8 @@ export const terminals = pgTable(
     password: text('password'),
     active: boolean('active').notNull().default(true),
     lastSeenAt: timestamp('last_seen_at', { withTimezone: true }),
+    /** Когда этот терминал в последний раз обменивался с облаком как главный терминал (локальная сеть) */
+    syncAt: timestamp('sync_at', { withTimezone: true }),
     createdAt: createdAt(),
   },
   (t) => [uniqueIndex('terminals_code_uq').on(t.code), uniqueIndex('terminals_password_uq').on(t.tenantId, t.password)],

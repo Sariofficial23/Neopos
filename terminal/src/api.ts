@@ -167,6 +167,8 @@ export type Receipt = {
   openedAt: string
   closedAt: string | null
   billPrinted: boolean
+  /** Чек заблокирован: менять нельзя, пока не снимут блокировку */
+  locked?: boolean
   lastItemAt?: string | null
   payments: { name: L10n; kind: string; amount: number }[]
   items: ReceiptItem[]

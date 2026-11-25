@@ -296,3 +296,48 @@ export function MergeDialog({ receipt, onClose, onMerge }: { receipt: Receipt; o
     </Dialog>
   )
 }
+
+/** «Изменить владельца чека»: перевести чек на другого сотрудника. */
+export function WaiterDialog({ receipt, onClose, onPick }: { receipt: Receipt; onClose: () => void; onPick: (waiterId: string) => void }) {
+  const { t, fail } = useApp()
+  const [list, setList] = useState<{ id: string; name: string }[] | null>(null)
+  useEffect(() => {
+    api<{ id: string; name: string }[]>('/pos/waiters').then(setList).catch(fail)
+  }, [fail])
+  return (
+    <Dialog title={t('waiterTitle')} onClose={onClose}>
+      {!list ? (
+        <div className="muted">{t('loading')}</div>
+      ) : (
+        <div className="list">
+          {list.map((u) => (
+            <button key={u.id} className={`btn wide ${u.id === receipt.waiterId ? 'send' : 'plain'}`} onClick={() => onPick(u.id)}>
+              {u.name}
+            </button>
+          ))}
+        </div>
+      )}
+    </Dialog>
+  )
+}
+
+/** «Изменить способ продажи»: в зале, с собой, доставка. */
+export function SaleTypeDialog({ receipt, onClose, onPick }: { receipt: Receipt; onClose: () => void; onPick: (saleTypeId: string) => void }) {
+  const { t, boot, lang } = useApp()
+  return (
+    <Dialog title={t('saleTypeTitle')} onClose={onClose}>
+      <div className="list">
+        {boot.saleTypes.map((s) => (
+          <button key={s.id} className={`btn wide ${s.id === receipt.saleTypeId ? 'send' : 'plain'}`} onClick={() => onPick(s.id)}>
+            {s.name[lang]}
+          </button>
+        ))}
+      </div>
+      {receipt.tableId && (
+        <div className="muted" style={{ fontSize: 13 }}>
+          {t('saleTypeHint')}
+        </div>
+      )}
+    </Dialog>
+  )
+}

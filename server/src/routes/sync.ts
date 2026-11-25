@@ -102,6 +102,14 @@ const pushBody = z.object({
 
 export function syncRoutes(app: FastifyInstance, db: DB) {
   /** Обмен ведёт главный терминал: нужен его токен устройства, терминал включён, заведение не заблокировано. */
+  /** Отмечаем, что терминал обменивается с облаком как главный: панель показывает это в «Терминалах». Не чаще раза в минуту. */
+  const marked = new Map<string, number>()
+  async function markSync(terminalId: string) {
+    if (Date.now() - (marked.get(terminalId) ?? 0) < 60_000) return
+    marked.set(terminalId, Date.now())
+    await db.update(s.terminals).set({ syncAt: new Date() }).where(eq(s.terminals.id, terminalId))
+  }
+
   async function deviceTenant(req: FastifyRequest): Promise<string> {
     let device: { kind?: string; tid: string; did?: string }
     try {
@@ -115,6 +123,7 @@ export function syncRoutes(app: FastifyInstance, db: DB) {
       .from(s.terminals)
       .where(and(eq(s.terminals.id, device.did), eq(s.terminals.tenantId, device.tid)))
     if (!terminal?.active) throw new HttpError(401, 'device_not_activated')
+    await markSync(device.did)
     return device.tid
   }
 

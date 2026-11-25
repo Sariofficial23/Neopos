@@ -4,7 +4,19 @@ import { useI18n } from '../i18n'
 import { dateTime } from '../period'
 import { ErrorNote, Field, Modal, Switch } from '../ui'
 
-type Terminal = { id: string; number: number; name: string; password: string | null; active: boolean; online: boolean; lastSeenAt: string | null }
+type Terminal = {
+  id: string
+  number: number
+  name: string
+  password: string | null
+  active: boolean
+  online: boolean
+  lastSeenAt: string | null
+  /** Локальная сеть: когда терминал обменивался с облаком как главный */
+  syncAt?: string | null
+  main?: boolean
+  syncOnline?: boolean
+}
 type Data = { brand: string | null; terminals: Terminal[] }
 
 const W = {
@@ -21,6 +33,18 @@ const W = {
   status: { uz: 'Holati', ru: 'Статус' },
   online: { uz: 'Onlayn', ru: 'Онлайн' },
   lastSeen: { uz: 'Oxirgi aloqa', ru: 'Был на связи' },
+  lanTitle: { uz: 'Lokal tarmoq', ru: 'Локальная сеть' },
+  lanMain: { uz: 'Bosh terminal', ru: 'Главный терминал' },
+  lanOnline: { uz: 'bulut bilan aloqada', ru: 'на связи с облаком' },
+  lanOffline: {
+    uz: 'bulut bilan aloqa yo‘q — sotuvlar bosh terminalda to‘planmoqda va internet qaytganda keladi',
+    ru: 'нет связи с облаком — продажи копятся на главном терминале и придут, когда вернётся интернет',
+  },
+  lanLastSync: { uz: 'Oxirgi almashinuv', ru: 'Последний обмен' },
+  lanOff: {
+    uz: 'Yoqilmagan. Bosh terminal Windows uchun NeoPos Kassa ilovasida yoqiladi: PIN-kod ekrani → ☰ → «Lokal tarmoq». Shundan keyin kassa internetsiz ham ishlaydi.',
+    ru: 'Не включена. Главный терминал включается в приложении NeoPos Kassa для Windows: экран ПИН-кода → ☰ → «Локальная сеть». После этого касса работает и без интернета.',
+  },
   noPassword: { uz: 'parol qo‘yilmagan', ru: 'пароль не задан' },
   empty: { uz: 'Terminallar hali yo‘q. Birinchisini yarating.', ru: 'Терминалов пока нет. Создайте первый.' },
   newTitle: { uz: 'Yangi terminal', ru: 'Новый терминал' },
@@ -85,6 +109,9 @@ export function TerminalsPage() {
     }
   }
 
+  /** Главный терминал заведения (локальная сеть): тот, что обменивался с облаком последним. */
+  const mainTerm = data?.terminals.filter((x) => x.main).sort((x, y) => String(y.syncAt).localeCompare(String(x.syncAt)))[0] ?? null
+
   const dot = (on: boolean) => (
     <span className={`inline-grid h-5 w-5 place-items-center rounded-full text-xs font-bold ${on ? 'bg-emerald-100 text-emerald-700' : 'bg-red-100 text-red-600'}`}>{on ? '✓' : '×'}</span>
   )
@@ -106,6 +133,27 @@ export function TerminalsPage() {
             {W.brand[lang]}: <b className="font-mono text-base">{data.brand}</b>
           </span>
           <span className="text-slate-500">{W.hint[lang]}</span>
+        </div>
+      )}
+
+      {data && (
+        <div className="card mb-4 p-4 text-sm">
+          <div className="mb-1 font-semibold">{W.lanTitle[lang]}</div>
+          {mainTerm ? (
+            <div className="flex flex-wrap items-center gap-x-5 gap-y-1">
+              <span>
+                {W.lanMain[lang]}: <b>{mainTerm.name}</b>
+              </span>
+              <span className={mainTerm.syncOnline ? 'font-medium text-emerald-700' : 'font-medium text-amber-700'}>
+                {dot(!!mainTerm.syncOnline)} {mainTerm.syncOnline ? W.lanOnline[lang] : W.lanOffline[lang]}
+              </span>
+              <span className="text-slate-500">
+                {W.lanLastSync[lang]}: {dateTime(mainTerm.syncAt ?? null)}
+              </span>
+            </div>
+          ) : (
+            <div className="text-slate-500">{W.lanOff[lang]}</div>
+          )}
         </div>
       )}
 
@@ -136,7 +184,10 @@ export function TerminalsPage() {
               {data.terminals.map((term) => (
                 <tr key={term.id}>
                   <td className="px-4 py-3 text-brand-600">{term.number}</td>
-                  <td className="px-4 py-3 font-medium">{term.name}</td>
+                  <td className="px-4 py-3 font-medium">
+                    {term.name}
+                    {term.main && <span className="ml-2 rounded-full bg-brand-50 px-2 py-0.5 text-xs font-semibold text-brand-700">{W.lanMain[lang]}</span>}
+                  </td>
                   <td className="px-4 py-3 font-mono">{term.password ?? <span className="font-sans text-slate-400">{W.noPassword[lang]}</span>}</td>
                   <td className="px-4 py-3">
                     <div className="flex justify-center">

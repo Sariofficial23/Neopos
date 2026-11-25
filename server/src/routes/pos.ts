@@ -591,7 +591,7 @@ export function posRoutes(app: FastifyInstance, db: DB) {
   }
 
   /** Загружает открытый чек и проверяет, что сотрудник вправе с ним работать. */
-  async function loadOpen(conn: Conn, req: FastifyRequest, receiptId: string) {
+  async function loadOpen(conn: Conn, req: FastifyRequest, receiptId: string, allowLocked = false) {
     const [r] = await conn
       .select()
       .from(receipts)
@@ -599,6 +599,8 @@ export function posRoutes(app: FastifyInstance, db: DB) {
     if (!r) throw new HttpError(404, 'not_found')
     if (r.waiterId !== req.auth.userId && !can(req, 'receipt.see_all')) throw new HttpError(403, 'no_permission')
     if (r.status !== 'open') throw new HttpError(409, 'receipt_closed')
+    // Заблокированный чек нельзя менять: только отправить на кухню, напечатать счёт, оплатить или разблокировать.
+    if (r.locked && !allowLocked) throw new HttpError(409, 'receipt_locked')
     return r
   }
 
@@ -724,7 +726,7 @@ export function posRoutes(app: FastifyInstance, db: DB) {
   app.delete('/api/pos/receipts/:id', pos, async (req) => {
     const { id } = idParam.parse(req.params)
     return db.transaction(async (tx) => {
-      await loadOpen(tx, req, id)
+      await loadOpen(tx, req, id, true)
       const sent = await tx
         .select({ id: receiptItems.id })
         .from(receiptItems)
@@ -854,7 +856,7 @@ export function posRoutes(app: FastifyInstance, db: DB) {
   app.post('/api/pos/receipts/:id/bill', pos, async (req) => {
     const { id } = idParam.parse(req.params)
     return db.transaction(async (tx) => {
-      const r = await loadOpen(tx, req, id)
+      const r = await loadOpen(tx, req, id, true)
       // Вместе со счётом уходит на кухню всё, что ещё не отправлено: гость платит за то, что в счёте.
       const sent = await tx
         .update(receiptItems)
@@ -1009,6 +1011,85 @@ export function posRoutes(app: FastifyInstance, db: DB) {
       await log(tx, req, id, 'receipt.merge', { from: source.number })
       await log(tx, req, fromId, 'receipt.merged', { to: target.number })
       return fullReceipt(tx, tenantId, id)
+    })
+  })
+
+  /** Сотрудники, на которых можно перевести чек: все действующие с доступом к кассе. */
+  app.get('/api/pos/waiters', pos, async (req) =>
+    db
+      .select({ id: users.id, name: users.name })
+      .from(users)
+      .innerJoin(roles, eq(roles.id, users.roleId))
+      .where(and(eq(users.tenantId, req.auth.tenantId), eq(users.active, true), isNull(users.deletedAt), sql`(${roles.isOwner} or ${roles.terminalAccess})`))
+      .orderBy(asc(users.name)),
+  )
+
+  /** Сменить сотрудника чека (как «Изменить владельца чека» в Clopos). Нужно право на перенос. */
+  app.post('/api/pos/receipts/:id/waiter', pos, async (req) => {
+    const { id } = idParam.parse(req.params)
+    const { waiterId } = z.object({ waiterId: z.string().uuid() }).parse(req.body)
+    need(req, 'receipt.transfer')
+    const tenantId = req.auth.tenantId
+    return db.transaction(async (tx) => {
+      const r = await loadOpen(tx, req, id)
+      const [next] = await tx
+        .select({ id: users.id, name: users.name })
+        .from(users)
+        .innerJoin(roles, eq(roles.id, users.roleId))
+        .where(and(eq(users.id, waiterId), eq(users.tenantId, tenantId), eq(users.active, true), isNull(users.deletedAt), sql`(${roles.isOwner} or ${roles.terminalAccess})`))
+      if (!next) throw new HttpError(400, 'bad_waiter')
+      if (r.waiterId !== next.id) {
+        const [prev] = r.waiterId ? await tx.select({ name: users.name }).from(users).where(eq(users.id, r.waiterId)) : []
+        await tx.update(receipts).set({ waiterId: next.id }).where(eq(receipts.id, id))
+        await log(tx, req, id, 'receipt.waiter', { from: prev?.name ?? null, to: next.name })
+      }
+      return fullReceipt(tx, tenantId, id)
+    })
+  })
+
+  /**
+   * Сменить способ продажи чека («В зале» ↔ «С собой» ↔ «Доставка»). Нужно право на перенос.
+   * Не «в зале» — чек уходит со стола, обслуживание берётся из нового способа продажи.
+   */
+  app.post('/api/pos/receipts/:id/sale-type', pos, async (req) => {
+    const { id } = idParam.parse(req.params)
+    const { saleTypeId } = z.object({ saleTypeId: z.string().uuid() }).parse(req.body)
+    need(req, 'receipt.transfer')
+    const tenantId = req.auth.tenantId
+    return db.transaction(async (tx) => {
+      const r = await loadOpen(tx, req, id)
+      const [type] = await tx.select().from(saleTypes).where(and(eq(saleTypes.id, saleTypeId), eq(saleTypes.tenantId, tenantId), eq(saleTypes.active, true)))
+      if (!type) throw new HttpError(400, 'bad_sale_type')
+      if (r.saleTypeId !== type.id) {
+        const [prev] = r.saleTypeId ? await tx.select({ name: saleTypes.name }).from(saleTypes).where(eq(saleTypes.id, r.saleTypeId)) : []
+        // За столом процент стола или зала уже стоит в чеке; без стола — берём процент способа продажи.
+        const keepTable = type.kind === 'hall' && r.tableId
+        await tx
+          .update(receipts)
+          .set({ saleTypeId: type.id, ...(keepTable ? {} : { tableId: null, serviceBp: type.serviceBp }) })
+          .where(eq(receipts.id, id))
+        await log(tx, req, id, 'receipt.sale_type', { from: prev?.name ?? null, to: type.name })
+        await recalc(tx, id)
+      }
+      return fullReceipt(tx, tenantId, id)
+    })
+  })
+
+  /**
+   * Блокировка чека: после неё чек нельзя менять (добавлять, удалять, скидки, перенос), пока блокировку не снимут.
+   * Заблокировать может любой, кто работает с чеком; снять — тот, у кого есть право открывать закрытые чеки.
+   */
+  app.post('/api/pos/receipts/:id/lock', pos, async (req) => {
+    const { id } = idParam.parse(req.params)
+    const { locked } = z.object({ locked: z.boolean() }).parse(req.body)
+    if (!locked) need(req, 'receipt.reopen')
+    return db.transaction(async (tx) => {
+      const r = await loadOpen(tx, req, id, true)
+      if (r.locked !== locked) {
+        await tx.update(receipts).set({ locked }).where(eq(receipts.id, id))
+        await log(tx, req, id, locked ? 'receipt.lock' : 'receipt.unlock', {}, !locked)
+      }
+      return fullReceipt(tx, req.auth.tenantId, id)
     })
   })
 
@@ -1168,7 +1249,7 @@ export function posRoutes(app: FastifyInstance, db: DB) {
       .parse(req.body)
     const tenantId = req.auth.tenantId
     return db.transaction(async (tx) => {
-      const r0 = await loadOpen(tx, req, id)
+      const r0 = await loadOpen(tx, req, id, true)
       // Всё, что не успели отправить на кухню, отправляется вместе с оплатой.
       await tx.update(receiptItems).set({ sentAt: new Date() }).where(and(eq(receiptItems.receiptId, id), isNull(receiptItems.sentAt), isNull(receiptItems.voidedAt)))
       await recalc(tx, id)

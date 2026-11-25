@@ -82,3 +82,8 @@
 .line-disc-quick button.on { background: var(--np); color: #fff; box-shadow: none; }
 .line-disc-own { display: grid; grid-template-columns: minmax(0, 1fr) auto auto auto; gap: 6px; }
 .line-disc-own .btn { min-width: 52px; padding: 0 12px; }
+
+/* Значков в полосе чека стало много: на низком экране полоса прокручивается */
+.rail, .order-work .rail { overflow-y: auto; scrollbar-width: none; }
+.rail::-webkit-scrollbar { display: none; }
+.rail button { flex: none; }

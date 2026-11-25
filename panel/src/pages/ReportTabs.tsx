@@ -243,6 +243,11 @@ export function HistoryReport({ period }: { period: Period }) {
       case 'item.comp':
       case 'item.uncomp':
         return [name, sum(d.total)].filter(Boolean).join(' · ')
+      case 'receipt.sale_type': {
+        const nm = (v: unknown) => (v && typeof v === 'object' ? ((v as L10n)[lang] ?? '—') : '—')
+        return `${nm(d.from)} → ${nm(d.to)}`
+      }
+      case 'receipt.waiter':
       case 'receipt.move':
         return `${String(d.from ?? '—')} → ${String(d.to ?? '—')}`
       case 'receipt.discount':

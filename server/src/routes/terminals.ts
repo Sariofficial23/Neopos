@@ -38,7 +38,7 @@ export function terminalRoutes(app: FastifyInstance, db: DB) {
   app.get('/api/terminals', edit, async (req) => {
     const tenantId = req.auth.tenantId
     const rows = await db
-      .select({ id: terminals.id, name: terminals.name, password: terminals.password, active: terminals.active, lastSeenAt: terminals.lastSeenAt, createdAt: terminals.createdAt })
+      .select({ id: terminals.id, name: terminals.name, password: terminals.password, active: terminals.active, lastSeenAt: terminals.lastSeenAt, syncAt: terminals.syncAt, createdAt: terminals.createdAt })
       .from(terminals)
       .where(eq(terminals.tenantId, tenantId))
       .orderBy(asc(terminals.createdAt))
@@ -52,7 +52,14 @@ export function terminalRoutes(app: FastifyInstance, db: DB) {
     const now = Date.now()
     return {
       brand: owner?.login ?? null,
-      terminals: rows.map((r, i) => ({ ...r, number: i + 1, online: !!r.lastSeenAt && now - r.lastSeenAt.getTime() < ONLINE_MS })),
+      terminals: rows.map((r, i) => ({
+        ...r,
+        number: i + 1,
+        online: !!r.lastSeenAt && now - r.lastSeenAt.getTime() < ONLINE_MS,
+        // Главный терминал (локальная сеть): обменивался с облаком за последнюю неделю; «на связи» — за последние три минуты.
+        main: !!r.syncAt && now - r.syncAt.getTime() < 7 * 86_400_000,
+        syncOnline: !!r.syncAt && now - r.syncAt.getTime() < 3 * 60_000,
+      })),
     }
   })
 

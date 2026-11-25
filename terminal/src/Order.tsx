@@ -5,7 +5,7 @@ import { mediaUrl } from './Brand'
 import { Dialog } from './Dialogs'
 import { PayScreen } from './Pay'
 import { CategoryForm, loadMenu, ProductForm, type FullCategory, type FullProduct } from './MenuEdit'
-import { LineDialog, MergeDialog, MoveDialog, SplitDialog } from './OrderExtras'
+import { LineDialog, MergeDialog, MoveDialog, SaleTypeDialog, SplitDialog, WaiterDialog } from './OrderExtras'
 import { guestReceipt, kitchenSlips, printSlips } from './print'
 
 /** Фото товара или категории на плитке: затемняется, чтобы название читалось. */
@@ -27,6 +27,19 @@ const Icon = {
   move: <path d="M4 8h13M13 4l4 4-4 4M20 16H7M11 12l-4 4 4 4" />,
   split: <path d="M12 3v6M12 9l-6 6v6M12 9l6 6v6M3 21h6M15 21h6" />,
   merge: <path d="M6 3v6l6 6v6M18 3v6l-6 6M9 21h6M3 3h6M15 3h6" />,
+  waiter: (
+    <>
+      <circle cx="9" cy="8" r="3.5" />
+      <path d="M2 20c0-3.5 3-5.5 7-5.5 1.6 0 3 .3 4.2 1M16 15l4 4-4 4M20 19h-7" />
+    </>
+  ),
+  saleType: <path d="M6 8h12l-1 12H7L6 8zM9 8V6a3 3 0 0 1 6 0v2" />,
+  lock: (
+    <>
+      <rect x="5" y="11" width="14" height="10" rx="2" />
+      <path d="M8 11V7a4 4 0 0 1 8 0v4" />
+    </>
+  ),
   guests: (
     <>
       <circle cx="9" cy="8" r="3.5" />
@@ -81,7 +94,7 @@ export function Order({ queue, receipt, setReceipt, onBack }: Props) {
   const fullCategory = (id: string) => menu?.categories.find((c) => c.id === id) ?? null
   const fullProduct = (id: string) => menu?.products.find((p) => p.id === id) ?? null
   const [query, setQuery] = useState<string | null>(null)
-  const [dialog, setDialog] = useState<'pay' | 'discount' | 'comment' | 'guests' | 'move' | 'split' | 'merge' | null>(null)
+  const [dialog, setDialog] = useState<'pay' | 'discount' | 'comment' | 'guests' | 'move' | 'split' | 'merge' | 'waiter' | 'saleType' | null>(null)
   const [line, setLine] = useState<ReceiptItem | null>(null)
   const [busy, setBusy] = useState(false)
   const linesRef = useRef<HTMLUListElement>(null)
@@ -213,7 +226,7 @@ export function Order({ queue, receipt, setReceipt, onBack }: Props) {
         </button>
         <strong className="bar-title">{title}</strong>
         <span className="bar-meta num">
-          №{receipt.number} · {receipt.guests} 👤
+          №{receipt.number} · {receipt.guests} 👤{receipt.locked ? ` · 🔒 ${t('lockedTag')}` : ''}
         </span>
         <span className="receipt-owner">
           {t('receiptOwner')}: <b>{receipt.waiterName || '—'}</b>
@@ -260,6 +273,26 @@ export function Order({ queue, receipt, setReceipt, onBack }: Props) {
             {can('receipt.transfer') && (
               <button title={t('mergeTitle')} aria-label={t('mergeTitle')} onClick={() => setDialog('merge')}>
                 <Svg>{Icon.merge}</Svg>
+              </button>
+            )}
+            {can('receipt.transfer') && (
+              <button title={t('waiterTitle')} aria-label={t('waiterTitle')} onClick={() => setDialog('waiter')}>
+                <Svg>{Icon.waiter}</Svg>
+              </button>
+            )}
+            {can('receipt.transfer') && boot.saleTypes.length > 1 && (
+              <button title={t('saleTypeTitle')} aria-label={t('saleTypeTitle')} onClick={() => setDialog('saleType')}>
+                <Svg>{Icon.saleType}</Svg>
+              </button>
+            )}
+            {(!receipt.locked || can('receipt.reopen')) && (
+              <button
+                title={receipt.locked ? t('unlockReceipt') : t('lockReceipt')}
+                aria-label={receipt.locked ? t('unlockReceipt') : t('lockReceipt')}
+                className={receipt.locked ? 'on' : ''}
+                onClick={() => void call('/lock', 'POST', { locked: !receipt.locked }, (next) => toast(next.locked ? t('lockedNote') : t('unlockedNote')))}
+              >
+                <Svg>{Icon.lock}</Svg>
               </button>
             )}
             <button
@@ -480,6 +513,14 @@ export function Order({ queue, receipt, setReceipt, onBack }: Props) {
             })
           }
         />
+      )}
+
+      {dialog === 'waiter' && (
+        <WaiterDialog receipt={receipt} onClose={() => setDialog(null)} onPick={(waiterId) => void call('/waiter', 'POST', { waiterId }, () => setDialog(null))} />
+      )}
+
+      {dialog === 'saleType' && (
+        <SaleTypeDialog receipt={receipt} onClose={() => setDialog(null)} onPick={(saleTypeId) => void call('/sale-type', 'POST', { saleTypeId }, () => setDialog(null))} />
       )}
 
       {dialog === 'merge' && (
