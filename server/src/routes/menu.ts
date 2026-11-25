@@ -1,4 +1,4 @@
-import { and, asc, count, eq, inArray, isNull, ne } from 'drizzle-orm'
+import { and, asc, count, eq, inArray, isNotNull, isNull, ne } from 'drizzle-orm'
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify'
 import { z } from 'zod'
 import { HttpError, makeAuthGuards } from '../auth.js'
@@ -59,7 +59,7 @@ export function menuRoutes(app: FastifyInstance, db: DB) {
   }
   const view = { preHandler: allow(['menu.view', 'menu.edit']) }
   const edit = { preHandler: allow(['menu.edit']) }
-  const { departments, categories, products } = schema
+  const { departments, categories, products, itemMedia } = schema
 
   // ───────────── Отделы ─────────────
 
@@ -198,13 +198,78 @@ export function menuRoutes(app: FastifyInstance, db: DB) {
     if (taken) throw new HttpError(409, 'barcode_taken')
   }
 
-  app.get('/api/products', view, async (req) =>
-    db
+  // ?deleted=1 — вкладка «Удалено»: товары, убранные из меню, их можно вернуть.
+  app.get('/api/products', view, async (req) => {
+    const deleted = (req.query as { deleted?: string }).deleted === '1'
+    return db
       .select()
       .from(products)
-      .where(and(eq(products.tenantId, req.auth.tenantId), isNull(products.deletedAt)))
-      .orderBy(asc(products.sort), asc(products.createdAt)),
-  )
+      .where(and(eq(products.tenantId, req.auth.tenantId), deleted ? isNotNull(products.deletedAt) : isNull(products.deletedAt)))
+      .orderBy(asc(products.sort), asc(products.createdAt))
+  })
+
+  /** Вернуть удалённый товар в меню. Возвращается выключенным — владелец сам включит продажу. */
+  app.post('/api/products/:id/restore', edit, async (req) => {
+    const { id } = idParam.parse(req.params)
+    const tenantId = req.auth.tenantId
+    const [old] = await db.select().from(products).where(and(eq(products.id, id), eq(products.tenantId, tenantId), isNotNull(products.deletedAt)))
+    if (!old) throw new HttpError(404, 'not_found')
+    // Штрих-код за это время мог занять другой товар.
+    if (old.barcode) await assertBarcodeFree(tenantId, old.barcode, id)
+    const [row] = await db.update(products).set({ deletedAt: null, active: false }).where(eq(products.id, id)).returning()
+    return row
+  })
+
+  // ───────────── Фото товаров и категорий ─────────────
+
+  const imageBody = z.object({ image: z.string().regex(/^data:image\/(webp|jpeg|png);base64,[A-Za-z0-9+/=]+$/, 'bad_image') })
+  const MAX_IMAGE_BYTES = 200_000
+
+  for (const [path, table] of [
+    ['products', products],
+    ['categories', categories],
+  ] as const) {
+    const owned = async (req: FastifyRequest, id: string) => {
+      const [row] = await db.select({ id: table.id }).from(table).where(and(eq(table.id, id), eq(table.tenantId, req.auth.tenantId), isNull(table.deletedAt)))
+      if (!row) throw new HttpError(404, 'not_found')
+    }
+    // Картинку сжимает панель; здесь только проверяем тип и размер.
+    app.put(`/api/${path}/:id/image`, { ...edit, bodyLimit: 600_000 }, async (req) => {
+      const { id } = idParam.parse(req.params)
+      const { image } = imageBody.parse(req.body)
+      await owned(req, id)
+      const [, mime, data] = /^data:(image\/[a-z]+);base64,(.*)$/.exec(image)!
+      if (Buffer.byteLength(data, 'base64') > MAX_IMAGE_BYTES) throw new HttpError(413, 'image_too_big')
+      const now = new Date()
+      await db
+        .insert(itemMedia)
+        .values({ tenantId: req.auth.tenantId, refId: id, mime, data, updatedAt: now })
+        .onConflictDoUpdate({ target: itemMedia.refId, set: { mime, data, updatedAt: now } })
+      // В адресе — время изменения: касса держит картинку в кэше, а после замены берёт новую.
+      const url = `/api/media/item/${id}?v=${now.getTime()}`
+      await db.update(table).set({ image: url }).where(eq(table.id, id))
+      return { image: url }
+    })
+    app.delete(`/api/${path}/:id/image`, edit, async (req) => {
+      const { id } = idParam.parse(req.params)
+      await owned(req, id)
+      await db.delete(itemMedia).where(and(eq(itemMedia.refId, id), eq(itemMedia.tenantId, req.auth.tenantId)))
+      await db.update(table).set({ image: null }).where(eq(table.id, id))
+      return { image: null }
+    })
+  }
+
+  // Сама картинка открыта без входа (в адресе случайный id), кэшируется надолго — адрес меняется при замене.
+  app.get('/api/media/item/:id', async (req, reply) => {
+    const { id } = idParam.parse(req.params)
+    const [row] = await db.select({ mime: itemMedia.mime, data: itemMedia.data }).from(itemMedia).where(eq(itemMedia.refId, id))
+    if (!row) throw new HttpError(404, 'not_found')
+    return reply
+      .header('Content-Type', row.mime)
+      .header('Cache-Control', 'public, max-age=31536000, immutable')
+      .header('Cross-Origin-Resource-Policy', 'cross-origin')
+      .send(Buffer.from(row.data, 'base64'))
+  })
 
   app.post('/api/products', edit, async (req) => {
     const body = productBody.parse(req.body)

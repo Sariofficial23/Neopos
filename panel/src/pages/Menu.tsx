@@ -2,12 +2,13 @@ import { useCallback, useEffect, useMemo, useState, type FormEvent } from 'react
 import { api, ApiError, money, type Category, type Department, type L10n, type Product } from '../api'
 import { useI18n } from '../i18n'
 import { useSession } from '../session'
+import { PhotoField, photoUrl, Thumb } from '../Photo'
 import { ErrorNote, Field, Modal, Segmented, Switch, TILE_COLORS, Toggle } from '../ui'
 
 type Tab = 'products' | 'categories' | 'departments'
 
 type ProductDraft = Omit<Product, 'id' | 'price' | 'cost' | 'sort'> & { id?: string; price: string; cost: string }
-type CategoryDraft = { id?: string; name: L10n; color: string; active: boolean }
+type CategoryDraft = { id?: string; name: L10n; color: string; active: boolean; image?: string | null }
 type DepartmentDraft = { id?: string; name: string; printer: string }
 
 /** Наценка в процентах к себестоимости: (цена − себестоимость) / себестоимость */
@@ -44,6 +45,10 @@ export function MenuPage() {
   const [categories, setCategories] = useState<Category[]>([])
   const [departments, setDepartments] = useState<Department[]>([])
   const [filter, setFilter] = useState<string>('all')
+  const [depFilter, setDepFilter] = useState<string>('all')
+  /** Вкладки списка товаров, как в Clopos: все товары и удалённые */
+  const [view, setView] = useState<'all' | 'deleted'>('all')
+  const [deleted, setDeleted] = useState<Product[] | null>(null)
   const [query, setQuery] = useState('')
   const [pageError, setPageError] = useState<string | null>(null)
 
@@ -75,23 +80,46 @@ export function MenuPage() {
     void load()
   }, [load])
 
+  const loadDeleted = useCallback(() => {
+    api<Product[]>('/products?deleted=1')
+      .then(setDeleted)
+      .catch((err) => setPageError(errText(err)))
+  }, [errText])
+
+  useEffect(() => {
+    if (view === 'deleted') loadDeleted()
+  }, [view, loadDeleted])
+
+  async function restore(p: Product) {
+    try {
+      await api(`/products/${p.id}/restore`, { method: 'POST' })
+      loadDeleted()
+      await load()
+    } catch (err) {
+      setPageError(errText(err))
+    }
+  }
+
   const catById = useMemo(() => new Map(categories.map((c) => [c.id, c])), [categories])
+  const depById = useMemo(() => new Map(departments.map((d) => [d.id, d])), [departments])
 
   const shown = useMemo(() => {
     const q = query.trim().toLowerCase()
     // Товары идут группами по категориям, в том же порядке, что и плитки на кассе.
     const order = new Map(categories.map((c, i) => [c.id, i]))
     const rank = (p: Product) => (p.categoryId ? (order.get(p.categoryId) ?? 9998) : 9999)
-    const sorted = [...(products ?? [])].sort((a, b) => rank(a) - rank(b) || a.sort - b.sort)
+    const sorted = [...((view === 'deleted' ? deleted : products) ?? [])].sort((a, b) => rank(a) - rank(b) || a.sort - b.sort)
     return sorted.filter((p) => {
       if (filter === 'none' && p.categoryId) return false
       if (filter !== 'all' && filter !== 'none' && p.categoryId !== filter) return false
+      if (depFilter === 'none' && p.departmentId) return false
+      if (depFilter !== 'all' && depFilter !== 'none' && p.departmentId !== depFilter) return false
       if (!q) return true
       return (
         p.name.uz.toLowerCase().includes(q) || p.name.ru.toLowerCase().includes(q) || (p.barcode ?? '').includes(q)
       )
     })
-  }, [products, categories, filter, query])
+  }, [products, deleted, view, categories, filter, depFilter, query])
 
   /** Общая обёртка для сохранения и удаления: блокирует кнопки, показывает ошибку, перечитывает список. */
   async function run(action: () => Promise<unknown>, close: () => void) {
@@ -256,7 +284,15 @@ export function MenuPage() {
       {/* ───── Товары ───── */}
       {products && tab === 'products' && (
         <>
-          <div className="mb-3 flex flex-wrap gap-2">
+          <div className="mb-3 flex flex-wrap items-center gap-2">
+            <Segmented
+              value={view}
+              onChange={setView}
+              options={[
+                { value: 'all', label: `${t('pvAll')} · ${products.length}` },
+                { value: 'deleted', label: t('pvDeleted') },
+              ]}
+            />
             <select className="input max-w-56" value={filter} onChange={(e) => setFilter(e.target.value)} aria-label={t('category')}>
               <option value="all">{t('allCategories')}</option>
               {categories.map((c) => (
@@ -265,6 +301,15 @@ export function MenuPage() {
                 </option>
               ))}
               <option value="none">{t('noCategory')}</option>
+            </select>
+            <select className="input max-w-56" value={depFilter} onChange={(e) => setDepFilter(e.target.value)} aria-label={t('department')}>
+              <option value="all">{t('allDepartments')}</option>
+              {departments.map((d) => (
+                <option key={d.id} value={d.id}>
+                  {d.name}
+                </option>
+              ))}
+              <option value="none">{t('noDepartment')}</option>
             </select>
             <input
               className="input max-w-64"
@@ -276,11 +321,13 @@ export function MenuPage() {
             />
           </div>
           <div className="card overflow-x-auto">
-            <table className="w-full min-w-[640px] text-left text-sm">
+            <table className="w-full min-w-[860px] text-left text-sm">
               <thead className="border-b border-slate-200 text-xs uppercase tracking-wide text-slate-500">
                 <tr>
+                  <th className="w-14 py-3 pl-4 font-medium" aria-label={t('photo')} />
                   <th className="px-4 py-3 font-medium">{t('name')}</th>
                   <th className="px-4 py-3 font-medium">{t('category')}</th>
+                  <th className="px-4 py-3 font-medium">{t('department')}</th>
                   <th className="px-4 py-3 text-right font-medium">{t('price')}</th>
                   <th className="px-4 py-3 text-right font-medium">{t('cost')}</th>
                   <th className="px-4 py-3 text-right font-medium">{t('markup')}</th>
@@ -294,6 +341,9 @@ export function MenuPage() {
                   const cat = p.categoryId ? catById.get(p.categoryId) : undefined
                   return (
                     <tr key={p.id} className={p.active ? '' : 'text-slate-400'}>
+                      <td className="py-2 pl-4">
+                        <Thumb image={p.image} color={cat?.color} />
+                      </td>
                       <td className="px-4 py-3 font-medium">
                         {p.favorite && <span className="mr-1 text-amber-500" title={t('favorite')}>★</span>}
                         {p.name[lang]}
@@ -308,17 +358,23 @@ export function MenuPage() {
                           <span className="text-slate-400">—</span>
                         )}
                       </td>
+                      <td className="px-4 py-3 text-slate-600">{(p.departmentId && depById.get(p.departmentId)?.name) || '—'}</td>
                       <td className="px-4 py-3 text-right font-medium tabular-nums">{money(p.price)}</td>
                       <td className="px-4 py-3 text-right tabular-nums text-slate-600">{p.cost ? money(p.cost) : '—'}</td>
                       <td className="px-4 py-3 text-right tabular-nums text-slate-600">{p.cost ? `${markup(p.price, p.cost)}%` : '—'}</td>
                       <td className="px-4 py-3 text-center">
-                        <Switch label={t('onSale')} checked={p.active} disabled={!canEdit} onChange={(v) => void flag(p, { active: v })} />
+                        <Switch label={t('onSale')} checked={p.active} disabled={!canEdit || view === 'deleted'} onChange={(v) => void flag(p, { active: v })} />
                       </td>
                       <td className="px-4 py-3 text-center">
-                        <Switch label={t('stopList')} tone="red" checked={p.stopped} disabled={!canEdit} onChange={(v) => void flag(p, { stopped: v })} />
+                        <Switch label={t('stopList')} tone="red" checked={p.stopped} disabled={!canEdit || view === 'deleted'} onChange={(v) => void flag(p, { stopped: v })} />
                       </td>
                       <td className="px-4 py-3 text-right">
-                        {canEdit && (
+                        {canEdit && view === 'deleted' && (
+                          <button className="cursor-pointer text-sm font-medium text-brand-600 hover:underline" onClick={() => void restore(p)}>
+                            {t('restore')}
+                          </button>
+                        )}
+                        {canEdit && view === 'all' && (
                           <button
                             className="cursor-pointer text-sm font-medium text-brand-600 hover:underline"
                             onClick={() => {
@@ -335,7 +391,7 @@ export function MenuPage() {
                 })}
                 {shown.length === 0 && (
                   <tr>
-                    <td colSpan={8} className="px-4 py-10 text-center text-slate-500">
+                    <td colSpan={10} className="px-4 py-10 text-center text-slate-500">
                       {t('emptyList')}
                     </td>
                   </tr>
@@ -355,10 +411,14 @@ export function MenuPage() {
               disabled={!canEdit}
               onClick={() => {
                 setError(null)
-                setCDraft({ id: c.id, name: c.name, color: c.color ?? TILE_COLORS[0], active: c.active })
+                setCDraft({ id: c.id, name: c.name, color: c.color ?? TILE_COLORS[0], active: c.active, image: c.image })
               }}
               className={`relative flex h-24 cursor-pointer items-center justify-center rounded-xl p-3 text-center font-semibold text-white shadow-sm transition hover:brightness-110 disabled:cursor-default ${c.active ? '' : 'opacity-50'}`}
-              style={{ background: c.color ?? '#64748b' }}
+              style={
+                c.image
+                  ? { backgroundImage: `linear-gradient(rgba(0,0,0,.35), rgba(0,0,0,.35)), url("${photoUrl(c.image)}")`, backgroundSize: 'cover', backgroundPosition: 'center' }
+                  : { background: c.color ?? '#64748b' }
+              }
             >
               {c.name[lang]}
               <span className="absolute right-0 top-0 rounded-bl-lg rounded-tr-xl bg-black/30 px-2 py-0.5 text-xs font-medium">
@@ -403,6 +463,18 @@ export function MenuPage() {
         <Modal wide title={pDraft.id ? t('edit') : t('addProduct')} onClose={() => setPDraft(null)}>
           <form onSubmit={saveProduct} className="space-y-4">
             {nameFields(pDraft.name, (name) => setPDraft({ ...pDraft, name }))}
+            {pDraft.id ? (
+              <PhotoField
+                path={`/products/${pDraft.id}`}
+                image={pDraft.image}
+                onChange={(image) => {
+                  setPDraft((d) => (d ? { ...d, image } : d))
+                  void load()
+                }}
+              />
+            ) : (
+              <p className="text-xs text-slate-500">{t('photoAfterSave')}</p>
+            )}
             <div className="grid gap-3 sm:grid-cols-3">
               <Field label={`${t('price')}, ${t('sum')}`}>
                 <input
@@ -495,6 +567,18 @@ export function MenuPage() {
         <Modal title={cDraft.id ? t('edit') : t('addCategory')} onClose={() => setCDraft(null)}>
           <form onSubmit={saveCategory} className="space-y-4">
             {nameFields(cDraft.name, (name) => setCDraft({ ...cDraft, name }))}
+            {cDraft.id ? (
+              <PhotoField
+                path={`/categories/${cDraft.id}`}
+                image={cDraft.image}
+                onChange={(image) => {
+                  setCDraft((d) => (d ? { ...d, image } : d))
+                  void load()
+                }}
+              />
+            ) : (
+              <p className="text-xs text-slate-500">{t('photoAfterSave')}</p>
+            )}
             <div>
               <span className="label">{t('color')}</span>
               <div className="flex flex-wrap gap-2" role="radiogroup" aria-label={t('color')}>

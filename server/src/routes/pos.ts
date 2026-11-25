@@ -291,9 +291,9 @@ export function posRoutes(app: FastifyInstance, db: DB) {
       departments: deps,
       user: req.auth,
       shift: await openShift(db, tenantId),
-      categories: cats.map((c) => ({ id: c.id, name: c.name, color: c.color })),
+      categories: cats.map((c) => ({ id: c.id, name: c.name, color: c.color, image: c.image?.startsWith('/api/media/item/') ? c.image : null })),
       products: prods.map((p) => ({
-        image: p.image?.startsWith('https://') ? p.image : null,
+        image: p.image?.startsWith('/api/media/item/') || p.image?.startsWith('https://') ? p.image : null,
         id: p.id,
         name: p.name,
         price: p.price,

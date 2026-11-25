@@ -50,3 +50,6 @@
 .switch:checked { background: var(--np); }
 .rc-row { background: #f6f4ff; }
 .gp-value, .rc-history div { background: #f6f4ff; }
+
+/* Плитки с фото товара или категории */
+.tile.photo, .order-work .tile.photo:not(.add) { background-color: var(--c, #64748b); background-size: cover; background-position: center; align-items: end; padding-bottom: 8px; }

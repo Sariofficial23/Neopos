@@ -1,11 +1,16 @@
 import { useEffect, useMemo, useRef, useState, type FormEvent, type RefObject } from 'react'
 import { api, money, qtyText, type Receipt, type ReceiptItem } from './api'
 import { useApp } from './app'
+import { mediaUrl } from './Brand'
 import { Dialog } from './Dialogs'
 import { PayScreen } from './Pay'
 import { CategoryForm, loadMenu, ProductForm, type FullCategory, type FullProduct } from './MenuEdit'
 import { LineDialog, MoveDialog } from './OrderExtras'
 import { guestReceipt, kitchenSlips, printSlips } from './print'
+
+/** Фото товара или категории на плитке: затемняется, чтобы название читалось. */
+const tilePhoto = (image: string | null | undefined) =>
+  image ? { backgroundImage: `linear-gradient(rgba(0,0,0,.18), rgba(0,0,0,.5)), url("${image.startsWith('http') ? image : mediaUrl(image)}")` } : undefined
 
 type Props = { queue: RefObject<Promise<unknown>>; receipt: Receipt; setReceipt: (r: Receipt) => void; onBack: () => void }
 
@@ -366,7 +371,7 @@ export function Order({ queue, receipt, setReceipt, onBack }: Props) {
             {query === null &&
               cat === null &&
               boot.categories.map((c) => (
-                <button key={c.id} className={`tile cat ${editMode ? 'editing' : ''}`} style={{ ['--c' as string]: c.color ?? '#64748b' }} onClick={() => setCat(c.id)}>
+                <button key={c.id} className={`tile cat ${c.image ? 'photo' : ''} ${editMode ? 'editing' : ''}`} style={{ ['--c' as string]: c.color ?? '#64748b', ...tilePhoto(c.image) }} onClick={() => setCat(c.id)}>
                   {editMode && (
                     <span
                       className="pen"
@@ -386,7 +391,8 @@ export function Order({ queue, receipt, setReceipt, onBack }: Props) {
             {products.map((p) => (
               <button
                 key={p.id}
-                className={`tile ${editMode ? 'editing' : ''}`}
+                className={`tile ${p.image ? 'photo' : ''} ${editMode ? 'editing' : ''}`}
+                style={tilePhoto(p.image)}
                 disabled={p.stopped && !editMode}
                 onClick={() => (editMode ? setEditing({ kind: 'product', item: fullProduct(p.id) }) : add(p.id))}
               >

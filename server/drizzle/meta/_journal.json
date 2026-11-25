@@ -71,6 +71,13 @@
       "when": 1795549866343,
       "tag": "0009_parched_paper_doll",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1795587504646,
+      "tag": "0010_cute_vapor",
+      "breakpoints": true
     }
   ]
 }

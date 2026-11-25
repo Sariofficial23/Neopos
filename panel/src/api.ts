@@ -101,6 +101,7 @@ export type Category = {
   id: string
   name: L10n
   color: string | null
+  image?: string | null
   sort: number
   active: boolean
   productCount: number
@@ -120,6 +121,8 @@ export type Product = {
   stopped: boolean
   active: boolean
   sort: number
+  image?: string | null
+  deletedAt?: string | null
 }
 
 export type Table = { id: string; hallId: string; name: string; seats: number; serviceBp: number | null }

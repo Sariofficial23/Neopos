@@ -573,6 +573,25 @@ export const brandMedia = pgTable(
   (t) => [uniqueIndex('brand_media_kind_uq').on(t.tenantId, t.kind)],
 )
 
+/**
+ * Фото товаров и категорий для плиток кассы. Отдельная таблица: в списке товаров хранится только
+ * ссылка на картинку (поле image), а сами данные не тянутся с каждым запросом меню.
+ */
+export const itemMedia = pgTable(
+  'item_media',
+  {
+    id: id(),
+    tenantId: tenantRef(),
+    /** id товара или категории */
+    refId: uuid('ref_id').notNull(),
+    mime: text('mime').notNull(),
+    /** Содержимое в base64 */
+    data: text('data').notNull(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [uniqueIndex('item_media_ref_uq').on(t.refId)],
+)
+
 // ───────────── Приход товаров (штучные товары) ─────────────
 
 /**

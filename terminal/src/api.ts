@@ -94,7 +94,7 @@ export type Boot = {
   tableRedMinutes?: number
   user: { userId: string; name: string; lang: Lang; role: { name: string; permissions: string[] } }
   shift: Shift | null
-  categories: { id: string; name: L10n; color: string | null }[]
+  categories: { id: string; name: L10n; color: string | null; image?: string | null }[]
   products: { id: string; name: L10n; image?: string | null; price: number; categoryId: string | null; favorite: boolean; stopped: boolean }[]
   halls: { id: string; name: string; tables: { id: string; name: string; seats: number }[] }[]
   saleTypes: { id: string; kind: string; name: L10n; serviceBp: number }[]

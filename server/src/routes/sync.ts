@@ -183,7 +183,8 @@ export function syncRoutes(app: FastifyInstance, db: DB) {
 
     // Логотип и фото заведения тяжёлые — отдаём только по запросу (?media=1).
     const media = (req.query as { media?: string }).media === '1' ? ((await db.select().from(s.brandMedia).where(eq(s.brandMedia.tenantId, tenantId))) as Row[]) : null
-    return { tenant, pinKey: pinKey(tenantId), tables, base: { receipt, shift }, seed, media, serverTime: new Date().toISOString() }
+    const itemMedia = media ? ((await db.select().from(s.itemMedia).where(eq(s.itemMedia.tenantId, tenantId))) as Row[]) : null
+    return { tenant, pinKey: pinKey(tenantId), tables, base: { receipt, shift }, seed, media, itemMedia, serverTime: new Date().toISOString() }
   })
 
   app.post('/api/sync/push', { bodyLimit: 30_000_000 }, async (req) => {
@@ -253,7 +254,7 @@ async function cloudCall<T>(path: string, init: { method?: string; body?: unknow
   return (await res.json()) as T
 }
 
-type Pulled = { tenant: Row & { id: string }; pinKey: string; tables: Record<string, Row[]>; base: { receipt: number; shift: number }; seed: Record<string, Row[]>; media?: Row[] | null }
+type Pulled = { tenant: Row & { id: string }; pinKey: string; tables: Record<string, Row[]>; base: { receipt: number; shift: number }; seed: Record<string, Row[]>; media?: Row[] | null; itemMedia?: Row[] | null }
 /** Логотип и фото забираем при первом обмене и затем раз в ~10 минут. */
 let pulls = 0
 
@@ -298,6 +299,11 @@ export async function pullFromCloud(db: DB) {
     if (data.media) {
       await tx.delete(s.brandMedia).where(eq(s.brandMedia.tenantId, tenantId))
       await upsert(tx, s.brandMedia as unknown as AnyTable, data.media)
+    }
+    // Фото товаров и категорий — тем же редким заходом, что и логотип.
+    if (data.itemMedia) {
+      await tx.delete(s.itemMedia).where(eq(s.itemMedia.tenantId, tenantId))
+      await upsert(tx, s.itemMedia as unknown as AnyTable, data.itemMedia)
     }
   })
   // Что удалено в облаке, убираем и здесь. Если на строку ещё ссылаются чеки — оставляем (не страшно).
