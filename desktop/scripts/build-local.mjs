@@ -33,7 +33,8 @@ await build({
   platform: 'node',
   format: 'esm',
   target: 'node22',
-  external: ['@electric-sql/pglite', 'pg', 'pg-native'],
+  // pg входит в сборку: иначе установленная программа ищет его рядом и не находит. pg-native — необязательный, его нет.
+  external: ['@electric-sql/pglite', 'pg-native'],
   banner: { js: "import { createRequire as __cr } from 'node:module'; const require = __cr(import.meta.url);" },
   logLevel: 'info',
 })
