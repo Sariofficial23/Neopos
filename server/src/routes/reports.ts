@@ -446,7 +446,7 @@ export function reportRoutes(app: FastifyInstance, db: DB) {
     const { start, end } = range(req.query, await dayStart(req.auth.tenantId))
     const q = z
       .object({
-        status: z.enum(['all', 'open', 'closed', 'cancelled', 'refunded']).default('all'),
+        status: z.enum(['all', 'open', 'closed', 'cancelled', 'refunded', 'merged']).default('all'),
         suspicious: z.enum(['0', '1']).default('0'),
         number: z.coerce.number().int().positive().optional(),
       })

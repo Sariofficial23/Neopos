@@ -4,7 +4,7 @@ import { useI18n, type Key } from '../i18n'
 import { dateTime, PeriodPicker, timeOnly, todayPeriod, type Period } from '../period'
 import { Badge, ErrorNote, Modal, Segmented, Toggle } from '../ui'
 
-type Status = 'open' | 'closed' | 'cancelled' | 'refunded'
+type Status = 'open' | 'closed' | 'cancelled' | 'refunded' | 'merged'
 
 type Row = {
   id: string
@@ -33,8 +33,8 @@ type Detail = Row & {
   history: { id: string; action: string; suspicious: boolean; data: Record<string, unknown>; createdAt: string; userName: string | null }[]
 }
 
-const STATUS_KEY: Record<Status, Key> = { open: 'stOpen', closed: 'stClosed', cancelled: 'stCancelled', refunded: 'stRefunded' }
-const STATUS_TONE: Record<Status, 'green' | 'slate' | 'brand'> = { open: 'brand', closed: 'green', cancelled: 'slate', refunded: 'slate' }
+const STATUS_KEY: Record<Status, Key> = { open: 'stOpen', closed: 'stClosed', cancelled: 'stCancelled', refunded: 'stRefunded', merged: 'stMerged' }
+const STATUS_TONE: Record<Status, 'green' | 'slate' | 'brand'> = { open: 'brand', closed: 'green', cancelled: 'slate', refunded: 'slate', merged: 'slate' }
 const qtyText = (q: number) => (q % 1000 === 0 ? String(q / 1000) : (q / 1000).toFixed(3).replace(/0+$/, '').replace('.', ','))
 
 export function ReceiptsPage() {
@@ -118,6 +118,7 @@ export function ReceiptsPage() {
             { value: 'open', label: t('rcTabOpen') },
             { value: 'cancelled', label: t('rcTabDeleted') },
             { value: 'refunded', label: t('rcTabRefunded') },
+            { value: 'merged', label: t('rcTabMerged') },
             { value: 'all', label: t('rcAll') },
           ]}
         />

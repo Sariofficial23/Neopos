@@ -215,3 +215,43 @@ export function SplitDialog({ receipt, onClose, onSplit }: { receipt: Receipt; o
     </Dialog>
   )
 }
+
+/** «Объединить чеки», как в Clopos: выбрать другой открытый чек — его позиции перейдут в этот. */
+export function MergeDialog({ receipt, onClose, onMerge }: { receipt: Receipt; onClose: () => void; onMerge: (fromId: string) => void }) {
+  const { t, boot, lang, fail } = useApp()
+  const [list, setList] = useState<{ id: string; number: number; tableName: string | null; saleTypeId: string | null; waiterName: string | null; total: number }[] | null>(null)
+
+  useEffect(() => {
+    api<{ receipts: NonNullable<typeof list> }>('/pos/receipts')
+      .then((r) => setList(r.receipts.filter((x) => x.id !== receipt.id)))
+      .catch(fail)
+  }, [fail, receipt.id])
+
+  const place = (x: NonNullable<typeof list>[number]) => (x.tableName ? `${t('table')} ${x.tableName}` : (boot.saleTypes.find((s) => s.id === x.saleTypeId)?.name[lang] ?? '—'))
+
+  return (
+    <Dialog title={t('mergeTitle')} onClose={onClose}>
+      <div className="muted" style={{ marginTop: -8, fontSize: 13 }}>
+        {t('mergeHint')}
+      </div>
+      {!list ? (
+        <div className="muted">{t('loading')}</div>
+      ) : list.length === 0 ? (
+        <div className="muted">{t('mergeNone')}</div>
+      ) : (
+        <div className="list">
+          {list.map((x) => (
+            <button key={x.id} className="btn plain wide" style={{ justifyContent: 'space-between' }} onClick={() => window.confirm(`${t('mergeConfirm')} №${x.number}?`) && onMerge(x.id)}>
+              <span>
+                №{x.number} · {place(x)} · {x.waiterName || '—'}
+              </span>
+              <b className="num">
+                {money(x.total)} {t('sum')}
+              </b>
+            </button>
+          ))}
+        </div>
+      )}
+    </Dialog>
+  )
+}

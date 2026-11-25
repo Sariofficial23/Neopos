@@ -975,6 +975,34 @@ export function posRoutes(app: FastifyInstance, db: DB) {
     })
   })
 
+  /**
+   * «Объединить чеки», как в Clopos: все позиции другого открытого чека переходят в этот.
+   * Присоединённый чек получает статус «объединён» (в панели — вкладка «Объединённые») и больше не открыт.
+   * Стол, обслуживание и скидка остаются от чека, в который объединяют; гости складываются.
+   */
+  app.post('/api/pos/receipts/:id/merge', pos, async (req) => {
+    const { id } = idParam.parse(req.params)
+    const { fromId } = z.object({ fromId: z.string().uuid() }).parse(req.body)
+    need(req, 'receipt.transfer')
+    if (fromId === id) throw new HttpError(400, 'same_receipt')
+    const tenantId = req.auth.tenantId
+    return db.transaction(async (tx) => {
+      const target = await loadOpen(tx, req, id)
+      const source = await loadOpen(tx, req, fromId)
+      await tx.update(receiptItems).set({ receiptId: id }).where(eq(receiptItems.receiptId, fromId))
+      await tx
+        .update(receipts)
+        .set({ status: 'merged', closedAt: new Date(), subtotal: 0, total: 0, serviceAmount: 0, discountAmount: 0, billPrinted: false })
+        .where(eq(receipts.id, fromId))
+      // Счёт, выданный гостю до объединения, уже неверен.
+      await tx.update(receipts).set({ guests: target.guests + source.guests, billPrinted: false }).where(eq(receipts.id, id))
+      await recalc(tx, id)
+      await log(tx, req, id, 'receipt.merge', { from: source.number })
+      await log(tx, req, fromId, 'receipt.merged', { to: target.number })
+      return fullReceipt(tx, tenantId, id)
+    })
+  })
+
   /** Перенести чек на другой стол (как «Перенос стола» в Clopos). Нужно право; стол должен быть свободен. */
   app.post('/api/pos/receipts/:id/move', pos, async (req) => {
     const { id } = idParam.parse(req.params)
