@@ -45,7 +45,8 @@ export function LocalNetDialog({ t, tErr, onClose }: { t: T; tErr: (c: string) =
   if (!desktop?.netStatus || !state)
     return (
       <Dialog title={t('lanTitle')} onClose={onClose}>
-        <div className="muted">{desktop?.netStatus ? '…' : t('lanOnlyApp')}</div>
+        {/* Приложение есть, но старое: локальная сеть появилась в версии 0.2.0 */}
+        <div className="muted">{desktop?.netStatus ? '…' : desktop ? t('lanNeedUpdate') : t('lanOnlyApp')}</div>
       </Dialog>
     )
 

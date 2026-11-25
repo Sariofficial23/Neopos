@@ -3,6 +3,7 @@ import { api, money, type L10n, type Receipt } from './api'
 import { useApp } from './app'
 import type { Key } from './i18n'
 import { DevicesDialog } from './Devices'
+import { LocalNetDialog } from './LocalNet'
 import { Dialog } from './Dialogs'
 import { ReceiptsScreen } from './Receipts'
 import { ReportDialog } from './Report'
@@ -24,6 +25,7 @@ const icons: Record<string, ReactNode> = {
   devices: <path d="M3 5h12v9H3zM6 18h6M9 14v4M17 9h4v10h-4zM19 16v.01" />,
   refresh: <path d="M20 12a8 8 0 1 1-2.3-5.6M20 4v5h-5" />,
   fullscreen: <path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5" />,
+  lan: <path d="M12 3v6M5 21v-5h14v5M12 9v7M3 21h4M10 21h4M17 21h4" />,
 }
 
 function Tile({ icon, label, onClick, tone }: { icon: string; label: string; onClick: () => void; tone: string }) {
@@ -37,11 +39,11 @@ function Tile({ icon, label, onClick, tone }: { icon: string; label: string; onC
   )
 }
 
-type Panel = 'receipts' | 'menu' | 'report' | 'cash' | 'archive' | 'staff' | 'devices' | null
+type Panel = 'receipts' | 'menu' | 'report' | 'cash' | 'archive' | 'staff' | 'devices' | 'lan' | null
 
 /** «Панель управления» кассы: открывается кнопкой ☰ в правом верхнем углу. */
 export function ControlPanel({ onBack, onOpenReceipt }: { onBack: () => void; onOpenReceipt: (r: Receipt) => void }) {
-  const { boot, lang, t, can, toast, logout } = useApp()
+  const { boot, lang, t, tErr, can, toast, logout } = useApp()
   const [panel, setPanel] = useState<Panel>(null)
 
   async function refresh() {
@@ -89,6 +91,8 @@ export function ControlPanel({ onBack, onOpenReceipt }: { onBack: () => void; on
           <Tile icon="archive" tone="#ff9f0a" label={t('cpArchive')} onClick={() => setPanel('archive')} />
           {can('staff.edit') && <Tile icon="staff" tone="#bf5af2" label={t('cpStaff')} onClick={() => setPanel('staff')} />}
           <Tile icon="devices" tone="#5e5ce6" label={t('cpDevices')} onClick={() => setPanel('devices')} />
+          {/* Локальная сеть (главный терминал, работа без интернета) — только в приложении для Windows */}
+          {desktop && <Tile icon="lan" tone="#1fb89a" label={t('lanTitle')} onClick={() => setPanel('lan')} />}
         </div>
         <div className="cp-grid cp-bottom">
           <Tile icon="refresh" tone="#5b45e0" label={t('cpRefresh')} onClick={() => void refresh()} />
@@ -112,6 +116,7 @@ export function ControlPanel({ onBack, onOpenReceipt }: { onBack: () => void; on
 
       {panel === 'staff' && <StaffDialog onClose={() => setPanel(null)} />}
       {panel === 'devices' && <DevicesDialog onClose={() => setPanel(null)} />}
+      {panel === 'lan' && <LocalNetDialog t={t} tErr={tErr} onClose={() => setPanel(null)} />}
     </>
   )
 }

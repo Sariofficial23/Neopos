@@ -117,6 +117,10 @@ const dict = {
   netLocalWait: { uz: 'Internet yo‘q · kutmoqda:', ru: 'Нет интернета · ждут отправки:' },
   netNoMain: { uz: 'Bosh terminal bilan aloqa yo‘q', ru: 'Нет связи с главным терминалом' },
   lanTitle: { uz: 'Lokal tarmoq', ru: 'Локальная сеть' },
+  lanNeedUpdate: {
+    uz: 'Ilova eskirgan. «Yangilash» tugmasini bosing — yangi versiya o‘rnatiladi, keyin bu bo‘lim ishlaydi.',
+    ru: 'Приложение устарело. Нажмите «Обновить» — установится новая версия, после этого раздел заработает.',
+  },
   lanOnlyApp: { uz: 'Faqat Windows uchun NeoPos Kassa ilovasida ishlaydi.', ru: 'Работает только в приложении NeoPos Kassa для Windows.' },
   lanMain: { uz: 'Bu kompyuter — bosh terminal', ru: 'Этот компьютер — главный терминал' },
   lanMainHint: {
