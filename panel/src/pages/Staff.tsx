@@ -160,7 +160,9 @@ export function StaffPage() {
                   </td>
                   <td className="px-4 py-3 text-slate-600">{s.phone ?? '—'}</td>
                   <td className="px-4 py-3 text-slate-600">{s.login ?? '—'}</td>
-                  <td className="px-4 py-3 text-slate-600">{s.hasPin ? t('pinSet') : '—'}</td>
+                  <td className="px-4 py-3 tabular-nums text-slate-600">
+                    {s.pin ? <span className="font-medium tracking-widest text-slate-900">{s.pin}</span> : s.hasPin ? <span title={t('pinHiddenHint')}>••••</span> : '—'}
+                  </td>
                   <td className="px-4 py-3">
                     <Badge tone={s.active ? 'green' : 'slate'}>{s.active ? t('active') : t('inactive')}</Badge>
                   </td>

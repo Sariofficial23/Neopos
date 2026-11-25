@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState, type FormEvent } from 'react'
 import { api, ApiError, type PermissionList, type Role } from '../api'
 import { useI18n, type Key } from '../i18n'
 import { useSession } from '../session'
-import { Badge, ErrorNote, Field, Modal, Toggle } from '../ui'
+import { Badge, ErrorNote, Field, Modal, Switch, Toggle } from '../ui'
 
 type Draft = Omit<Role, 'id' | 'staffCount'> & { id?: string }
 
@@ -54,6 +54,19 @@ export function RolesPage() {
       fail(err)
     } finally {
       setBusy(false)
+    }
+  }
+
+  /** Быстрые флажки в списке: доступ к панели («Админ») и к кассе («Продавец»). */
+  async function quick(r: Role, patch: { panelAccess?: boolean; terminalAccess?: boolean }) {
+    try {
+      await api(`/roles/${r.id}`, {
+        method: 'PATCH',
+        body: { name: r.name, panelAccess: r.panelAccess, terminalAccess: r.terminalAccess, permissions: r.permissions, ...patch },
+      })
+      await load()
+    } catch (err) {
+      setPageError(tErr(err instanceof ApiError ? err.code : 'internal'))
     }
   }
 
@@ -112,42 +125,57 @@ export function RolesPage() {
       <ErrorNote text={pageError} />
       {!roles && !pageError && <div className="text-sm text-slate-500">{t('loading')}</div>}
 
-      <div className="grid gap-3 sm:grid-cols-2">
-        {roles?.map((r) => (
-          <div key={r.id} className="card flex flex-col gap-3 p-4">
-            <div className="flex items-start justify-between gap-2">
-              <div>
-                <div className="font-semibold">{r.name}</div>
-                <div className="text-xs text-slate-500">
-                  {t('staffCount')}: {r.staffCount ?? 0}
-                </div>
-              </div>
-              {canEdit && (
-                <button
-                  className="cursor-pointer text-sm font-medium text-brand-600 hover:underline"
-                  onClick={() => {
-                    setError(null)
-                    setDraft({ ...r })
-                  }}
-                >
-                  {t('edit')}
-                </button>
-              )}
-            </div>
-            <div className="flex flex-wrap gap-1.5">
-              {r.isOwner ? (
-                <Badge tone="brand">{t('ownerAll')}</Badge>
-              ) : (
-                <>
-                  {r.panelAccess && <Badge tone="green">{t('panelAccess')}</Badge>}
-                  {r.terminalAccess && <Badge tone="green">{t('terminalAccess')}</Badge>}
-                  {!r.panelAccess && !r.terminalAccess && <Badge tone="slate">—</Badge>}
-                </>
-              )}
-            </div>
-          </div>
-        ))}
-      </div>
+      {/* Как в Clopos: список должностей с флажками «Админ» и «Продавец» прямо в строке. */}
+      {roles && (
+        <div className="card overflow-x-auto">
+          <table className="w-full min-w-[620px] text-left text-sm">
+            <thead className="border-b border-slate-200 text-xs uppercase tracking-wide text-slate-500">
+              <tr>
+                <th className="px-4 py-3 font-medium">{t('roleName')}</th>
+                <th className="px-4 py-3 text-right font-medium">{t('staffCount')}</th>
+                <th className="px-4 py-3 text-right font-medium">{t('rolePerms')}</th>
+                <th className="px-4 py-3 text-center font-medium" title={t('roleAdminHint')}>
+                  {t('roleAdmin')}
+                </th>
+                <th className="px-4 py-3 text-center font-medium" title={t('roleSellerHint')}>
+                  {t('roleSeller')}
+                </th>
+                <th className="px-4 py-3" />
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-100">
+              {roles.map((r) => (
+                <tr key={r.id}>
+                  <td className="px-4 py-3 font-medium">
+                    {r.name} {r.isOwner && <Badge tone="brand">{t('ownerAll')}</Badge>}
+                  </td>
+                  <td className="px-4 py-3 text-right tabular-nums text-slate-600">{r.staffCount ?? 0}</td>
+                  <td className="px-4 py-3 text-right tabular-nums text-slate-600">{r.isOwner ? '∞' : r.permissions.length}</td>
+                  <td className="px-4 py-3 text-center">
+                    <Switch label={t('roleAdmin')} checked={r.isOwner || r.panelAccess} disabled={!canEdit || r.isOwner} onChange={(v) => void quick(r, { panelAccess: v })} />
+                  </td>
+                  <td className="px-4 py-3 text-center">
+                    <Switch label={t('roleSeller')} checked={r.isOwner || r.terminalAccess} disabled={!canEdit || r.isOwner} onChange={(v) => void quick(r, { terminalAccess: v })} />
+                  </td>
+                  <td className="px-4 py-3 text-right">
+                    {canEdit && (
+                      <button
+                        className="cursor-pointer text-sm font-medium text-brand-600 hover:underline"
+                        onClick={() => {
+                          setError(null)
+                          setDraft({ ...r })
+                        }}
+                      >
+                        {t('edit')}
+                      </button>
+                    )}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
 
       {draft && (
         <Modal wide title={draft.id ? t('edit') : t('addRole')} onClose={() => setDraft(null)}>

@@ -84,6 +84,11 @@ export const users = pgTable(
     passwordHash: text('password_hash'),
     /** HMAC от ПИН-кода — позволяет искать сотрудника по ПИН и держать его уникальным */
     pinHash: text('pin_hash'),
+    /**
+     * Сам ПИН-код: владелец видит его в списке сотрудников (как в Clopos) и может подсказать забывшему.
+     * Вход по-прежнему идёт по pinHash. У старых сотрудников заполняется при следующем входе на кассе.
+     */
+    pin: text('pin'),
     lang: text('lang').notNull().default('uz'),
     active: boolean('active').notNull().default(true),
     deletedAt: timestamp('deleted_at', { withTimezone: true }),

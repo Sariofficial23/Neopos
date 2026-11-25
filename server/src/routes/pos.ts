@@ -208,8 +208,9 @@ export function posRoutes(app: FastifyInstance, db: DB) {
     }
     clearThrottle(key)
     // ПИН-код, сохранённый по-старому, при входе переводим на ключ заведения: так он заработает и без интернета.
-    if (row.user.pinHash !== hashPin(device.tid, pin)) {
-      await db.update(users).set({ pinHash: hashPin(device.tid, pin) }).where(eq(users.id, row.user.id))
+    // Заодно запоминаем сам ПИН-код, если его ещё нет: владелец увидит его в списке сотрудников.
+    if (row.user.pinHash !== hashPin(device.tid, pin) || row.user.pin !== pin) {
+      await db.update(users).set({ pinHash: hashPin(device.tid, pin), pin }).where(eq(users.id, row.user.id))
     }
     await db.update(terminals).set({ lastSeenAt: new Date() }).where(eq(terminals.id, terminal.id))
     return {

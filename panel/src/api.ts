@@ -79,6 +79,8 @@ export type Staff = {
   roleName: string
   isOwner: boolean
   hasPin: boolean
+  /** Сам ПИН-код — приходит только тем, кто может править сотрудников */
+  pin?: string | null
 }
 
 export type Me = {

@@ -112,6 +112,7 @@ export function staffRoutes(app: FastifyInstance, db: DB) {
     roleName: roles.name,
     isOwner: roles.isOwner,
     hasPin: users.pinHash,
+    pin: users.pin,
     createdAt: users.createdAt,
   }
 
@@ -122,7 +123,9 @@ export function staffRoutes(app: FastifyInstance, db: DB) {
       .innerJoin(roles, eq(roles.id, users.roleId))
       .where(and(eq(users.tenantId, req.auth.tenantId), isNull(users.deletedAt)))
       .orderBy(asc(users.createdAt))
-    return rows.map((r) => ({ ...r, hasPin: r.hasPin != null }))
+    // ПИН-коды видит только тот, кто может править сотрудников; ПИН владельца — только владелец.
+    const canSee = req.auth.role.permissions.includes('staff.edit')
+    return rows.map((r) => ({ ...r, hasPin: r.hasPin != null, pin: canSee && (!r.isOwner || req.auth.role.isOwner) ? r.pin : null }))
   })
 
   async function loadRole(tenantId: string, roleId: string) {
@@ -171,6 +174,7 @@ export function staffRoutes(app: FastifyInstance, db: DB) {
         login: body.login || null,
         passwordHash: body.login && body.password ? await hashPassword(body.password) : null,
         pinHash,
+        pin: body.pin || null,
         lang: body.lang,
         active: body.active,
       })
@@ -216,6 +220,7 @@ export function staffRoutes(app: FastifyInstance, db: DB) {
       const pinHash = hashPin(tenantId, body.pin)
       await assertPinFree(tenantId, pinHash, id)
       patch.pinHash = pinHash
+      patch.pin = body.pin
     }
     await db.update(users).set(patch).where(eq(users.id, id))
     return { ok: true }
@@ -255,7 +260,7 @@ export function staffRoutes(app: FastifyInstance, db: DB) {
     // Мягкое удаление: чеки сотрудника остаются в отчётах. Логин и ПИН освобождаются.
     await db
       .update(users)
-      .set({ deletedAt: new Date(), active: false, login: null, passwordHash: null, pinHash: null })
+      .set({ deletedAt: new Date(), active: false, login: null, passwordHash: null, pinHash: null, pin: null })
       .where(eq(users.id, id))
     return { ok: true }
   })
